@@ -17,7 +17,7 @@ import { CheckSquare, Mail, RefreshCcw, Search, Square } from "lucide-react";
 import PspFournisseurSearch, {
   type FournisseurSelection,
 } from "@/components/preparation-psp/PspFournisseurSearch";
-import { useMailModeles } from "@/lib/psp.mail.client";
+import { useMailModeles } from "@/lib/psp.mail.hooks";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

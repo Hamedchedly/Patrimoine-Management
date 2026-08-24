@@ -15,7 +15,7 @@ import { CheckSquare, ChevronRight, Mail, RefreshCcw, Search, Send, Square, X } 
 import PspFournisseurSearch, {
   type FournisseurSelection,
 } from "@/components/preparation-psp/PspFournisseurSearch";
-import { useMailModeles } from "@/lib/psp.mail.client";
+import { useMailModeles } from "@/lib/psp.mail.hooks";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { VARIABLES_MAIL } from "@/lib/psp.suivi.foundation";
 import { saveMailModele, type ModeleMail } from "@/lib/psp.mail.functions";
-import { MAIL_MODELES_QUERY_KEY, MODELES_REPLI, useMailModeles } from "@/lib/psp.mail.client";
+import { MAIL_MODELES_QUERY_KEY, MODELES_REPLI, useMailModeles } from "@/lib/psp.mail.hooks";
 
 export default function ModeleMailEditor({
   ouvert,

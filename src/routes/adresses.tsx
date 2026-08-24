@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link, createFileRoute } from "@tanstack/react-router";
@@ -47,6 +47,7 @@ import {
   libelleNbCommandesTravaux,
   nomCompletOccupant,
   normaliserRecherche,
+  pushRecent,
   rechercherPatrimoine,
   type OccupantActuel,
 } from "@/lib/adresses";
@@ -189,6 +190,18 @@ function AdressesPage() {
     // au comportement normal de /adresses quand le champ est vidé.
     navigate({ search: { q: val || undefined } });
   };
+
+  // V8.16u — « Recherches récentes » de l'accueil : enregistre l'adresse consultée
+  // (ville + rue dans l'URL) dans le localStorage (pushRecent). Les 5 dernières
+  // apparaissent sur la carte d'accueil.
+  useEffect(() => {
+    if (!ville || !rue) return;
+    const lots = visibleLots.filter(
+      (l) => (l.ville ?? "") === ville && (l.adresse ?? "") === rue,
+    ).length;
+    pushRecent({ rue, ville, lots });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ville, rue]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

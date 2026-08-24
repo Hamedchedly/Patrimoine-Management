@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { ArrowDown, ArrowUp, Building2, Plus, Search, Star, X } from "lucide-react";
+import * as SliderPrimitive from "@radix-ui/react-slider";
 import { toast } from "sonner";
 
 import NiveauBadge from "@/components/NiveauBadge";
@@ -39,9 +40,9 @@ import {
   creerFournisseurDepuisRef,
   createFournisseur,
   getFournisseursList,
-  toggleFournisseurFavori,
   type LigneFournisseurListe,
 } from "@/lib/fournisseurs.functions";
+import { useFavorisLocal } from "@/lib/fournisseurs.favoris.hooks";
 import { libelleEntreprise, premierePropositionCorpsEtat } from "@/lib/fournisseurs";
 import { ORDRE_NIVEAU, PROFIL_BADGE, trierLignes } from "@/lib/fournisseurs.analyse";
 import { money2, pct } from "@/lib/formats";
@@ -54,9 +55,11 @@ export type ListeFournisseursSearch = {
   q?: string | undefined;
   corps?: string[] | undefined;
   famille?: string | undefined;
-  annee?: number | undefined;
+  anneeDe?: number | undefined;
+  anneeFin?: number | undefined;
   profil?: string | undefined;
   favoris?: boolean | undefined;
+  sansCmd?: boolean | undefined;
   activite?: string | undefined;
   triC?: string | undefined;
   triD?: "asc" | "desc" | undefined;
@@ -69,9 +72,11 @@ export const LISTE_FOURNISSEURS_SEARCH_VIDE: ListeFournisseursSearch = {
   q: undefined,
   corps: undefined,
   famille: undefined,
-  annee: undefined,
+  anneeDe: undefined,
+  anneeFin: undefined,
   profil: undefined,
   favoris: undefined,
+  sansCmd: undefined,
   activite: undefined,
   triC: undefined,
   triD: undefined,
@@ -93,12 +98,17 @@ function validerListeSearch(s: Record<string, unknown>): ListeFournisseursSearch
         ? [str(s["corps"]) as string]
         : undefined,
     famille: str(s["famille"]),
-    annee:
-      typeof s["annee"] === "number" || typeof s["annee"] === "string"
-        ? Number(s["annee"])
+    anneeDe:
+      typeof s["anneeDe"] === "number" || typeof s["anneeDe"] === "string"
+        ? Number(s["anneeDe"])
+        : undefined,
+    anneeFin:
+      typeof s["anneeFin"] === "number" || typeof s["anneeFin"] === "string"
+        ? Number(s["anneeFin"])
         : undefined,
     profil: str(s["profil"]),
     favoris: s["favoris"] === true || s["favoris"] === "true" ? true : undefined,
+    sansCmd: s["sansCmd"] === true || s["sansCmd"] === "true" ? true : undefined,
     activite: str(s["activite"]),
     triC: str(s["triC"]),
     triD: dir(s["triD"]),
@@ -192,9 +202,14 @@ function FournisseursPage() {
   const [query, setQuery] = useState(routeSearch.q ?? "");
   const [corpsEtats, setCorpsEtats] = useState<string[]>(routeSearch.corps ?? []);
   const [famille, setFamille] = useState(routeSearch.famille ?? "");
-  const [annee, setAnnee] = useState<number | null>(routeSearch.annee ?? null);
+  // V8.16s — plage d'années du slider (null = toutes les années).
+  const [anneeDe, setAnneeDe] = useState<number | null>(routeSearch.anneeDe ?? null);
+  const [anneeFin, setAnneeFin] = useState<number | null>(routeSearch.anneeFin ?? null);
   const [profil, setProfil] = useState(routeSearch.profil ?? "");
   const [favorisOnly, setFavorisOnly] = useState(routeSearch.favoris === true);
+  // V8.16s — entreprises sans commande sur la période : MASQUÉES par défaut.
+  // Case cochée = les afficher (persisté dans l'URL via `sansCmd`).
+  const [sansCmdVisible, setSansCmdVisible] = useState(routeSearch.sansCmd === true);
   const [activite, setActivite] = useState(routeSearch.activite ?? "");
   const [open, setOpen] = useState(false);
   // Tri : 1er clic = desc, 2e = asc, 3e = retour au tri par défaut (null).
@@ -217,9 +232,11 @@ function FournisseursPage() {
       q: query || undefined,
       corps: corpsEtats.length ? corpsEtats : undefined,
       famille: famille || undefined,
-      annee: annee ?? undefined,
+      anneeDe: anneeDe ?? undefined,
+      anneeFin: anneeFin ?? undefined,
       profil: profil || undefined,
       favoris: favorisOnly || undefined,
+      sansCmd: sansCmdVisible || undefined,
       activite: activite || undefined,
       triC: sort?.key ?? undefined,
       triD: sort?.dir ?? undefined,
@@ -233,61 +250,83 @@ function FournisseursPage() {
       // stockage indisponible : le retour contextuel perdra les filtres (non bloquant).
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, corpsEtats, famille, annee, profil, favorisOnly, activite, sort, marche]);
+  }, [
+    query,
+    corpsEtats,
+    famille,
+    anneeDe,
+    anneeFin,
+    profil,
+    favorisOnly,
+    sansCmdVisible,
+    activite,
+    sort,
+    marche,
+  ]);
 
   const fetchList = useServerFn(getFournisseursList);
-  const toggleFavori = useServerFn(toggleFournisseurFavori);
   const create = useServerFn(createFournisseur);
   const creerDepuisRef = useServerFn(creerFournisseurDepuisRef);
   const queryClient = useQueryClient();
+  // V8.16s — favoris locaux (localStorage, aucune authentification requise).
+  const {
+    estFavori,
+    basculer: basculerFavori,
+    disponibles: favorisDisponibles,
+  } = useFavorisLocal();
 
   const { data } = useQuery({
-    queryKey: ["fournisseurs", query, corpsEtats, famille, annee, profil, favorisOnly, activite],
+    queryKey: ["fournisseurs", query, corpsEtats, famille, anneeDe, anneeFin, profil, activite],
     queryFn: () =>
       fetchList({
         data: {
           query,
           corpsEtats,
           famille: (famille || undefined) as "CEA" | "CVC-P" | "TCE" | "AUTRE" | undefined,
-          annee: annee ?? undefined,
+          anneeDe: anneeDe ?? undefined,
+          anneeFin: anneeFin ?? undefined,
           profil: (profil || undefined) as "principal" | "secondaire" | "occasionnel" | undefined,
-          favoris: favorisOnly || undefined,
           activite: (activite || undefined) as "annee" | "3ans" | "5ans" | undefined,
         },
       }),
   });
 
-  const lignes = (data?.fournisseurs ?? []) as LigneFournisseurListe[];
-  const anneeCible = (data?.annee as number | null) ?? annee;
+  const lignes = useMemo(() => (data?.fournisseurs ?? []) as LigneFournisseurListe[], [data]);
   const corpsDisponibles = (data?.corps_disponibles ?? []) as string[];
-  const anneesListe = useMemo(() => {
-    const aMin = (data?.annee_min as number | null) ?? 2020;
-    const aMax = (data?.annee_max as number | null) ?? 2026;
-    const out: number[] = [];
-    for (let y = aMax; y >= aMin; y -= 1) out.push(y);
+  // V8.16s — plage effective du slider (défaut : toutes les années réelles).
+  const anneesMin = (data?.annee_min as number | null) ?? 2020;
+  const anneesMax = (data?.annee_max as number | null) ?? 2026;
+  const plageEffective = {
+    de: anneeDe ?? anneesMin,
+    fin: anneeFin ?? anneesMax,
+  };
+  // Filtres CLIENT : favoris (localStorage) + entreprises sans commande masquées.
+  const lignesFiltrees = useMemo(() => {
+    let out = lignes;
+    if (favorisOnly) out = out.filter((l) => estFavori(l.id));
+    if (!sansCmdVisible) out = out.filter((l) => !l.sans_commande);
     return out;
-  }, [data?.annee_min, data?.annee_max]);
-  const favorisDisponibles = data?.favoris_disponibles === true;
+  }, [lignes, favorisOnly, sansCmdVisible, estFavori]);
 
   const triees = useMemo(() => {
-    if (sort) return trierListe(lignes, sort.key, sort.dir);
+    if (sort) return trierListe(lignesFiltrees, sort.key, sort.dir);
     if (marche.sort) {
       // Tri de la colonne « Part de marché » selon le mode sélectionné.
       const cle =
         marche.mode === "principaux" ? "part_marche_annee_principaux" : "part_marche_annee";
-      return trierListe(lignes, cle, marche.sort);
+      return trierListe(lignesFiltrees, cle, marche.sort);
     }
     if (corpsEtats.length) {
       // Classement recherche corps : principal > secondaire > occasionnel > absent.
-      return [...lignes].sort(
+      return [...lignesFiltrees].sort(
         (a, b) =>
           (ORDRE_NIVEAU[a.niveau_corps_recherche ?? "occasionnel"] ?? 3) -
           (ORDRE_NIVEAU[b.niveau_corps_recherche ?? "occasionnel"] ?? 3),
       );
     }
     // Tri par défaut : dernière commande DESC (entreprises sans commande en fin).
-    return trierListe(lignes, "derniere_commande_date", "desc");
-  }, [lignes, sort, marche, corpsEtats]);
+    return trierListe(lignesFiltrees, "derniere_commande_date", "desc");
+  }, [lignesFiltrees, sort, marche, corpsEtats]);
 
   const mutation = useMutation({
     mutationFn: (variables: Record<string, unknown>) => create({ data: variables }),
@@ -303,15 +342,10 @@ function FournisseursPage() {
     },
   });
 
-  const onToggleFavori = async (l: LigneFournisseurListe) => {
-    const res = (await toggleFavori({
-      data: { fournisseurId: l.id, favori: !l.favori },
-    })) as { ok: boolean; error?: string };
-    if (res.ok) {
-      queryClient.invalidateQueries({ queryKey: ["fournisseurs"] });
-    } else {
-      toast.error(res.error ?? "Favori indisponible.");
-    }
+  // V8.16s — favoris LOCAUX (localStorage) : plus d'appel serveur ni d'authentification.
+  const onToggleFavori = (l: LigneFournisseurListe) => {
+    if (!l.id) return;
+    basculerFavori(l.id);
   };
 
   const sortClick = (key: string) => {
@@ -433,23 +467,50 @@ function FournisseursPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Année</Label>
-              <Select
-                value={annee != null ? String(annee) : "toutes"}
-                onValueChange={(v) => setAnnee(v === "toutes" ? null : Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Dernière année" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Dernière année</SelectItem>
-                  {anneesListe.map((y) => (
-                    <SelectItem key={y} value={String(y)}>
-                      {y}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Années (plage)</Label>
+              <div className="flex items-center gap-2 pt-2">
+                <span className="w-10 shrink-0 text-right font-mono text-xs text-muted-foreground">
+                  {plageEffective.de}
+                </span>
+                <SliderPrimitive.Root
+                  className="relative flex w-full touch-none select-none items-center"
+                  min={anneesMin}
+                  max={anneesMax}
+                  step={1}
+                  value={[plageEffective.de, plageEffective.fin]}
+                  onValueChange={(v) => {
+                    const de = v[0] ?? null;
+                    const fin = v[1] ?? null;
+                    setAnneeDe(de);
+                    setAnneeFin(fin);
+                  }}
+                >
+                  <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-slate-200">
+                    <SliderPrimitive.Range className="absolute h-full bg-blue-600" />
+                  </SliderPrimitive.Track>
+                  <SliderPrimitive.Thumb className="block h-4 w-4 rounded-full border-2 border-blue-600 bg-white shadow transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" />
+                  <SliderPrimitive.Thumb className="block h-4 w-4 rounded-full border-2 border-blue-600 bg-white shadow transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" />
+                </SliderPrimitive.Root>
+                <span className="w-10 shrink-0 font-mono text-xs text-muted-foreground">
+                  {plageEffective.fin}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-xs text-muted-foreground">
+                  Du {plageEffective.de} au {plageEffective.fin} — commandes & montants agrégés sur
+                  la plage.
+                </p>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary hover:underline"
+                  onClick={() => {
+                    setAnneeDe(null);
+                    setAnneeFin(null);
+                  }}
+                >
+                  Toutes
+                </button>
+              </div>
             </div>
             <div className="space-y-1">
               <Label>Profil d'activité</Label>
@@ -479,7 +540,17 @@ function FournisseursPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="sansCmd"
+                  checked={sansCmdVisible}
+                  onCheckedChange={(v) => setSansCmdVisible(v !== false)}
+                />
+                <Label htmlFor="sansCmd" className="text-sm font-normal leading-none">
+                  Afficher les entreprises sans commande
+                </Label>
+              </div>
               <Button
                 variant={favorisOnly ? "default" : "outline"}
                 onClick={() => setFavorisOnly((v) => !v)}
@@ -590,10 +661,10 @@ function FournisseursPage() {
                         {favorisDisponibles && l.id ? (
                           <button
                             onClick={() => onToggleFavori(l)}
-                            title={l.favori ? "Retirer des favoris" : "Ajouter aux favoris"}
+                            title={estFavori(l.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
                             className="text-amber-500 hover:scale-110"
                           >
-                            <Star className={`size-4 ${l.favori ? "fill-current" : ""}`} />
+                            <Star className={`size-4 ${estFavori(l.id) ? "fill-current" : ""}`} />
                           </button>
                         ) : (
                           <span className="text-slate-300">

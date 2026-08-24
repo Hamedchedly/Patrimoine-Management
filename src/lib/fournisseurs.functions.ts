@@ -145,6 +145,8 @@ export interface LigneFournisseurListe {
   actif_annee: boolean;
   actif_3ans: boolean;
   actif_5ans: boolean;
+  /** V8.16s — aucune commande sur la période sélectionnée (masqué par défaut). */
+  sans_commande: boolean;
   rang_montant: number | null;
   rang_commandes: number | null;
 }
@@ -162,9 +164,9 @@ export const getFournisseursList = createServerFn({ method: "POST", strict: fals
         query: z.string().optional(),
         corpsEtats: z.array(z.string()).optional(),
         famille: z.enum(["CEA", "CVC-P", "TCE", "AUTRE"]).optional(),
-        annee: z.number().int().optional(),
+        anneeDe: z.number().int().optional(),
+        anneeFin: z.number().int().optional(),
         profil: z.enum(["principal", "secondaire", "occasionnel"]).optional(),
-        favoris: z.boolean().optional(),
         activite: z.enum(["annee", "3ans", "5ans"]).optional(),
       })
       .parse(d),
@@ -236,7 +238,19 @@ export const getFournisseursList = createServerFn({ method: "POST", strict: fals
       const annees = [...marcheAnnee.keys()].sort((a, b) => a - b);
       const anneeMin = annees[0] ?? null;
       const anneeMax = annees[annees.length - 1] ?? null;
-      const anneeCible = data.annee ?? anneeMax;
+      // V8.16s — plage d'années du slider (min–max). Sans plage explicite → TOUTES les
+      // années (anneeCible = dernière année disponible, ancrage des fenêtres 3/5 ans).
+      const de = data.anneeDe;
+      const fin = data.anneeFin;
+      const plage = de != null && fin != null && de <= fin ? { de, fin } : null;
+      const anneeCible = fin ?? anneeMax;
+      const totalMarchePlage = plage
+        ? [...marcheAnnee.entries()]
+            .filter(([y]) => y >= plage.de && y <= plage.fin)
+            .reduce((s, [, v]) => s + v, 0)
+        : anneeCible != null
+          ? (marcheAnnee.get(anneeCible) ?? 0)
+          : 0;
 
       // Références suivi réelles (travaux_commandes.numero_fournisseur) — lecture seule.
       const { data: refsRows } = await db
@@ -357,15 +371,26 @@ export const getFournisseursList = createServerFn({ method: "POST", strict: fals
           corpsPrincipauxEffectifs(profil, manuelles);
         const parAnnee = agregerParAnnee(commandes);
         const dern = derniereCommande(commandes);
-        const courant = parAnnee.find((a) => a.annee === anneeCible);
-        const precedent = parAnnee.find((a) => a.annee === (anneeCible ?? 0) - 1);
-        const commandes_annee = courant?.commandes ?? 0;
-        const montant_annee = courant?.montant ?? 0;
-        const totalMarcheAnnee = anneeCible != null ? (marcheAnnee.get(anneeCible) ?? 0) : 0;
+        // V8.16s — agrégation sur la plage du slider (sinon année cible unique).
+        const parAnneePlage = plage
+          ? parAnnee.filter((a) => a.annee >= plage.de && a.annee <= plage.fin)
+          : parAnnee.filter((a) => a.annee === anneeCible);
+        const commandes_annee = parAnneePlage.reduce((s, a) => s + a.commandes, 0);
+        const montant_annee = parAnneePlage.reduce((s, a) => s + a.montant, 0);
+        // Période précédente de même largeur (décalage −1 an) pour l'évolution.
+        const parAnneePrecedente = plage
+          ? parAnnee.filter((a) => a.annee >= plage.de - 1 && a.annee <= plage.fin - 1)
+          : parAnnee.filter((a) => a.annee === (anneeCible ?? 0) - 1);
+        const commandes_precedentes = parAnneePrecedente.reduce((s, a) => s + a.commandes, 0);
+        const montant_precedent = parAnneePrecedente.reduce((s, a) => s + a.montant, 0);
         const pmPrincipaux = partMarchePrincipaux(
-          commandes.filter((c) => c.annee === anneeCible),
+          commandes.filter((c) =>
+            plage
+              ? c.annee != null && c.annee >= plage.de && c.annee <= plage.fin
+              : c.annee === anneeCible,
+          ),
           codesPrincipaux,
-          totalMarcheAnnee,
+          totalMarchePlage,
         );
         const famille: FamilleMetier = profil.est_tce
           ? "TCE"
@@ -389,9 +414,9 @@ export const getFournisseursList = createServerFn({ method: "POST", strict: fals
           total_engage: commandes.reduce((s, c) => s + (c.montant ?? 0), 0),
           commandes_annee,
           montant_annee,
-          evolution_commandes: evolution(commandes_annee, precedent?.commandes ?? 0),
-          evolution_montant: evolution(montant_annee, precedent?.montant ?? 0),
-          part_marche_annee: partMarche(montant_annee, totalMarcheAnnee),
+          evolution_commandes: evolution(commandes_annee, commandes_precedentes),
+          evolution_montant: evolution(montant_annee, montant_precedent),
+          part_marche_annee: partMarche(montant_annee, totalMarchePlage),
           part_marche_annee_principaux: pmPrincipaux.part,
           montant_annee_principaux: pmPrincipaux.montant,
           part_marche_moyenne: nbParts > 0 ? sommeParts / nbParts : null,
@@ -416,6 +441,8 @@ export const getFournisseursList = createServerFn({ method: "POST", strict: fals
           actif_annee: commandes_annee > 0,
           actif_3ans: anneeCible != null && parAnnee.some((a) => a.annee >= anneeCible - 2),
           actif_5ans: anneeCible != null && parAnnee.some((a) => a.annee >= anneeCible - 4),
+          // V8.16s — aucune commande sur la période sélectionnée (masqué par défaut).
+          sans_commande: commandes_annee === 0,
           rang_montant: null,
           rang_commandes: null,
         };
@@ -485,7 +512,7 @@ export const getFournisseursList = createServerFn({ method: "POST", strict: fals
           (l) => (l.niveau_corps_recherche ?? l.niveau_corps_principal) === data.profil,
         );
       }
-      if (data.favoris) result = result.filter((l) => l.favori);
+      // V8.16s — favoris filtrés côté client (localStorage) : plus de filtre serveur.
       if (data.activite === "annee") result = result.filter((l) => l.actif_annee);
       if (data.activite === "3ans") result = result.filter((l) => l.actif_3ans);
       if (data.activite === "5ans") result = result.filter((l) => l.actif_5ans);

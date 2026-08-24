@@ -2,6 +2,7 @@
 // Exécution : node scripts/test-adresses.mjs
 import {
   adressesParTranche,
+  construireSearchAdresses,
   estGarage,
   rueDe,
   entreeDe,
@@ -324,6 +325,24 @@ assert(
 assert("T6 1 commande → « 1 commande de travaux »", libelleNbCommandesTravaux(1) === "1 commande de travaux");
 assert("T7 3 commandes → « 3 commandes de travaux »", libelleNbCommandesTravaux(3) === "3 commandes de travaux");
 assert("T8 aucune occurrence de « travailx »", !libelleNbCommandesTravaux(1).includes("travailx") && !libelleNbCommandesTravaux(3).includes("travailx"));
+
+// ── Phase 6B : construireSearchAdresses (helper navigation partagé, module pur) ──
+// Le helper retourne TOUTES les clés du search /adresses ; les valeurs undefined sont
+// omises par JSON.stringify (et par la sérialisation TanStack → URL sans param inutile).
+assert(
+  "S1 helper : les 6 clés du search /adresses sont toujours présentes",
+  Object.keys(construireSearchAdresses({})).length === 6 &&
+    Object.values(construireSearchAdresses({})).every((v) => v === undefined),
+);
+assert(
+  "S2 helper : valeurs conservées, champs absents → undefined (omis en sérialisation)",
+  JSON.stringify(construireSearchAdresses({ q: "1426", ville: "SERRIS", retour: "abc-123" })) ===
+    '{"q":"1426","ville":"SERRIS","retour":"abc-123"}',
+);
+assert("S3 helper : null et undefined normalisés pareil", 
+  JSON.stringify(construireSearchAdresses({ tranche: null, rue: undefined })) ===
+  JSON.stringify(construireSearchAdresses({ tranche: undefined, rue: null })),
+);
 
 console.log("\n==========================================");
 console.log(`Résultat : ${passed} PASS, ${failed} FAIL`);

@@ -176,9 +176,12 @@ export const getOccupants = createServerFn({ method: "POST" })
   .validator((d: unknown) => occupantsSchema.parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    // `id` est la clé technique stable de l'occupant (jamais le nom comme clé).
+    // L'ordre SQL n'est PAS utilisé pour déterminer le locataire actuel :
+    // determinerLocataireActuel trie explicitement (date_entree DESC, nom ASC).
     const { data: rows, error } = await supabaseAdmin
       .from("occupants")
-      .select("nom, prenom, date_naissance, date_entree")
+      .select("id, lot_code, nom, prenom, date_naissance, date_entree, created_at")
       .eq("lot_code", data.lotCode)
       .order("date_entree", { ascending: false });
     if (error) throw new Error(error.message);

@@ -5,9 +5,9 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   Building2,
   ChevronRight,
-  Filter,
   Home,
   Info as InfoIcon,
+  KeyRound,
   Mail,
   MapPin,
   Phone,
@@ -28,7 +28,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -41,20 +40,39 @@ import {
 } from "@/lib/isis.functions";
 import {
   adressesParTranche as adressesParTrancheLib,
+  determinerLocataireActuel,
   estGarage,
   formatMontantTravaux,
   libelleDateTravail,
   libelleNbCommandesTravaux,
+  nomCompletOccupant,
   normaliserRecherche,
   rechercherPatrimoine,
+  type OccupantActuel,
 } from "@/lib/adresses";
+import { formatDateCommandeFr, extraireWNotes } from "@/lib/psp.validation";
+import {
+  getPspEnrichissementCommandes,
+  type CommandeTravauxEnrichie,
+} from "@/lib/travaux.dashboard.functions";
+import { getFournisseursPourCommandes } from "@/lib/fournisseurs.functions";
+import { libelleEntreprise } from "@/lib/fournisseurs";
+import type { FicheFournisseurInfo } from "@/components/CommandeFicheDialog";
+import CommandeFicheDialog from "@/components/CommandeFicheDialog";
+import PatrimoineSearch from "@/components/PatrimoineSearch";
 
+// `z.coerce.string()` : TanStack Router JSON-parse les query params (« 1426 », « 1234 »)
+// arrivent en number → coerce les convertit en string sans casser le rendu (erreur 500 sinon).
+// `lot` : code patrimoine de la fiche logement ouverte (deep-link back-aware, Phase 7A).
+// `retour` : provenance (ex. fournisseurId) pour afficher un retour contextuel (Phase 6B).
 const searchSchema = z.object({
-  q: z.string().optional(),
-  ville: z.string().optional(),
-  tranche: z.string().optional(),
-  rue: z.string().optional(),
-  adresse: z.string().optional(),
+  q: z.coerce.string().optional(),
+  ville: z.coerce.string().optional(),
+  tranche: z.coerce.string().optional(),
+  rue: z.coerce.string().optional(),
+  adresse: z.coerce.string().optional(),
+  lot: z.coerce.string().optional(),
+  retour: z.coerce.string().optional(),
 });
 
 export const Route = createFileRoute("/adresses")({
@@ -63,7 +81,7 @@ export const Route = createFileRoute("/adresses")({
 });
 
 function AdressesPage() {
-  const { q, ville, tranche, rue, adresse } = Route.useSearch();
+  const { q, ville, tranche, rue, adresse, lot, retour } = Route.useSearch();
   const navigate = Route.useNavigate();
   const fetchAdresses = useServerFn(getAdresses);
   const fetchVilles = useServerFn(getVilles);
@@ -77,9 +95,7 @@ function AdressesPage() {
   // recherche en client avec normalisation (villes/adresses/locataires) — aucune requête par résultat.
   const searchMode = !!q?.trim();
   const { data, isLoading: isLoadingLots } = useQuery({
-    queryKey: searchMode
-      ? ["adresses", "toutes"]
-      : ["adresses", q, ville, tranche, rue, adresse],
+    queryKey: searchMode ? ["adresses", "toutes"] : ["adresses", q, ville, tranche, rue, adresse],
     queryFn: () =>
       searchMode
         ? fetchAdresses({ data: {} })
@@ -115,9 +131,19 @@ function AdressesPage() {
     return tree;
   }, [visibleLots]);
 
-  const [selectedLot, setSelectedLot] = useState<LotItem | null>(null);
+  // Fiche logement deep-linkée : `?lot=` EST l'état ouvert de la fiche (back-aware, Phase 7A).
+  // Le clic sur un lot ajoute `lot`, la fermeture / le Back le retire — jamais un simple état local.
+  const selectedLot = useMemo(() => {
+    if (!lot) return null;
+    const rows = (data as LotItem[] | undefined) ?? [];
+    return rows.find((l) => l.code_patrimoine === lot) ?? null;
+  }, [data, lot]);
+  const ouvrirFicheLot = (codePatrimoine: string) =>
+    navigate({ search: (prev) => ({ ...prev, lot: codePatrimoine }) });
+  const fermerFicheLot = () => navigate({ search: (prev) => ({ ...prev, lot: undefined }) });
   const [selectedLocataire, setSelectedLocataire] = useState<LotItem | null>(null);
   const [travauxScope, setTravauxScope] = useState<TravauxScope | null>(null);
+  const [commandeFicheId, setCommandeFicheId] = useState<string | null>(null);
 
   // Lignes de chaque niveau hiérarchique avec leurs compteurs.
   const villeRows = useMemo(() => {
@@ -185,25 +211,33 @@ function AdressesPage() {
               />
               Afficher les garages
             </label>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Rechercher..."
-                className="pl-9"
-                defaultValue={q}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch(e.currentTarget.value)}
-              />
-            </div>
-            <Button variant="outline" size="icon">
-              <Filter className="size-4" />
-            </Button>
+            <PatrimoineSearch
+              q={q}
+              villes={villeRows}
+              showGarages={showGarages}
+              onSearch={handleSearch}
+              onNavigate={(search) => navigate({ search })}
+            />
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl flex-1 px-4 py-6 sm:px-6">
         <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
+          {/* Retour contextuel (Phase 6B) : provenance fiche fournisseur via ?retour=. */}
+          {retour ? (
+            <>
+              <Link
+                to="/fournisseurs/$fournisseurId"
+                params={{ fournisseurId: retour }}
+                search={{ cmd: undefined, annee: undefined }}
+                className="font-semibold text-primary hover:underline"
+              >
+                ← Fiche fournisseur
+              </Link>
+              <ChevronRight className="size-3" />
+            </>
+          ) : null}
           <Link to="/adresses" className="hover:text-primary">
             Patrimoine
           </Link>
@@ -274,7 +308,9 @@ function AdressesPage() {
                   <span className="text-xs text-muted-foreground">
                     {resultatsRecherche.villes.length +
                       resultatsRecherche.adresses.length +
-                      resultatsRecherche.locataires.length}{" "}
+                      resultatsRecherche.locataires.length +
+                      resultatsRecherche.ers.length +
+                      resultatsRecherche.tranches.length}{" "}
                     résultat(s)
                   </span>
                 </header>
@@ -335,6 +371,36 @@ function AdressesPage() {
                   </section>
                 )}
 
+                {/* TRANCHES (V8.16q — recherche par numéro de tranche) */}
+                {resultatsRecherche.tranches.length > 0 && (
+                  <section className="overflow-hidden rounded-lg border bg-background shadow-sm">
+                    <header className="border-b bg-muted/50 px-4 py-2.5">
+                      <h3 className="text-sm font-semibold">Tranches</h3>
+                    </header>
+                    <div className="divide-y">
+                      {resultatsRecherche.tranches.map((row) => (
+                        <button
+                          key={`${row.ville}|${row.tranche}`}
+                          onClick={() =>
+                            navigate({
+                              search: { ville: row.ville || undefined, tranche: row.tranche },
+                            })
+                          }
+                          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                        >
+                          <span className="flex items-center gap-2 font-medium text-primary">
+                            <Building2 className="size-4 shrink-0" /> Tranche {row.tranche}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {row.ville ? `${row.ville} · ` : ""}
+                            {row.lots} lot{row.lots > 1 ? "s" : ""}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {/* LOCATAIRES */}
                 {resultatsRecherche.locataires.length > 0 && (
                   <section className="overflow-hidden rounded-lg border bg-background shadow-sm">
@@ -365,16 +431,44 @@ function AdressesPage() {
                   </section>
                 )}
 
+                {/* ER (identifiants patrimoine) */}
+                {resultatsRecherche.ers.length > 0 && (
+                  <section className="overflow-hidden rounded-lg border bg-background shadow-sm">
+                    <header className="border-b bg-muted/50 px-4 py-2.5">
+                      <h3 className="text-sm font-semibold">ER</h3>
+                    </header>
+                    <div className="divide-y">
+                      {resultatsRecherche.ers.map((row) => (
+                        <button
+                          key={row.code}
+                          onClick={() => ouvrirFicheLot(row.code)}
+                          className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                        >
+                          <KeyRound className="size-4 shrink-0 text-primary" />
+                          <span className="flex min-w-0 flex-col">
+                            <span className="font-mono font-semibold">{row.code}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {row.adresse} · {row.ville} · Tranche {row.tranche}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {/* Aucun résultat */}
                 {resultatsRecherche.villes.length +
                   resultatsRecherche.adresses.length +
-                  resultatsRecherche.locataires.length ===
+                  resultatsRecherche.locataires.length +
+                  resultatsRecherche.ers.length +
+                  resultatsRecherche.tranches.length ===
                   0 && (
                   <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
                     <InfoIcon className="size-8 text-muted-foreground" />
                     <h2 className="text-lg font-medium">Aucun résultat</h2>
                     <p className="text-sm text-muted-foreground">
-                      Aucune ville, adresse ou locataire ne correspond à « {q} ».
+                      Aucune ville, adresse, tranche, ER ou locataire ne correspond à « {q} ».
                     </p>
                     <Button
                       variant="outline"
@@ -398,9 +492,10 @@ function AdressesPage() {
                   <span className="text-xs text-muted-foreground">
                     {isLoadingVilles
                       ? "Chargement…"
-                      : `${villeRows.length} ville${villeRows.length > 1 ? "s" : ""} · ${
-                          villeRows.reduce((s, r) => s + r.lots, 0)
-                        } lots`}
+                      : `${villeRows.length} ville${villeRows.length > 1 ? "s" : ""} · ${villeRows.reduce(
+                          (s, r) => s + r.lots,
+                          0,
+                        )} lots`}
                   </span>
                 </header>
                 <div className="overflow-x-auto">
@@ -598,10 +693,13 @@ function AdressesPage() {
                     </thead>
                     <tbody className="divide-y">
                       {visibleLots.map((lot) => (
-                        <tr key={lot.code_patrimoine} className="hover:bg-muted/50 transition-colors">
+                        <tr
+                          key={lot.code_patrimoine}
+                          className="hover:bg-muted/50 transition-colors"
+                        >
                           <td className="px-4 py-3 font-medium">
                             <button
-                              onClick={() => setSelectedLot(lot)}
+                              onClick={() => ouvrirFicheLot(lot.code_patrimoine)}
                               className="flex w-full items-center gap-2 text-left text-primary hover:underline"
                             >
                               {lot.code_patrimoine}
@@ -650,9 +748,25 @@ function AdressesPage() {
         )}
       </main>
 
-      <FicheLogement lot={selectedLot} onClose={() => setSelectedLot(null)} />
+      <FicheLogement
+        lot={selectedLot}
+        onClose={fermerFicheLot}
+        onOpenCommande={(id) => setCommandeFicheId(id)}
+        onOpenLocataire={() => setSelectedLocataire(selectedLot)}
+      />
       <FicheLocataire lot={selectedLocataire} onClose={() => setSelectedLocataire(null)} />
-      <TravauxDialog scope={travauxScope} onClose={() => setTravauxScope(null)} />
+      <TravauxDialog
+        scope={travauxScope}
+        onClose={() => setTravauxScope(null)}
+        onOpenCommande={(id) => setCommandeFicheId(id)}
+      />
+      {/* Fiche commande en overlay depuis le patrimoine (même composant que le Dashboard) */}
+      <CommandeFicheDialog
+        open={!!commandeFicheId}
+        commandeId={commandeFicheId}
+        onClose={() => setCommandeFicheId(null)}
+        readOnly
+      />
     </div>
   );
 }
@@ -669,7 +783,30 @@ function typeLotLabel(type: string | null) {
   return labels[type ?? ""] ?? type ?? "—";
 }
 
-function FicheLogement({ lot, onClose }: { lot: LotItem | null; onClose: () => void }) {
+function FicheLogement({
+  lot,
+  onClose,
+  onOpenCommande,
+  onOpenLocataire,
+}: {
+  lot: LotItem | null;
+  onClose: () => void;
+  onOpenCommande: (commandeId: string | null) => void;
+  onOpenLocataire: () => void;
+}) {
+  const fetchOccupants = useServerFn(getOccupants);
+  const { data: occupants } = useQuery({
+    queryKey: ["occupants", lot?.code_patrimoine],
+    queryFn: () => fetchOccupants({ data: { lotCode: lot!.code_patrimoine } }),
+    enabled: !!lot,
+  });
+  // Locataire actuel : UNIQUE règle de référence (determinerLocataireActuel),
+  // source de vérité = table `occupants` (jamais lots.locataire_nom).
+  const locataireActuel = useMemo(
+    () => determinerLocataireActuel((occupants as OccupantActuel[] | undefined) ?? []),
+    [occupants],
+  );
+
   return (
     <Dialog open={!!lot} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
@@ -684,6 +821,32 @@ function FicheLogement({ lot, onClose }: { lot: LotItem | null; onClose: () => v
                   Lot {lot.code_patrimoine} · Tranche {lot.tranche_code}
                 </DialogDescription>
               </DialogHeader>
+
+              {/* Locataire actuel — nom cliquable vers FicheLocataire (Phase 7A). */}
+              <div className="mt-4 rounded-lg border bg-muted/40 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Locataire actuel
+                </p>
+                {locataireActuel ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={onOpenLocataire}
+                      className="mt-1 flex items-center gap-2 text-left text-sm font-semibold text-primary hover:underline"
+                    >
+                      <User className="size-4" />
+                      {nomCompletOccupant(locataireActuel)}
+                    </button>
+                    {locataireActuel.date_entree ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Entré le {formatDate(locataireActuel.date_entree)}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-muted-foreground">Aucun locataire actuel</p>
+                )}
+              </div>
 
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <Info label="Adresse" value={lot.adresse} />
@@ -727,6 +890,7 @@ function FicheLogement({ lot, onClose }: { lot: LotItem | null; onClose: () => v
                           lotCode: lot.code_patrimoine,
                           trancheCode: lot.tranche_code,
                         }}
+                        onOpenCommande={onOpenCommande}
                       />
                     </TabsContent>
                     <TabsContent value="tranche" className="m-0">
@@ -736,6 +900,7 @@ function FicheLogement({ lot, onClose }: { lot: LotItem | null; onClose: () => v
                           label: `Tranche ${lot.tranche_code}`,
                           trancheCode: lot.tranche_code,
                         }}
+                        onOpenCommande={onOpenCommande}
                       />
                     </TabsContent>
                   </div>
@@ -757,6 +922,12 @@ function FicheLocataire({ lot, onClose }: { lot: LotItem | null; onClose: () => 
     queryFn: () => fetchOccupants({ data: { lotCode: lot!.code_patrimoine } }),
     enabled: !!lot,
   });
+  // Même règle que FicheLogement : locataire actuel = date_entree la plus récente
+  // (determinerLocataireActuel). Aucun affichage basé sur lots.locataire_nom.
+  const locataireActuel = useMemo(
+    () => determinerLocataireActuel((occupants as OccupantActuel[] | undefined) ?? []),
+    [occupants],
+  );
 
   return (
     <Dialog open={!!lot} onOpenChange={(o) => !o && onClose()}>
@@ -765,7 +936,8 @@ function FicheLocataire({ lot, onClose }: { lot: LotItem | null; onClose: () => 
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <User className="size-4 text-primary" /> {lot.locataire_nom}
+                <User className="size-4 text-primary" />
+                {locataireActuel ? nomCompletOccupant(locataireActuel) : "Aucun locataire actuel"}
               </DialogTitle>
               <DialogDescription>
                 Lot {lot.code_patrimoine} · Tranche {lot.tranche_code}
@@ -783,7 +955,10 @@ function FicheLocataire({ lot, onClose }: { lot: LotItem | null; onClose: () => 
                 value={lot.locataire_email}
                 icon={<Mail className="size-3.5" />}
               />
-              <Info label="Date d'entrée" value={formatDate(lot.date_entree)} />
+              <Info
+                label="Date d'entrée"
+                value={formatDate(locataireActuel?.date_entree ?? lot.date_entree)}
+              />
               <Info label="Type de lot" value={typeLotLabel(lot.type_lot)} />
               <Info label="Adresse" value={`${lot.adresse ?? "—"}`} />
               <Info label="Ville" value={`${lot.code_postal ?? ""} ${lot.ville ?? ""}`.trim()} />
@@ -801,9 +976,7 @@ function FicheLocataire({ lot, onClose }: { lot: LotItem | null; onClose: () => 
                 <ul className="divide-y rounded-lg border">
                   {occupants.map((o, i) => (
                     <li key={i} className="flex items-center justify-between gap-2 p-2 text-sm">
-                      <span className="truncate">
-                        {[o.prenom, o.nom].filter(Boolean).join(" ") || "—"}
-                      </span>
+                      <span className="truncate">{nomCompletOccupant(o as OccupantActuel)}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         Entré le {formatDate(o.date_entree)}
                       </span>
@@ -842,7 +1015,15 @@ type TravailRow = {
   is_commande?: boolean;
 };
 
-function TravauxDialog({ scope, onClose }: { scope: TravauxScope | null; onClose: () => void }) {
+function TravauxDialog({
+  scope,
+  onClose,
+  onOpenCommande,
+}: {
+  scope: TravauxScope | null;
+  onClose: () => void;
+  onOpenCommande: (commandeId: string | null) => void;
+}) {
   return (
     <Dialog open={!!scope} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -855,7 +1036,7 @@ function TravauxDialog({ scope, onClose }: { scope: TravauxScope | null; onClose
               <DialogDescription>{scope.label}</DialogDescription>
             </DialogHeader>
             <div className="mt-4">
-              <TravauxList scope={scope} />
+              <TravauxList scope={scope} onOpenCommande={onOpenCommande} />
             </div>
           </>
         )}
@@ -864,8 +1045,15 @@ function TravauxDialog({ scope, onClose }: { scope: TravauxScope | null; onClose
   );
 }
 
-function TravauxList({ scope }: { scope: TravauxScope }) {
+function TravauxList({
+  scope,
+  onOpenCommande,
+}: {
+  scope: TravauxScope;
+  onOpenCommande: (commandeId: string | null) => void;
+}) {
   const fetchTravaux = useServerFn(getTravaux);
+  const fetchEnrich = useServerFn(getPspEnrichissementCommandes);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["travaux", scope],
     queryFn: () =>
@@ -884,6 +1072,44 @@ function TravauxList({ scope }: { scope: TravauxScope }) {
                   },
       }),
   });
+
+  // Enrichissement Historique CMD des commandes liées à ce périmètre (lecture seule de la
+  // vue de rapprochement). Aucune modification des données sources ; les fiches restent
+  // fonctionnelles même si la vue est indisponible.
+  const travauxRows = useMemo(() => (data ?? []) as TravailRow[], [data]);
+  const commandeIds = useMemo(
+    () => travauxRows.filter((t) => t.is_commande && t.id).map((t) => t.id),
+    [travauxRows],
+  );
+  const { data: enrData } = useQuery({
+    queryKey: ["travaux-enrich", commandeIds],
+    queryFn: () => fetchEnrich({ data: { commandeIds } }),
+    enabled: commandeIds.length > 0,
+  });
+  const enrichByCommande = useMemo(() => {
+    const map = new Map<string, CommandeTravauxEnrichie>();
+    ((enrData as CommandeTravauxEnrichie[]) ?? []).forEach((e) => {
+      if (e.commande_id) map.set(e.commande_id, e);
+    });
+    return map;
+  }, [enrData]);
+
+  // Fournisseur référencé (nom enrichi du référentiel — sources jamais modifiées).
+  const fetchFournisseurs = useServerFn(getFournisseursPourCommandes);
+  const { data: fournisseursData } = useQuery({
+    queryKey: ["travaux-fournisseurs", commandeIds],
+    queryFn: () => fetchFournisseurs({ data: { commandeIds } }),
+    enabled: commandeIds.length > 0,
+  });
+  const fournisseurByCommande = useMemo(() => {
+    const m = new Map<string, FicheFournisseurInfo>();
+    Object.entries((fournisseursData as Record<string, FicheFournisseurInfo>) ?? {}).forEach(
+      ([id, f]) => {
+        if (f) m.set(id, f);
+      },
+    );
+    return m;
+  }, [fournisseursData]);
 
   const groupedTravaux = useMemo(() => {
     if (!data) return null;
@@ -932,48 +1158,148 @@ function TravauxList({ scope }: { scope: TravauxScope }) {
               )}
             </h4>
             <ul className="divide-y rounded-lg border bg-card">
-            {travaux.map((travail) => (
-              <li key={travail.id} className="space-y-2 p-3 text-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <p className="font-medium">{travail.libelle}</p>
-                  <TravauxStatus statut={travail.statut} />
-                </div>
-                <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-                  <span>
-                    {travail.adresse || "Adresse non précisée"}
-                    {travail.etage || travail.porte
-                      ? ` · ${travail.etage || "—"} / ${travail.porte || "—"}`
-                      : ""}
-                  </span>
-                  <span>
-                    {travail.tranche_code
-                      ? `Tranche ${travail.tranche_code}`
-                      : "Tranche non précisée"}
-                    {travail.batiment ? ` · Bât. ${travail.batiment}` : ""}
-                  </span>
-                  <span>
+              {travaux.map((travail) => (
+                <li key={travail.id} className="space-y-2 p-3 text-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="font-medium">
+                      {travail.libelle.replace(/^\[(GE|GT|CP|HO|AC)\]\s*/i, "")}
+                    </p>
+                    <TravauxStatus statut={travail.statut} />
+                  </div>
+                  <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                    <span>
+                      {travail.adresse || "Adresse non précisée"}
+                      {travail.etage || travail.porte
+                        ? ` · ${travail.etage || "—"} / ${travail.porte || "—"}`
+                        : ""}
+                    </span>
+                    <span>
+                      {travail.tranche_code
+                        ? `Tranche ${travail.tranche_code}`
+                        : "Tranche non précisée"}
+                      {travail.batiment ? ` · Bât. ${travail.batiment}` : ""}
+                    </span>
                     {travail.is_commande
-                      ? libelleDateTravail(
-                          travail.date_demarrage,
-                          travail.date_fin_travaux,
-                          travail.date_communication,
-                        )
+                      ? travail.date_demarrage ||
+                        travail.date_fin_travaux ||
+                        travail.date_communication
+                        ? libelleDateTravail(
+                            travail.date_demarrage,
+                            travail.date_fin_travaux,
+                            travail.date_communication,
+                          )
+                        : null
                       : travail.date_travaux
                         ? formatDate(travail.date_travaux)
-                        : "Date non précisée"}
-                  </span>
-                  <span className="font-semibold text-foreground">
-                    {formatMontantTravaux(travail.cout)}
-                  </span>
-                </div>
-                {travail.note && (
-                  <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded italic border-l-2 border-primary/30">
-                    {travail.note}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
+                        : null}
+                    <span className="font-semibold text-foreground">
+                      {formatMontantTravaux(travail.cout)}
+                    </span>
+                  </div>
+                  {travail.note &&
+                    (() => {
+                      const note = travail.note.replace(/^(GE|GT|CP|HO|AC)\s*-\s*/i, "");
+                      return note ? (
+                        <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded italic border-l-2 border-primary/30">
+                          {note}
+                        </p>
+                      ) : null;
+                    })()}
+                  {travail.is_commande &&
+                    (() => {
+                      const e = enrichByCommande.get(travail.id) as
+                        CommandeTravauxEnrichie | undefined;
+                      if (!e) return null;
+                      const wnature = e.psp_corps_etat_libelle;
+                      const wnotes = extraireWNotes(e.psp_donnees_brutes);
+                      const corpsSuivi = e.corps_etat_suivi_annuel ?? e.corps_etat ?? null;
+                      const numero = e.psp_numero_commande_interne ?? e.numero_commande ?? null;
+                      const fiche = fournisseurByCommande.get(travail.id);
+                      return (
+                        <div className="space-y-1 rounded-lg border border-indigo-100 bg-indigo-50/40 p-2 text-xs">
+                          {numero ? (
+                            <p>
+                              <button
+                                type="button"
+                                onClick={() => onOpenCommande(travail.id ?? null)}
+                                className="font-bold text-primary hover:underline"
+                                title="Ouvrir la fiche commande (overlay, sans quitter cette page)"
+                              >
+                                Commande #{numero}
+                              </button>
+                            </p>
+                          ) : null}
+                          {fiche ? (
+                            <p className="flex justify-between gap-2">
+                              <span className="font-semibold text-indigo-500">Fournisseur</span>
+                              <span className="font-semibold text-slate-700">
+                                <Link
+                                  to="/fournisseurs/$fournisseurId"
+                                  params={{ fournisseurId: fiche.id }}
+                                  search={{ cmd: undefined, annee: undefined }}
+                                  className="text-primary hover:underline"
+                                >
+                                  {libelleEntreprise(fiche.nom)}
+                                </Link>
+                                {fiche.identifiants?.length ? (
+                                  <span className="text-slate-400">
+                                    {" "}
+                                    · {fiche.identifiants.join(", ")}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </p>
+                          ) : null}
+                          {e.psp_date_commande ? (
+                            <p className="flex justify-between gap-2">
+                              <span className="font-semibold text-indigo-500">Date commande</span>
+                              <span className="font-semibold text-slate-700">
+                                {formatDateCommandeFr(e.psp_date_commande)}
+                              </span>
+                            </p>
+                          ) : null}
+                          {e.nature_historique ? (
+                            <p className="flex justify-between gap-2">
+                              <span className="font-semibold text-indigo-500">Catégorie</span>
+                              <span className="font-semibold text-slate-700">
+                                {e.nature_historique}
+                              </span>
+                            </p>
+                          ) : null}
+                          {corpsSuivi ? (
+                            <p className="flex justify-between gap-2">
+                              <span className="font-semibold text-indigo-500">Corps d'état</span>
+                              <span className="font-semibold text-slate-700">{corpsSuivi}</span>
+                            </p>
+                          ) : null}
+                          {wnature ? (
+                            <p className="flex justify-between gap-2">
+                              <span className="font-semibold text-indigo-500">Nature Travaux</span>
+                              <span className="font-semibold text-slate-700">{wnature}</span>
+                            </p>
+                          ) : null}
+                          {wnotes ? (
+                            <p className="whitespace-pre-wrap">
+                              <span className="font-semibold text-indigo-500">
+                                Descriptif Travaux —{" "}
+                              </span>
+                              <span className="text-slate-600">{wnotes}</span>
+                            </p>
+                          ) : null}
+                          {e.psp_numero_commande_interne ? (
+                            <p className="flex justify-between gap-2">
+                              <span className="font-semibold text-indigo-500">COMN_NUM</span>
+                              <span className="font-semibold text-slate-700">
+                                {e.psp_numero_commande_interne}
+                              </span>
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
+                </li>
+              ))}
+            </ul>
           </div>
         );
       })}

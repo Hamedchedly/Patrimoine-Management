@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { geocode, type GeoPoint } from "./geo";
+
 /** Coordinates already cached in the database. */
 export const getAdressesGeo = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
@@ -41,28 +43,7 @@ const inputSchema = z.object({
 /** Délai entre deux requêtes Photon (usage raisonnable du service public). */
 const GEOCODER_DELAY_MS = 200;
 
-type GeoPoint = { lat: number | null; lng: number | null; statut: string };
 type GeoRow = { cle: string; adresse: string; ville: string } & GeoPoint;
-
-/**
- * Géocodage via Photon (Komoot, données OpenStreetMap) — aucune clé API requise.
- * Google Geocoding renvoyait `REQUEST_DENIED` sur ce projet (coordonnées nulles écrites en
- * cache) et Nominatim public est limité (HTTP 429). Photon est fiable, JSON, sans quota.
- */
-async function geocodePhoton(item: { adresse: string; ville: string }): Promise<GeoPoint> {
-  const query = `${item.adresse}, ${item.ville}, France`;
-  const res = await fetch(
-    `https://photon.komoot.io/api/?limit=1&lang=fr&q=${encodeURIComponent(query)}`,
-  );
-  if (!res.ok) throw new Error(`Photon rejected [${res.status}]`);
-  const json = (await res.json()) as {
-    features?: Array<{ geometry?: { coordinates?: [number, number] } }>;
-  };
-  const coords = json.features?.[0]?.geometry?.coordinates;
-  return coords
-    ? { lat: coords[1], lng: coords[0], statut: "ok" }
-    : { lat: null, lng: null, statut: "ZERO_RESULTS" };
-}
 
 /** Geocode a small batch of addresses and update the database cache. */
 export const geocodeAdresses = createServerFn({ method: "POST" })
@@ -72,7 +53,7 @@ export const geocodeAdresses = createServerFn({ method: "POST" })
     const rows: GeoRow[] = [];
 
     for (const item of data.items) {
-      const point = await geocodePhoton(item);
+      const point = await geocode(item);
       rows.push({ cle: item.cle, adresse: item.adresse, ville: item.ville, ...point });
       // Usage raisonnable du service public Photon.
       await new Promise((r) => setTimeout(r, GEOCODER_DELAY_MS));

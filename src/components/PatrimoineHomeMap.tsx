@@ -37,7 +37,13 @@ export type VilleHome = {
   n: number;
 };
 
-export type AdressesGeoApercu = { cle: string; lat?: number | null; lng?: number | null };
+export type AdressesGeoApercu = {
+  cle: string;
+  lat?: number | null;
+  lng?: number | null;
+  /** Statut du géocodage en cache (ok | VILLE_DIFFERENTE | ZERO_RESULTS). */
+  statut?: string | null;
+};
 
 export type PatrimoineHomeData = {
   villes: VilleHome[];
@@ -75,8 +81,7 @@ export function agregerPatrimoineHome(
     if (estGarage(l)) g.garages += 1;
     else g.lots += 1;
     if (l.tranche_code) {
-      const m =
-        tranchesParAdresse.get(cle) ?? new Map<string, { lots: number; garages: number }>();
+      const m = tranchesParAdresse.get(cle) ?? new Map<string, { lots: number; garages: number }>();
       const entry = m.get(l.tranche_code) ?? { lots: 0, garages: 0 };
       if (estGarage(l)) entry.garages += 1;
       else entry.lots += 1;
@@ -95,9 +100,7 @@ export function agregerPatrimoineHome(
     if (m && m.size) {
       const rows = [...m.entries()]
         .map(([code, v]) => ({ code, lots: v.lots, garages: v.garages }))
-        .sort(
-          (a, b) => b.lots + b.garages - (a.lots + a.garages) || a.code.localeCompare(b.code),
-        );
+        .sort((a, b) => b.lots + b.garages - (a.lots + a.garages) || a.code.localeCompare(b.code));
       g.tranches = rows;
       g.tranche = rows[0]!.code;
     }
@@ -147,7 +150,9 @@ export function agregerPatrimoineHome(
 
 /** Adresses d'une ville (niveau 2) — liste localisée, triée par adresse. */
 export function adressesDeVille(adresses: AdresseHome[], ville: string): AdresseHome[] {
-  return adresses.filter((a) => a.ville === ville).sort((a, b) => a.adresse.localeCompare(b.adresse));
+  return adresses
+    .filter((a) => a.ville === ville)
+    .sort((a, b) => a.adresse.localeCompare(b.adresse));
 }
 
 /* ------------------------------------------------------------------ *
@@ -232,7 +237,10 @@ if (import.meta.env.DEV) {
     "P8 adresse sans coordonnées → comptée sans erreur (2 adresses, 1 ville)",
     t.nonGeolocaliseesAdresses === 2 && t.villesNonLocalisees === 1,
   );
-  assertHome("P8b SERRIS → 1 adresse / 2 lots / 0 garage", t.villes.find((v) => v.ville === "SERRIS")?.lots === 2);
+  assertHome(
+    "P8b SERRIS → 1 adresse / 2 lots / 0 garage",
+    t.villes.find((v) => v.ville === "SERRIS")?.lots === 2,
+  );
   assertHome("P9 CHESSY → 4 tranches distinctes (1001/1002/1003/1005)", chessy?.tranches === 4);
   assertHome(
     "P9b adresse A1 → tranche la plus représentée (1001) / rue brute conservée",
@@ -280,6 +288,3 @@ export function PatrimoineHomeMap({ lots }: { lots?: LotItem[] }) {
     </Suspense>
   );
 }
-
-
-

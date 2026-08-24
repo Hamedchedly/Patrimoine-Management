@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import AppNavigation from "@/components/AppNavigation";
 
 function NotFoundComponent() {
   return (
@@ -116,6 +117,8 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      {/* Navigation globale persistante (Phase 6, P1) — pôles métier. */}
+      <AppNavigation />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />

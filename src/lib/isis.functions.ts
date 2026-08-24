@@ -247,6 +247,37 @@ export const getAdresses = createServerFn({ method: "POST" })
     return results;
   });
 
+/**
+ * V8.16w — CC courant par tranche (pour filtrer le patrimoine par chargé clientèle).
+ * Construction : tranches (code, sous_secteur, actif) → sous-secteur, puis
+ * psp_charges_clientele (sous_secteur, charge_clientele, actif=true) → NOM du CC.
+ * Une tranche sans sous-secteur ou sans référentiel actif → cc null (« Sans CC »).
+ */
+export const getCcParTranche = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+  const db = supabaseAdmin as any;
+  const [{ data: tranches }, { data: referentiel }] = await Promise.all([
+    db.from("tranches").select("code, sous_secteur").eq("actif", true),
+    db.from("psp_charges_clientele").select("sous_secteur, charge_clientele").eq("actif", true),
+  ]);
+  const ccParSs = new Map<string, string>();
+  for (const r of (referentiel ?? []) as Array<{
+    sous_secteur: string | null;
+    charge_clientele: string | null;
+  }>) {
+    if (r.sous_secteur && r.charge_clientele) ccParSs.set(r.sous_secteur, r.charge_clientele);
+  }
+  const result: Record<string, { sousSecteur: string | null; cc: string | null }> = {};
+  for (const t of (tranches ?? []) as Array<{ code: string; sous_secteur: string | null }>) {
+    const sousSecteur = t.sous_secteur;
+    result[t.code] = {
+      sousSecteur,
+      cc: sousSecteur ? (ccParSs.get(sousSecteur) ?? null) : null,
+    };
+  }
+  return result;
+});
+
 export const travauxScopeSchema = z.object({
   niveau: z.enum(["ville", "tranche", "adresse", "lot"]),
   label: z.string().optional(),
@@ -367,9 +398,7 @@ export const getTravaux = createServerFn({ method: "POST" })
         lng: 0,
         n: 1,
       }));
-      commandes = commandes.filter(
-        (c) => villeDeCommande(c, tranches, villesGeo) === data.ville,
-      );
+      commandes = commandes.filter((c) => villeDeCommande(c, tranches, villesGeo) === data.ville);
     }
 
     // Conversion des commandes au format "travaux" pour l'affichage
@@ -430,8 +459,8 @@ export const getTravaux = createServerFn({ method: "POST" })
           ...travail,
           adresse:
             "adresse" in travail
-              ? travail.adresse ?? lot?.adresse ?? null
-              : lot?.adresse ?? null,
+              ? (travail.adresse ?? lot?.adresse ?? null)
+              : (lot?.adresse ?? null),
           code_postal: lot?.code_postal ?? null,
           ville: lot?.ville ?? null,
           etage: lot?.etage ?? null,

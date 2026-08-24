@@ -29,9 +29,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getAdresses,
+  getCcParTranche,
   getOccupants,
   getTravaux,
   getVilles,
@@ -72,6 +80,7 @@ const searchSchema = z.object({
   tranche: z.coerce.string().optional(),
   rue: z.coerce.string().optional(),
   adresse: z.coerce.string().optional(),
+  cc: z.coerce.string().optional(),
   lot: z.coerce.string().optional(),
   retour: z.coerce.string().optional(),
 });
@@ -82,15 +91,40 @@ export const Route = createFileRoute("/adresses")({
 });
 
 function AdressesPage() {
-  const { q, ville, tranche, rue, adresse, lot, retour } = Route.useSearch();
+  const { q, ville, tranche, rue, adresse, lot, retour, cc } = Route.useSearch();
   const navigate = Route.useNavigate();
   const fetchAdresses = useServerFn(getAdresses);
   const fetchVilles = useServerFn(getVilles);
+  const fetchCc = useServerFn(getCcParTranche);
 
   const { data: villes, isLoading: isLoadingVilles } = useQuery({
     queryKey: ["villes"],
     queryFn: () => fetchVilles({}),
   });
+
+  // V8.16w — CC courant par tranche (filtre « chargé clientèle » du patrimoine).
+  const { data: ccParTrancheData } = useQuery({
+    queryKey: ["patrimoine-cc"],
+    queryFn: () => fetchCc(),
+    staleTime: 1000 * 60 * 5,
+  });
+  const ccParTranche = useMemo(
+    () =>
+      (ccParTrancheData ?? {}) as Record<string, { sousSecteur: string | null; cc: string | null }>,
+    [ccParTrancheData],
+  );
+  const ccOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasSans = false;
+    for (const v of Object.values(ccParTranche)) {
+      if (v.cc) set.add(v.cc);
+      else hasSans = true;
+    }
+    return {
+      list: [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true })),
+      hasSans,
+    };
+  }, [ccParTranche]);
 
   // Mode recherche : on charge TOUS les lots actifs une seule fois (clé constante), puis on
   // recherche en client avec normalisation (villes/adresses/locataires) — aucune requête par résultat.
@@ -107,10 +141,21 @@ function AdressesPage() {
 
   const [showGarages, setShowGarages] = useState(false);
 
-  // Lots affichés : garages et boxes masqués par défaut (codes ER.G / types PAR/GAR/BOX/MOT).
+  // Lots affichés : garages et boxes masqués par défaut (codes ER.G / types PAR/GAR/BOX/MOT)
+  // + filtre « chargé clientèle » (V8.16w) appliqué côté client via tranche → CC.
+  const SANS_CC = "__sans_cc__";
   const visibleLots = useMemo(
-    () => ((data as LotItem[]) ?? []).filter((lot) => showGarages || !estGarage(lot)),
-    [data, showGarages],
+    () =>
+      ((data as LotItem[]) ?? []).filter((lot) => {
+        if (!(showGarages || !estGarage(lot))) return false;
+        if (cc) {
+          const info = ccParTranche[lot.tranche_code];
+          if (cc === SANS_CC) return !info?.cc;
+          return info?.cc === cc;
+        }
+        return true;
+      }),
+    [data, showGarages, cc, ccParTranche],
   );
 
   const hierarchy = useMemo(() => {
@@ -224,6 +269,26 @@ function AdressesPage() {
               />
               Afficher les garages
             </label>
+            {/* V8.16w — filtre « chargé clientèle » (CC courant du patrimoine). */}
+            <Select
+              value={cc || "__tous__"}
+              onValueChange={(v) =>
+                navigate({ search: (prev) => ({ ...prev, cc: v === "__tous__" ? undefined : v }) })
+              }
+            >
+              <SelectTrigger className="h-8 w-44 text-xs">
+                <SelectValue placeholder="Chargé clientèle : tous" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__tous__">Tous</SelectItem>
+                {ccOptions.list.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+                {ccOptions.hasSans ? <SelectItem value="__sans_cc__">Sans CC</SelectItem> : null}
+              </SelectContent>
+            </Select>
             <PatrimoineSearch
               q={q}
               villes={villeRows}

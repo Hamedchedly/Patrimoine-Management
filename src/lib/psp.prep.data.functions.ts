@@ -108,34 +108,22 @@ export const getPspChargesClientele = createServerFn({ method: "GET" }).handler(
 });
 
 /**
- * V8.16u — SOUS-SECTEURS RÉELS (synchronisés base) : distincts, depuis le patrimoine
- * (`tranches.sous_secteur` + `tranches.secteur`, actives) et les commandes
- * (`travaux_commandes.secteur`). Source de vérité pour l'onglet « Chargés clientèle »
- * des Paramètres : un sous-secteur présent en base est TOUJOURS listé, même sans CC.
+ * V8.16w — SOUS-SECTEURS RÉELS (synchronisés base patrimoine) : distincts depuis
+ * `tranches.sous_secteur` (actives) UNIQUEMENT. Le secteur (S11) N'EST PAS un
+ * sous-secteur (il regroupe tous les sous-secteurs) et ne doit JAMAIS y figurer.
+ * Les sous-secteurs proviennent du fichier ISIS patrimoine — jamais créés/modifiés
+ * manuellement. Source de vérité pour l'onglet « Chargés clientèle » des Paramètres
+ * (aligné sur la console PSP preparation-psp.tsx) : un sous-secteur présent en base
+ * est TOUJOURS listé, même sans CC.
  */
 export const getSousSecteursConnus = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
   const db = supabaseAdmin as any;
   const set = new Set<string>();
 
-  const { data: tranches } = await db
-    .from("tranches")
-    .select("sous_secteur, secteur")
-    .eq("actif", true);
-  for (const t of (tranches ?? []) as Array<{
-    sous_secteur: string | null;
-    secteur: string | null;
-  }>) {
-    const v = (t.sous_secteur ?? t.secteur ?? "").trim();
-    if (v) set.add(v);
-  }
-
-  const { data: commandes } = await db
-    .from("travaux_commandes")
-    .select("secteur")
-    .not("secteur", "is", null);
-  for (const c of (commandes ?? []) as Array<{ secteur: string | null }>) {
-    const v = (c.secteur ?? "").trim();
+  const { data: tranches } = await db.from("tranches").select("sous_secteur").eq("actif", true);
+  for (const t of (tranches ?? []) as Array<{ sous_secteur: string | null }>) {
+    const v = (t.sous_secteur ?? "").trim();
     if (v) set.add(v);
   }
 

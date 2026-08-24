@@ -64,6 +64,8 @@ export const Route = createFileRoute("/import-travaux")({
   component: ImportTravauxPage,
 });
 
+type ChangementCc = { sousSecteur: string; ancien: string | null; nouveau: string };
+
 type Report = {
   creees: number;
   modifiees: number;
@@ -75,6 +77,7 @@ type Report = {
   erreurs: number;
   doublons: number;
   sansCommande: number;
+  ccChanges: ChangementCc[];
 };
 
 function ImportTravauxPage() {
@@ -122,6 +125,7 @@ function ImportTravauxPage() {
         parsed.commandes.slice(index * 100, index * 100 + 100),
       );
       let totals = { creees: 0, modifiees: 0, inchangees: 0, ignorees: 0, conflits: 0, reports: 0 };
+      const ccChanges: ChangementCc[] = [];
       for (let index = 0; index < parts.length; index += 1) {
         const result = await runBatch({
           data: {
@@ -138,6 +142,7 @@ function ImportTravauxPage() {
           conflits: totals.conflits + result.conflits,
           reports: totals.reports + result.reports,
         };
+        if (result.ccChanges?.length) ccChanges.push(...result.ccChanges);
         setProgress(Math.round(((index + 1) / Math.max(parts.length, 1)) * 100));
         setMessage(
           `Synchronisation ${index + 1}/${parts.length} — ${parsed.commandes.length} commandes`,
@@ -161,6 +166,7 @@ function ImportTravauxPage() {
         erreurs: parsed.erreurs.length,
         doublons: parsed.doublons,
         sansCommande: parsed.sansCommande.length,
+        ccChanges,
       });
       setLastImportId(execution.id);
       setMessage(null);
@@ -267,6 +273,20 @@ function ImportTravauxPage() {
       {report ? (
         <section className="space-y-2 rounded-xl border bg-surface p-4 text-sm">
           <h2 className="font-semibold">Rapport d’import</h2>
+          {report.ccChanges.length ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">
+              <p className="text-xs font-bold uppercase tracking-widest">
+                Chargé clientèle modifié ({report.ccChanges.length} sous-secteur(s))
+              </p>
+              <ul className="mt-1 space-y-0.5 text-xs">
+                {report.ccChanges.map((c) => (
+                  <li key={c.sousSecteur}>
+                    Sous-secteur {c.sousSecteur} : {c.ancien || "—"} → {c.nouveau}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div className="grid gap-2 sm:grid-cols-2">
             <ReportCounter
               label="créée(s)"

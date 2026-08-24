@@ -126,11 +126,19 @@ export type ResultatEr = {
   ville: string;
   tranche: string;
 };
+/** V8.16q — tranche dont le numéro correspond à la recherche (regroupée par ville). */
+export type ResultatTranche = {
+  tranche: string;
+  ville: string;
+  lots: number;
+};
 export type ResultatsRecherche = {
   villes: ResultatVille[];
   adresses: ResultatAdresse[];
   locataires: ResultatLocataire[];
   ers: ResultatEr[];
+  /** V8.16q — tranches dont le numéro correspond (regroupées par tranche). */
+  tranches: ResultatTranche[];
 };
 
 /**
@@ -186,7 +194,7 @@ export function rechercherPatrimoine(
   villes: { ville: string; tranches: number; lots: number }[],
 ): ResultatsRecherche {
   const regex = motifRechercheRegex(terme);
-  if (!regex) return { villes: [], adresses: [], locataires: [], ers: [] };
+  if (!regex) return { villes: [], adresses: [], locataires: [], ers: [], tranches: [] };
 
   const villesTrouvees: ResultatVille[] = villes
     .filter((v) => regex.test(normaliserRecherche(v.ville)))
@@ -195,6 +203,7 @@ export function rechercherPatrimoine(
   const adresses = new Map<string, ResultatAdresse>();
   const locataires = new Map<string, ResultatLocataire>();
   const ers: ResultatEr[] = [];
+  const tranches = new Map<string, ResultatTranche>();
 
   for (const lot of lots) {
     const erNorm = normaliserRecherche(lot.code_patrimoine);
@@ -205,6 +214,18 @@ export function rechercherPatrimoine(
         ville: lot.ville ?? "",
         tranche: lot.tranche_code ?? "",
       });
+    }
+    // V8.16q — recherche par numéro de tranche (ex. « 2293 », « 14* »).
+    const trNorm = normaliserRecherche(lot.tranche_code);
+    if (trNorm && regex.test(trNorm)) {
+      const cleT = `${lot.tranche_code}|${lot.ville ?? ""}`;
+      const g = tranches.get(cleT) ?? {
+        tranche: lot.tranche_code ?? "",
+        ville: lot.ville ?? "",
+        lots: 0,
+      };
+      g.lots += 1;
+      tranches.set(cleT, g);
     }
     const adrNorm = normaliserRecherche(lot.adresse);
     if (adrNorm && regex.test(adrNorm)) {
@@ -239,6 +260,9 @@ export function rechercherPatrimoine(
     adresses: [...adresses.values()],
     locataires: [...locataires.values()],
     ers,
+    tranches: [...tranches.values()].sort((a, b) =>
+      a.tranche.localeCompare(b.tranche, "fr", { numeric: true }),
+    ),
   };
 }
 

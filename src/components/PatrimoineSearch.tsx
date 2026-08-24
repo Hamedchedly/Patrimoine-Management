@@ -23,7 +23,8 @@ type SuggestionItem =
   | { type: "ville"; ville: string; tranches: number; lots: number }
   | { type: "adresse"; adresse: string; ville: string; tranche: string; lots: number }
   | { type: "locataire"; nom: string; adresse: string; ville: string; tranche: string }
-  | { type: "er"; code: string; adresse: string; ville: string; tranche: string };
+  | { type: "er"; code: string; adresse: string; ville: string; tranche: string }
+  | { type: "tranche"; tranche: string; ville: string; lots: number };
 
 type RecherchePatrimoineNavigation = {
   ville?: string | undefined;
@@ -43,6 +44,8 @@ const cleItem = (item: SuggestionItem): string => {
       return `locataire:${item.nom}|${item.ville}|${item.tranche}|${item.adresse}`;
     case "er":
       return `er:${item.code}`;
+    case "tranche":
+      return `tranche:${item.ville}|${item.tranche}`;
   }
 };
 
@@ -56,6 +59,8 @@ const libelleItem = (item: SuggestionItem): string => {
       return item.nom;
     case "er":
       return item.code;
+    case "tranche":
+      return `Tranche ${item.tranche}`;
   }
 };
 
@@ -69,6 +74,8 @@ const detailItem = (item: SuggestionItem): string => {
       return item.adresse;
     case "er":
       return item.adresse;
+    case "tranche":
+      return item.ville ? `${item.ville} · ${item.lots} lot(s)` : `${item.lots} lot(s)`;
   }
 };
 
@@ -141,6 +148,12 @@ export default function PatrimoineSearch({
         icone: MapPin,
         items: suggestions.adresses.slice(0, LIMITE).map((a) => ({ type: "adresse", ...a })),
       });
+    if (suggestions.tranches.length > 0)
+      g.push({
+        titre: "Tranches",
+        icone: Building2,
+        items: suggestions.tranches.slice(0, LIMITE).map((t) => ({ type: "tranche", ...t })),
+      });
     if (suggestions.locataires.length > 0)
       g.push({
         titre: "Locataires",
@@ -176,6 +189,8 @@ export default function PatrimoineSearch({
       onNavigate({ ville: item.ville, q: undefined });
     } else if (item.type === "er") {
       onNavigate({ lot: item.code, q: undefined });
+    } else if (item.type === "tranche") {
+      onNavigate({ ville: item.ville || undefined, tranche: item.tranche, q: undefined });
     } else {
       onNavigate({ ville: item.ville, tranche: item.tranche, rue: item.adresse, q: undefined });
     }

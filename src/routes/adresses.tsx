@@ -309,7 +309,8 @@ function AdressesPage() {
                     {resultatsRecherche.villes.length +
                       resultatsRecherche.adresses.length +
                       resultatsRecherche.locataires.length +
-                      resultatsRecherche.ers.length}{" "}
+                      resultatsRecherche.ers.length +
+                      resultatsRecherche.tranches.length}{" "}
                     résultat(s)
                   </span>
                 </header>
@@ -363,6 +364,36 @@ function AdressesPage() {
                             <span className="text-xs text-muted-foreground">
                               {row.ville} · Tranche {row.tranche} · {row.lots} lots
                             </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* TRANCHES (V8.16q — recherche par numéro de tranche) */}
+                {resultatsRecherche.tranches.length > 0 && (
+                  <section className="overflow-hidden rounded-lg border bg-background shadow-sm">
+                    <header className="border-b bg-muted/50 px-4 py-2.5">
+                      <h3 className="text-sm font-semibold">Tranches</h3>
+                    </header>
+                    <div className="divide-y">
+                      {resultatsRecherche.tranches.map((row) => (
+                        <button
+                          key={`${row.ville}|${row.tranche}`}
+                          onClick={() =>
+                            navigate({
+                              search: { ville: row.ville || undefined, tranche: row.tranche },
+                            })
+                          }
+                          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                        >
+                          <span className="flex items-center gap-2 font-medium text-primary">
+                            <Building2 className="size-4 shrink-0" /> Tranche {row.tranche}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {row.ville ? `${row.ville} · ` : ""}
+                            {row.lots} lot{row.lots > 1 ? "s" : ""}
                           </span>
                         </button>
                       ))}
@@ -430,13 +461,14 @@ function AdressesPage() {
                 {resultatsRecherche.villes.length +
                   resultatsRecherche.adresses.length +
                   resultatsRecherche.locataires.length +
-                  resultatsRecherche.ers.length ===
+                  resultatsRecherche.ers.length +
+                  resultatsRecherche.tranches.length ===
                   0 && (
                   <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
                     <InfoIcon className="size-8 text-muted-foreground" />
                     <h2 className="text-lg font-medium">Aucun résultat</h2>
                     <p className="text-sm text-muted-foreground">
-                      Aucune ville, adresse, ER ou locataire ne correspond à « {q} ».
+                      Aucune ville, adresse, tranche, ER ou locataire ne correspond à « {q} ».
                     </p>
                     <Button
                       variant="outline"

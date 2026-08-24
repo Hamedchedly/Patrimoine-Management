@@ -270,6 +270,32 @@ export function ReferentielChargesClienteleBody({
                   </TableCell>
                 </TableRow>
               ))}
+            {/* V8.16u — sous-secteurs RÉELS (patrimoine/commandes) sans CC : visibles,
+                avec action « Ajouter un CC » (pré-remplit le sous-secteur). */}
+            {!charge &&
+              manquants.map((ss) => (
+                <TableRow key={`sans-cc:${ss}`} className="bg-amber-50/50">
+                  <TableCell className="font-mono text-xs font-bold">{ss}</TableCell>
+                  <TableCell className="text-xs italic text-muted-foreground">—</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px]"
+                      onClick={() =>
+                        setEdition({
+                          sousSecteur: ss,
+                          chargeClientele: "",
+                          identifiantPersonnel: "",
+                          actif: true,
+                        })
+                      }
+                    >
+                      Ajouter un CC
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </div>

@@ -102,9 +102,9 @@ function ItemMenu({
       to={to as never}
       search={search as never}
       title={titre}
-      className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
+      className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-slate-100 hover:text-slate-950"
     >
-      <Icon className="size-4 shrink-0 text-slate-400" />
+      <Icon className="size-4 shrink-0 text-slate-500" />
       <span>{label}</span>
     </Link>
   );
@@ -113,7 +113,7 @@ function ItemMenu({
 /** Libellé de section dans un menu déroulant. */
 function SectionMenu({ children }: { children: ReactNode }) {
   return (
-    <p className="px-3 pb-1 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+    <p className="px-3 pb-1 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
       {children}
     </p>
   );
@@ -169,9 +169,9 @@ export default function AppNavigation() {
             <button
               type="button"
               onClick={() => setParametresOuvert(true)}
-              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-slate-100 hover:text-slate-950"
             >
-              <Settings2 className="size-4 shrink-0 text-slate-400" />
+              <Settings2 className="size-4 shrink-0 text-slate-500" />
               <span>Paramètres</span>
             </button>
             <ItemMenu

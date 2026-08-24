@@ -108,6 +108,41 @@ export const getPspChargesClientele = createServerFn({ method: "GET" }).handler(
 });
 
 /**
+ * V8.16u — SOUS-SECTEURS RÉELS (synchronisés base) : distincts, depuis le patrimoine
+ * (`tranches.sous_secteur` + `tranches.secteur`, actives) et les commandes
+ * (`travaux_commandes.secteur`). Source de vérité pour l'onglet « Chargés clientèle »
+ * des Paramètres : un sous-secteur présent en base est TOUJOURS listé, même sans CC.
+ */
+export const getSousSecteursConnus = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+  const db = supabaseAdmin as any;
+  const set = new Set<string>();
+
+  const { data: tranches } = await db
+    .from("tranches")
+    .select("sous_secteur, secteur")
+    .eq("actif", true);
+  for (const t of (tranches ?? []) as Array<{
+    sous_secteur: string | null;
+    secteur: string | null;
+  }>) {
+    const v = (t.sous_secteur ?? t.secteur ?? "").trim();
+    if (v) set.add(v);
+  }
+
+  const { data: commandes } = await db
+    .from("travaux_commandes")
+    .select("secteur")
+    .not("secteur", "is", null);
+  for (const c of (commandes ?? []) as Array<{ secteur: string | null }>) {
+    const v = (c.secteur ?? "").trim();
+    if (v) set.add(v);
+  }
+
+  return [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
+});
+
+/**
  * V4 — Lecture des VRAIS fichiers 2026 (programmation + suivi) via le MOTEUR
  * D'IMPORT EXISTANT (aucun parseur parallèle) :
  *  - programmation : `parseProgrammationWorkbook` (feuille « Prog 2026 ») ;

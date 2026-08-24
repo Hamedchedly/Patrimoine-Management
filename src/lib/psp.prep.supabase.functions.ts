@@ -930,6 +930,44 @@ export const getCorpsEtats = createServerFn({ method: "POST" })
       });
     }
 
+    // 3. Union — V8.16u « synchronisé avec les commandes » : corps d'état réellement
+    //    utilisés dans les commandes (travaux_commandes), même hors référentiel.
+    const { data: corpsCommandes, error: errCmd } = await db
+      .from("travaux_commandes")
+      .select("corps_etat")
+      .not("corps_etat", "is", null);
+    if (errCmd) throw new Error(`Lecture des corps d'état commandes : ${errCmd.message}`);
+    for (const c of (corpsCommandes ?? []) as Array<Record<string, unknown>>) {
+      const v = String(c["corps_etat"] ?? "").trim();
+      if (!v || connus.has(v)) continue;
+      connus.add(v);
+      resultat.push({
+        code: null,
+        libelle: v,
+        categorie: categorieDepuisCorpsEtat(v),
+        actif: true,
+      });
+    }
+
+    // 4. Union — V8.16u « synchronisé avec les fournisseurs » : corps d'état des
+    //    activités fournisseurs (fournisseur_activites.corps_etat_libelle).
+    const { data: corpsFournisseurs, error: errFourn } = await db
+      .from("fournisseur_activites")
+      .select("corps_etat_libelle")
+      .not("corps_etat_libelle", "is", null);
+    if (errFourn) throw new Error(`Lecture des corps d'état fournisseurs : ${errFourn.message}`);
+    for (const a of (corpsFournisseurs ?? []) as Array<Record<string, unknown>>) {
+      const v = String(a["corps_etat_libelle"] ?? "").trim();
+      if (!v || connus.has(v)) continue;
+      connus.add(v);
+      resultat.push({
+        code: null,
+        libelle: v,
+        categorie: categorieDepuisCorpsEtat(v),
+        actif: true,
+      });
+    }
+
     const q = data.q.trim().toLowerCase();
     const filtree = q
       ? resultat.filter((r) => r.libelle.toLowerCase().includes(q)).slice(0, 20)

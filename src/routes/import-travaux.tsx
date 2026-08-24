@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight, FileSpreadsheet, Upload, Calendar } from "lucide-react";
+import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -23,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -32,14 +34,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { exerciceCourant, parseTravauxWorkbook, type ParsedTravaux } from "@/lib/travaux";
+import {
+  CATEGORIE_CONFLIT_LABELS,
+  categoriserConflit,
+  exerciceCourant,
+  parseTravauxWorkbook,
+  type CategorieConflit,
+  type ParsedTravaux,
+} from "@/lib/travaux";
 import {
   createTravauxImport,
   failTravauxImport,
   finalizeTravauxImport,
   importTravauxBatch,
 } from "@/lib/travaux.functions";
-import { getTravauxImportDetails } from "@/lib/travaux.dashboard.functions";
+import { getTravauxImportDetails, resoudreConflitsImport } from "@/lib/travaux.dashboard.functions";
 
 export const Route = createFileRoute("/import-travaux")({
   head: () => ({
@@ -194,13 +203,11 @@ function ImportTravauxPage() {
               <SelectValue placeholder="Sélectionner l'année" />
             </SelectTrigger>
             <SelectContent>
-              {Array.from({ length: 10 }, (_, i) => exerciceCourant() - 5 + i).map(
-                (year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ),
-              )}
+              {Array.from({ length: 10 }, (_, i) => exerciceCourant() - 5 + i).map((year) => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -314,6 +321,10 @@ function ImportTravauxPage() {
           importId={lastImportId}
           type={detailsType}
           onClose={() => setDetailsType(null)}
+          // V8.16t — après résolution groupée, le compteur « conflits à valider » baisse.
+          onConflitsResolus={(nb) =>
+            setReport((r) => (r ? { ...r, conflits: Math.max(0, r.conflits - nb) } : r))
+          }
         />
       ) : null}
     </main>
@@ -393,8 +404,8 @@ function ConflitDiff({ detail }: { detail: Record<string, unknown> }) {
       {changed.slice(0, 6).map((key) => (
         <li key={key}>
           <span className="font-semibold text-slate-600">{key} :</span>{" "}
-          <span className="text-red-500 line-through decoration-red-300">{txt(avant[key])}</span>{" "}
-          → <span className="font-semibold text-green-600">{txt(apres[key])}</span>
+          <span className="text-red-500 line-through decoration-red-300">{txt(avant[key])}</span> →{" "}
+          <span className="font-semibold text-green-600">{txt(apres[key])}</span>
         </li>
       ))}
       {changed.length > 6 ? (
@@ -412,26 +423,112 @@ function ImportDetailsDialog({
   importId,
   type,
   onClose,
+  onConflitsResolus,
 }: {
   importId: string;
   type: ImportDetailsType;
   onClose: () => void;
+  onConflitsResolus?: (nb: number) => void;
 }) {
   const fetchDetails = useServerFn(getTravauxImportDetails);
+  const resoudreConflits = useServerFn(resoudreConflitsImport);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const pageSize = 50;
-  const { data, isLoading } = useQuery({
+  // V8.16t — conflits : on charge TOUS les conflits (validation par catégorie),
+  // sans pagination ; les autres types restent paginés.
+  const estConflit = type === "conflit";
+  const pageSize = estConflit ? 500 : 50;
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["travaux-import-details", importId, type, page],
     queryFn: () => fetchDetails({ data: { importId, type, page, pageSize } }),
   });
-  const rows = (data?.rows ?? []) as Record<string, unknown>[];
+  const rows = useMemo(() => (data?.rows ?? []) as Record<string, unknown>[], [data]);
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  const detailOf = (row: Record<string, unknown>) =>
-    (row["details"] ?? {}) as Record<string, unknown>;
-  const cell = (row: Record<string, unknown>, key: string) =>
-    txt(detailOf(row)[key] ?? row[key]);
+  const detailOf = useCallback(
+    (row: Record<string, unknown>) => (row["details"] ?? {}) as Record<string, unknown>,
+    [],
+  );
+  const cell = useCallback(
+    (row: Record<string, unknown>, key: string) => txt(detailOf(row)[key] ?? row[key]),
+    [detailOf],
+  );
+
+  // V8.16t — validation des conflits : lignes DÉCOCHÉES = garder l'ancienne version (A),
+  // cochées = appliquer la nouvelle (B). Défaut : tout coché.
+  const [exclus, setExclus] = useState<Set<string>>(new Set());
+  const [filtreCategorie, setFiltreCategorie] = useState<CategorieConflit | null>(null);
+  const [resolvant, setResolvant] = useState(false);
+  const categorieDe = useCallback(
+    (row: Record<string, unknown>): CategorieConflit =>
+      categoriserConflit((detailOf(row)["champs_differents"] ?? []) as string[]),
+    [detailOf],
+  );
+  const champsDe = useCallback(
+    (row: Record<string, unknown>): string[] =>
+      (detailOf(row)["champs_differents"] ?? []) as string[],
+    [detailOf],
+  );
+  const estCoche = (id: string) => !exclus.has(id);
+  const basculer = (id: string) =>
+    setExclus((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toutCocher = () => setExclus(new Set());
+  const toutDecocher = () => setExclus(new Set(rows.map((r) => String(r["id"]))));
+  // Résumé par catégorie (sur TOUS les conflits de l'import, indépendant du filtre).
+  const parCategorie = useMemo(() => {
+    const m = new Map<CategorieConflit, number>();
+    for (const r of rows) {
+      const c = categorieDe(r);
+      m.set(c, (m.get(c) ?? 0) + 1);
+    }
+    return m;
+  }, [rows, categorieDe]);
+  const lignesAffichees = filtreCategorie
+    ? rows.filter((r) => categorieDe(r) === filtreCategorie)
+    : rows;
+  const nbCoches = lignesAffichees.filter((r) => estCoche(String(r["id"]))).length;
+
+  // V8.16t — applique la résolution groupée puis rafraîchit.
+  const valider = async (cibles: { detailId: string; keepVersion: "A" | "B" }[]) => {
+    if (!cibles.length || resolvant) return;
+    setResolvant(true);
+    try {
+      const res = (await resoudreConflits({
+        data: { importId, resolutions: cibles },
+      })) as { validees: number; conservees: number };
+      onConflitsResolus?.(res.validees + res.conservees);
+      await queryClient.invalidateQueries({ queryKey: ["travaux-import-details", importId] });
+      await refetch();
+      if (res.validees > 0)
+        toast.success(`${res.validees} conflit(s) validé(s) — nouvelle version appliquée.`);
+      if (res.conservees > 0)
+        toast.info(`${res.conservees} conflit(s) : ancienne version conservée.`);
+      if (res.validees === 0 && res.conservees === 0) toast.info("Aucun conflit à valider.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Résolution impossible.");
+    } finally {
+      setResolvant(false);
+    }
+  };
+  const validerCategorie = (c: CategorieConflit) =>
+    valider(
+      rows
+        .filter((r) => categorieDe(r) === c)
+        .map((r) => ({ detailId: String(r["id"]), keepVersion: "B" as const })),
+    );
+  const validerSelection = () =>
+    valider(
+      lignesAffichees.map((r) => ({
+        detailId: String(r["id"]),
+        keepVersion: (estCoche(String(r["id"])) ? "B" : "A") as "A" | "B",
+      })),
+    );
 
   const isCommandType =
     type === "creee" || type === "archivee" || type === "inchangee" || type === "report";
@@ -447,19 +544,69 @@ function ImportDetailsDialog({
             {total} résultat{total > 1 ? "s" : ""} pour cet import
           </DialogDescription>
         </DialogHeader>
+        {estConflit && parCategorie.size > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 pb-1">
+            <button
+              type="button"
+              onClick={() => setFiltreCategorie(null)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                filtreCategorie === null
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Tous ({rows.length})
+            </button>
+            {[...parCategorie.entries()].map(([c, n]) => (
+              <span
+                key={c}
+                className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-1 text-xs font-semibold transition-colors ${
+                  filtreCategorie === c
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-slate-200 text-slate-600"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setFiltreCategorie(filtreCategorie === c ? null : c)}
+                  title={`Filtrer : ${CATEGORIE_CONFLIT_LABELS[c]}`}
+                >
+                  {CATEGORIE_CONFLIT_LABELS[c]} ×{n}
+                </button>
+                <button
+                  type="button"
+                  disabled={resolvant}
+                  onClick={() => validerCategorie(c)}
+                  className="ml-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white hover:bg-green-700 disabled:opacity-50"
+                  title={`Valider les ${n} conflit(s) de cette catégorie (nouvelle version appliquée)`}
+                >
+                  Valider
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
         <ScrollArea className="max-h-[55vh] rounded-xl border">
           {isLoading ? (
             <p className="p-4 text-sm text-muted-foreground">Chargement…</p>
-          ) : rows.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">
-              Aucun élément pour cette catégorie.
-            </p>
+          ) : lignesAffichees.length === 0 ? (
+            <p className="p-4 text-sm text-muted-foreground">Aucun élément pour cette catégorie.</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  {estConflit ? (
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={nbCoches > 0 && nbCoches === lignesAffichees.length}
+                        onCheckedChange={(v) => (v ? toutCocher() : toutDecocher())}
+                      />
+                    </TableHead>
+                  ) : null}
                   {isLineType ? <TableHead>Ligne Excel</TableHead> : null}
                   <TableHead>N° commande</TableHead>
+                  {estConflit ? <TableHead>Catégorie</TableHead> : null}
+                  {estConflit ? <TableHead>Colonnes modifiées</TableHead> : null}
                   {!isLineType ? <TableHead>Année</TableHead> : null}
                   {isCommandType ? <TableHead>Lot</TableHead> : null}
                   {isCommandType && type !== "inchangee" ? <TableHead>Adresse</TableHead> : null}
@@ -475,16 +622,44 @@ function ImportDetailsDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => (
+                {lignesAffichees.map((row) => (
                   <TableRow
                     key={String(
                       row["id"] ?? row["numero_commande"] ?? JSON.stringify(row).slice(0, 40),
                     )}
                   >
+                    {estConflit ? (
+                      <TableCell>
+                        <Checkbox
+                          checked={estCoche(String(row["id"]))}
+                          onCheckedChange={() => basculer(String(row["id"]))}
+                          title="Décocher = garder l'ancienne version"
+                        />
+                      </TableCell>
+                    ) : null}
                     {isLineType ? <TableCell>{txt(row["ligne"])}</TableCell> : null}
-                    <TableCell className="font-semibold">
-                      {cell(row, "numero_commande")}
-                    </TableCell>
+                    <TableCell className="font-semibold">{cell(row, "numero_commande")}</TableCell>
+                    {estConflit ? (
+                      <TableCell>
+                        <Badge variant="outline">
+                          {CATEGORIE_CONFLIT_LABELS[categorieDe(row)]}
+                        </Badge>
+                      </TableCell>
+                    ) : null}
+                    {estConflit ? (
+                      <TableCell>
+                        <div className="flex max-w-[220px] flex-wrap gap-1">
+                          {champsDe(row).map((c) => (
+                            <span
+                              key={c}
+                              className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600"
+                            >
+                              {c}
+                            </span>
+                          ))}
+                        </div>
+                      </TableCell>
+                    ) : null}
                     {!isLineType ? <TableCell>{cell(row, "annee_exercice")}</TableCell> : null}
                     {isCommandType ? <TableCell>{cell(row, "lot_code")}</TableCell> : null}
                     {isCommandType && type !== "inchangee" ? (
@@ -514,30 +689,54 @@ function ImportDetailsDialog({
           )}
         </ScrollArea>
 
-        <div className="flex items-center justify-between gap-4 pt-2">
-          <p className="text-xs text-muted-foreground">
-            Page {page} / {totalPages}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1 || isLoading}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Précédent
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages || isLoading}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Suivant
-            </Button>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+          {estConflit ? (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={toutCocher} disabled={resolvant}>
+                Tout cocher
+              </Button>
+              <Button variant="outline" size="sm" onClick={toutDecocher} disabled={resolvant}>
+                Tout décocher
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Page {page} / {totalPages}
+            </p>
+          )}
+          {!estConflit ? (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1 || isLoading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Précédent
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages || isLoading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Suivant
+              </Button>
+            </div>
+          ) : null}
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          {estConflit ? (
+            <Button
+              onClick={validerSelection}
+              disabled={resolvant || lignesAffichees.length === 0}
+              className="bg-green-700 font-black text-[10px] rounded-2xl uppercase tracking-widest h-12 hover:bg-green-800"
+            >
+              {nbCoches > 0 && nbCoches === lignesAffichees.length
+                ? `Valider tout (${lignesAffichees.length})`
+                : `Valider la sélection (${nbCoches})`}
+            </Button>
+          ) : null}
           <Button
             onClick={onClose}
             className="w-full bg-slate-900 font-black text-[10px] rounded-2xl uppercase tracking-widest h-12"
@@ -549,4 +748,3 @@ function ImportDetailsDialog({
     </Dialog>
   );
 }
-

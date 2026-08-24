@@ -541,6 +541,63 @@ export const champsDifferents = (
 };
 
 /**
+ * V8.16t — CATÉGORIE d'un conflit d'import : groupe de validation rapide par type de
+ * modification (colonnes modifiées). Un conflit appartient à UNE catégorie primaire
+ * (priorité fixe : financier > fournisseur > descriptif > localisation > état > autre),
+ * mais AFFICHE toujours TOUTES les colonnes modifiées.
+ */
+export type CategorieConflit =
+  "financier" | "fournisseur" | "descriptif" | "localisation" | "etat" | "autre";
+
+export const CATEGORIE_CONFLIT_LABELS: Record<CategorieConflit, string> = {
+  financier: "Montant / financier",
+  fournisseur: "Fournisseur",
+  descriptif: "Description",
+  localisation: "Localisation / patrimoine",
+  etat: "État / dates",
+  autre: "Autre",
+};
+
+const CHAMPS_CATEGORIE_CONFLIT: Record<Exclude<CategorieConflit, "autre">, readonly string[]> = {
+  financier: ["budget", "engage", "paye", "solde", "ecart"],
+  fournisseur: ["fournisseur", "numero_fournisseur"],
+  descriptif: [
+    "descriptif",
+    "nature_analytique",
+    "observations",
+    "charge_operation",
+    "support_communication",
+  ],
+  localisation: ["adresse", "tranche_code", "lot_code", "batiment", "corps_etat", "secteur"],
+  etat: [
+    "etat_commande",
+    "etat_travaux",
+    "date_demarrage",
+    "date_fin_travaux",
+    "date_communication",
+    "annee_exercice",
+  ],
+};
+
+const ORDRE_CATEGORIE_CONFLIT: Exclude<CategorieConflit, "autre">[] = [
+  "financier",
+  "fournisseur",
+  "descriptif",
+  "localisation",
+  "etat",
+];
+
+/** Catégorie PRIMAIRE d'un conflit selon ses colonnes modifiées (priorité fixe). */
+export const categoriserConflit = (champs: readonly string[]): CategorieConflit => {
+  for (const cat of ORDRE_CATEGORIE_CONFLIT) {
+    if (champs.some((c) => (CHAMPS_CATEGORIE_CONFLIT[cat] as readonly string[]).includes(c))) {
+      return cat;
+    }
+  }
+  return "autre";
+};
+
+/**
  * Snapshot d'affichage d'une commande pour les détails d'import (immuable).
  * Porte l'essentiel de l'affichage sans dépendre de l'état futur de travaux_commandes.
  */

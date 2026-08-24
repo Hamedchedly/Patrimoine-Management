@@ -568,3 +568,99 @@ export const resolveHistoriqueTravaux = createServerFn({ method: "POST" })
 
     return updated;
   });
+
+/**
+ * V8.16t — RÉSOLUTION GROUPÉE des conflits d'import (/import-travaux « conflits à valider »).
+ * Chaque résolution cible une ligne `travaux_import_details` de type "conflit" :
+ *  · keepVersion "B" → la NOUVELLE version (fichier, `details.apres`) est appliquée sur la commande ;
+ *  · keepVersion "A" → l'ANCIENNE version est conservée (aucun UPDATE, conflit simplement résolu).
+ * Dans les deux cas le conflit `travaux_commandes_historique` est marqué résolu + trace "resolution".
+ */
+export const resoudreConflitsImport = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z
+      .object({
+        importId: z.string().uuid(),
+        resolutions: z
+          .array(
+            z.object({
+              detailId: z.string().uuid(),
+              keepVersion: z.enum(["A", "B"]),
+            }),
+          )
+          .min(1),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    let validees = 0;
+    let conservees = 0;
+
+    for (const r of data.resolutions) {
+      // 1. Détail du conflit (proposition de l'import).
+      const { data: detail, error: dErr } = await db
+        .from("travaux_import_details")
+        .select("*")
+        .eq("id", r.detailId)
+        .single();
+      if (dErr || !detail) throw new Error(`Détail conflit introuvable (${r.detailId})`);
+      const commandeId = detail["commande_id"] as string | undefined;
+      if (!commandeId) throw new Error(`Détail conflit sans commande (${r.detailId})`);
+      const apres = (detail["details"]?.apres ?? {}) as Record<string, unknown>;
+
+      // 2. Appliquer la nouvelle version (B) sur la commande, colonnes réelles uniquement.
+      if (r.keepVersion === "B") {
+        const filtered = Object.fromEntries(
+          Object.entries(apres).filter(([key]) =>
+            (COMMANDE_UPDATABLE_COLUMNS as readonly string[]).includes(key),
+          ),
+        );
+        if (Object.keys(filtered).length > 0) {
+          const { error: upErr } = await db
+            .from("travaux_commandes")
+            .update(filtered)
+            .eq("id", commandeId);
+          if (upErr) throw new Error(`Mise à jour commande : ${upErr.message}`);
+        }
+        validees += 1;
+      } else {
+        conservees += 1;
+      }
+
+      // 3. Marquer le conflit d'historique le plus récent non résolu comme résolu.
+      const { data: conflits, error: cErr } = await db
+        .from("travaux_commandes_historique")
+        .select("*")
+        .eq("commande_id", commandeId)
+        .eq("operation", "conflit")
+        .eq("resolu", false)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (cErr) throw new Error(`Lecture conflit historique : ${cErr.message}`);
+      const conflit = (conflits ?? [])[0] as Record<string, unknown> | undefined;
+
+      if (conflit) {
+        const { error: resErr } = await db
+          .from("travaux_commandes_historique")
+          .update({ resolu: true })
+          .eq("id", conflit["id"]);
+        if (resErr) throw new Error(`Résolution historique : ${resErr.message}`);
+
+        // 4. Trace de résolution (la version écartée reste consultable via `avant`).
+        const trace = {
+          import_id: data.importId,
+          commande_id: commandeId,
+          operation: "resolution",
+          avant: conflit["avant"] ?? null,
+          apres: { ...apres, version_conservee: r.keepVersion === "A" ? "ancienne" : "nouvelle" },
+          resolu: true,
+        };
+        const { error: tErr } = await db.from("travaux_commandes_historique").insert(trace);
+        if (tErr) throw new Error(`Trace de résolution : ${tErr.message}`);
+      }
+    }
+
+    return { validees, conservees };
+  });

@@ -26,6 +26,8 @@ import {
   construireSuiviOperation,
 } from "./psp.suivi.foundation.ts";
 import {
+  adresseRueDepuisPerimetre,
+  villeDepuisAdresse,
   construireLigneRegistreAnnuel,
   type CommandeAnnuelle,
   type LigneRegistreAnnuel,
@@ -1317,24 +1319,68 @@ export const deletePspCommandLink = createServerFn({ method: "POST" })
 // ── V7.3 — fournisseurs, opérations ATOMIQUES, historique ──────────────────────
 
 /**
- * Recherche progressive des fournisseurs (nom OU code/alias) pour le devis de la
- * ligne de saisie. Réutilise `rechercherFournisseurs` (src/lib/fournisseurs.ts).
+ * Recherche progressive des fournisseurs pour le devis : NOM / code (alias) /
+ * n° réel / CORPS D'ÉTAT, dans une SEULE case. V8.16p — inclut aussi les refs
+ * SANS fiche (numéros présents dans les commandes passées) pour qu'elles soient
+ * trouvables sans « créer la fiche fournisseur » (id:null → entrée virtuelle).
+ * Retourne `corps` (libellés distincts) pour l'affichage.
  */
 export const rechercherFournisseursDevis = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ q: z.string().max(40).default("") }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
+
+    // Référentiel fournisseurs (fiches).
     const { data: fournisseurs, error } = await db
       .from("fournisseurs")
       .select("id, nom, ville")
       .order("nom", { ascending: true });
     if (error) throw new Error(`Lecture des fournisseurs : ${error.message}`);
+
+    // Alias (identifiants sources : numéros travaux_commandes / psp_import_rows…).
     const { data: aliasesData, error: eA } = await db
       .from("fournisseur_aliases")
       .select("fournisseur_id, source, identifiant_source");
     if (eA) throw new Error(`Lecture des alias fournisseurs : ${eA.message}`);
+
+    // V8.16p — corps d'état par numéro (commandes réelles) + activités validées par fiche.
+    const { data: commandesCorps, error: eC } = await db
+      .from("travaux_commandes")
+      .select("numero_fournisseur, corps_etat")
+      .eq("actif", true)
+      .not("numero_fournisseur", "is", null);
+    if (eC) throw new Error(`Lecture des corps d'état : ${eC.message}`);
+    const corpsParNumero = new Map<string, Set<string>>();
+    for (const c of (commandesCorps ?? []) as Array<{
+      numero_fournisseur: string;
+      corps_etat: string | null;
+    }>) {
+      const num = String(c.numero_fournisseur ?? "").trim();
+      const corps = (c.corps_etat ?? "").trim();
+      if (!num || !corps) continue;
+      const set = corpsParNumero.get(num) ?? new Set<string>();
+      set.add(corps);
+      corpsParNumero.set(num, set);
+    }
+    const { data: activitesData, error: eAct } = await db
+      .from("fournisseur_activites")
+      .select("fournisseur_id, corps_etat_libelle");
+    if (eAct) throw new Error(`Lecture des activités fournisseurs : ${eAct.message}`);
+    const activitesParFournisseur = new Map<string, Set<string>>();
+    for (const a of (activitesData ?? []) as Array<{
+      fournisseur_id: string;
+      corps_etat_libelle: string | null;
+    }>) {
+      const lib = (a.corps_etat_libelle ?? "").trim();
+      if (!a.fournisseur_id || !lib) continue;
+      const set = activitesParFournisseur.get(a.fournisseur_id) ?? new Set<string>();
+      set.add(lib);
+      activitesParFournisseur.set(a.fournisseur_id, set);
+    }
+
     const aliasesPar = new Map<string, Array<{ source: string; identifiant_source: string }>>();
+    const numerosCouverts = new Set<string>();
     for (const a of aliasesData ?? []) {
       const id = String(a["fournisseur_id"] ?? "");
       if (!id) continue;
@@ -1345,19 +1391,65 @@ export const rechercherFournisseursDevis = createServerFn({ method: "POST" })
           identifiant_source: String(a["identifiant_source"] ?? ""),
         },
       ]);
+      numerosCouverts.add(String(a["identifiant_source"] ?? "").trim());
     }
-    const liste = (fournisseurs ?? []) as Array<{ id: string; nom: string; ville: string | null }>;
-    const { rechercherFournisseurs } = await import("@/lib/fournisseurs");
-    const q = data.q.trim();
-    const trouves = rechercherFournisseurs(
-      liste,
-      aliasesPar as Map<string, import("@/lib/fournisseurs").FournisseurAlias[]>,
-      q,
-    ).slice(0, 20);
-    return trouves.map((f) => {
+
+    type EntreeRecherche = {
+      id: string | null;
+      nom: string;
+      ville: string | null;
+      codes: string[];
+      corps: string[];
+    };
+    const entrees: EntreeRecherche[] = [];
+    for (const f of (fournisseurs ?? []) as Array<{
+      id: string;
+      nom: string;
+      ville: string | null;
+    }>) {
       const codes = (aliasesPar.get(f.id) ?? []).map((a) => a.identifiant_source);
-      return { id: f.id, nom: f.nom, ville: f.ville, codes };
-    });
+      const corps = new Set<string>();
+      for (const c of codes) for (const x of corpsParNumero.get(c.trim()) ?? []) corps.add(x);
+      for (const x of activitesParFournisseur.get(f.id) ?? []) corps.add(x);
+      entrees.push({ id: f.id, nom: f.nom, ville: f.ville, codes, corps: [...corps] });
+    }
+    // V8.16p — refs SANS fiche (commandes passées) → entrée virtuelle (jamais créée en base).
+    for (const num of corpsParNumero.keys()) {
+      if (numerosCouverts.has(num)) continue;
+      entrees.push({
+        id: null,
+        nom: "",
+        ville: null,
+        codes: [num],
+        corps: [...(corpsParNumero.get(num) ?? [])],
+      });
+    }
+
+    const q = data.q.trim().toLowerCase();
+    const trouves = entrees
+      .filter((f) => {
+        if (!q) return true;
+        if (f.nom.toLowerCase().includes(q)) return true;
+        if (f.codes.some((c) => c.toLowerCase().includes(q))) return true;
+        if (f.corps.some((c) => c.toLowerCase().includes(q))) return true;
+        return false;
+      })
+      .sort((a, b) => {
+        const na = (a.nom || "").toLowerCase();
+        const nb = (b.nom || "").toLowerCase();
+        if (na && !nb) return -1;
+        if (!na && nb) return 1;
+        if (na !== nb) return na.localeCompare(nb, "fr");
+        return (a.codes[0] ?? "").localeCompare(b.codes[0] ?? "");
+      })
+      .slice(0, 20);
+    return trouves.map((f) => ({
+      id: f.id,
+      nom: f.nom,
+      ville: f.ville,
+      codes: f.codes,
+      corps: f.corps.slice(0, 3),
+    }));
   });
 
 /** Périmètre jsonb pour les RPC atomiques (niveau/rue/numero/lotId). */
@@ -2010,38 +2102,129 @@ export const getPspSuiviAnnuel = createServerFn({ method: "POST" })
     const annee = data.annee;
 
     // Années disponibles : exercices réels des commandes + années de préparation.
-    const [anneesCmdR, commandesR, progR, lignesR, perimR, devisR, liensR, importsExerciceR] =
-      await Promise.all([
-        db.from("travaux_commandes").select("annee_exercice"),
-        db
-          .from("travaux_commandes")
-          .select(
-            "id, numero_commande, tranche_code, adresse, nature_analytique, corps_etat, charge_clientele, ligne_budget, descriptif, budget, fournisseur, numero_fournisseur, etat_commande, engage, paye, solde, etat_travaux, date_demarrage, date_fin_travaux, annee_exercice",
-          )
-          .eq("annee_exercice", annee)
-          .eq("actif", true),
-        db
-          .from("psp_programmations")
-          .select("annee_debut, annee_fin, statut")
-          .eq("type", "officielle")
-          .order("version", { ascending: false })
-          .limit(1),
-        db.from("psp_lignes").select("*"),
-        db.from("psp_ligne_patrimoine").select("*"),
-        db.from("psp_devis").select("*"),
-        db.from("psp_command_links").select("*"),
-        // V8.8 §4 / V8.13 — dernier import de l'exercice demandé (pour compter les
-        // lignes annuelles SANS commande de l'état COURANT du fichier, pas le cumul
-        // des imports successifs du même fichier : chaque réimport du même export
-        // ne doit pas doubler le compteur).
-        db
-          .from("import_travaux")
-          .select("id")
-          .eq("annee_exercice", annee)
-          .order("demarre_at", { ascending: false })
-          .limit(1),
-      ]);
+    const [
+      anneesCmdR,
+      commandesR,
+      progR,
+      lignesR,
+      perimR,
+      devisR,
+      liensR,
+      importsExerciceR,
+      lotsR,
+      aliasesR,
+    ] = await Promise.all([
+      db.from("travaux_commandes").select("annee_exercice"),
+      db
+        .from("travaux_commandes")
+        .select(
+          "id, numero_commande, tranche_code, adresse, nature_analytique, corps_etat, charge_clientele, ligne_budget, descriptif, budget, fournisseur, numero_fournisseur, etat_commande, engage, paye, solde, etat_travaux, date_demarrage, date_fin_travaux, annee_exercice",
+        )
+        .eq("annee_exercice", annee)
+        .eq("actif", true),
+      db
+        .from("psp_programmations")
+        .select("annee_debut, annee_fin, statut")
+        .eq("type", "officielle")
+        .order("version", { ascending: false })
+        .limit(1),
+      db.from("psp_lignes").select("*"),
+      db.from("psp_ligne_patrimoine").select("*"),
+      db.from("psp_devis").select("*"),
+      db.from("psp_command_links").select("*"),
+      // V8.8 §4 / V8.13 — dernier import de l'exercice demandé (pour compter les
+      // lignes annuelles SANS commande de l'état COURANT du fichier, pas le cumul
+      // des imports successifs du même fichier : chaque réimport du même export
+      // ne doit pas doubler le compteur).
+      db
+        .from("import_travaux")
+        .select("id")
+        .eq("annee_exercice", annee)
+        .order("demarre_at", { ascending: false })
+        .limit(1),
+      // V8.16n/p — adresse + ville de référence des tranches (mode des lots ACTIFS, comme la
+      // page patrimoine) en secours du périmètre pour les colonnes « Adresse » et « Ville ».
+      db.from("lots").select("tranche_code, adresse, ville").eq("actif", true),
+      // V8.16o — numéro fournisseur réel (alias travaux_commandes) : affiché en
+      // secours quand le NOM d'entreprise d'une demande n'est pas renseigné.
+      db.from("fournisseur_aliases").select("fournisseur_id, source, identifiant_source"),
+    ]);
     if (commandesR.error) throw new Error(`Lecture du registre : ${commandesR.error.message}`);
+
+    // V8.16o — numéro fournisseur par fournisseur (libellé robuste « Fournisseur n°XXXX »
+    // si le nom est absent). Même bloc que getPspEntreprisesSuggestions.
+    const numeroParFournisseur = new Map<string, string>();
+    for (const a of aliasesR.data ?? []) {
+      if (a.identifiant_source == null) continue;
+      const id = String(a.fournisseur_id ?? "");
+      const numero = String(a.identifiant_source).trim();
+      if (!id || !numero) continue;
+      const precedent = numeroParFournisseur.get(id);
+      if (!precedent || a.source === "travaux_commandes") numeroParFournisseur.set(id, numero);
+    }
+
+    // V8.16n/p — adresse + ville de référence par tranche (mode des adresses RÉELLES des lots
+    // actifs, avec le n° de voie — même source que la page patrimoine). En secours du périmètre
+    // quand une opération n'en a pas. Le bruit (vides, « Adresse inconnue », nombres purs comme
+    // « 0 », valeurs sans lettre) est ignoré. En dernier recours, les adresses des commandes de
+    // l'exercice complètent le mode (sans jamais créer de données).
+    const adresseParTranche = new Map<string, string>();
+    const villeParTranche = new Map<string, string>();
+    {
+      const comptesAdr = new Map<string, Map<string, number>>();
+      const comptesVille = new Map<string, Map<string, number>>();
+      const ingerer = (
+        tranche: string | null | undefined,
+        adresse: string | null | undefined,
+        ville: string | null | undefined,
+      ) => {
+        if (!tranche) return;
+        const a = (adresse ?? "").replace(/\s+/g, " ").trim();
+        if (a && a !== "Adresse inconnue" && !/^\d+$/.test(a) && /[A-Za-zÀ-ÿ]/.test(a)) {
+          const m = comptesAdr.get(tranche) ?? new Map<string, number>();
+          m.set(a, (m.get(a) ?? 0) + 1);
+          comptesAdr.set(tranche, m);
+        }
+        const v = (ville ?? "").replace(/\s+/g, " ").trim();
+        if (v && /[A-Za-zÀ-ÿ]/.test(v)) {
+          const m = comptesVille.get(tranche) ?? new Map<string, number>();
+          m.set(v, (m.get(v) ?? 0) + 1);
+          comptesVille.set(tranche, m);
+        }
+      };
+      for (const lot of (lotsR.data ?? []) as Array<{
+        tranche_code: string | null;
+        adresse: string | null;
+        ville: string | null;
+      }>) {
+        ingerer(lot.tranche_code, lot.adresse, lot.ville);
+      }
+      // Repli : adresses des commandes de l'exercice (tranches sans lots exploitables).
+      for (const c of (commandesR.data ?? []) as Array<{
+        tranche_code: string | null;
+        adresse: string | null;
+      }>) {
+        ingerer(c.tranche_code, c.adresse, null);
+      }
+      const meilleure = (m: Map<string, number>): string => {
+        let meilleur = "";
+        let meilleurCompte = 0;
+        for (const [k, c] of m)
+          if (c > meilleurCompte) {
+            meilleur = k;
+            meilleurCompte = c;
+          }
+        return meilleur;
+      };
+      for (const [t, m] of comptesAdr) {
+        const v = meilleure(m);
+        if (v) adresseParTranche.set(t, v);
+      }
+      for (const [t, m] of comptesVille) {
+        const v = meilleure(m);
+        if (v) villeParTranche.set(t, v);
+      }
+    }
 
     // V8.8 §4 / V8.13 — nombre de lignes annuelles SANS commande détectées dans le
     // DERNIER import de l'exercice demandé (travaux_import_details, lecture seule — INTANGIBLE).
@@ -2238,10 +2421,35 @@ export const getPspSuiviAnnuel = createServerFn({ method: "POST" })
           corpsEtat: ligne.corps_etat,
           nature: ligne.nature_travaux,
           adresse: vue.programmation.adresse,
+          adresseRue:
+            adresseRueDepuisPerimetre(
+              (perimPar[ligne.id] ?? []) as Array<{
+                rue?: string | null;
+                numero?: string | null;
+              }>,
+            ) ??
+            adresseParTranche.get(ligne.tranche_code) ??
+            null,
+          ville:
+            tranche?.localite ??
+            villeParTranche.get(ligne.tranche_code) ??
+            villeDepuisAdresse(vue.programmation.adresse),
+          entreprises: devis
+            .filter((d: any) => d.psp_ligne_id === ligne.id)
+            .map((d: any) => {
+              const nom = (d.entreprise ?? "").trim();
+              // V8.16o — si le nom n'est pas renseigné, afficher le numéro fournisseur.
+              if (nom) return nom;
+              return d.fournisseur_id ? (numeroParFournisseur.get(d.fournisseur_id) ?? nom) : nom;
+            })
+            .filter(Boolean),
           ligneBudget: ligne.ligne_budget,
           budget: commandeLiee?.budget ?? null,
           programmeAnnee: progAnnee || null,
           commande: (commandeLiee ?? null) as CommandeAnnuelle | null,
+          // V8.16 — engagé/payé de la ligne suivi sans commande (colonnes migration V8.16).
+          engage: ligne.montant_engage ?? null,
+          paye: ligne.montant_paye ?? null,
           consultation: {
             nb_demandes: vue.consultation.nb_demandes,
             nb_devis_recus: vue.consultation.nb_devis_recus,
@@ -2271,9 +2479,16 @@ export const getPspSuiviAnnuel = createServerFn({ method: "POST" })
           corpsEtat: c.corps_etat,
           nature: c.descriptif,
           adresse: c.adresse,
+          ville:
+            tranche?.localite ??
+            villeParTranche.get(c.tranche_code ?? "") ??
+            villeDepuisAdresse(c.adresse),
           ligneBudget: c.ligne_budget,
           budget: c.budget,
           commande: c,
+          // V8.16 — engagé/payé de la commande (KPI annuels niveau ligne).
+          engage: c.engage ?? null,
+          paye: c.paye ?? null,
         }),
       );
     }

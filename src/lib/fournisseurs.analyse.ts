@@ -125,6 +125,29 @@ export const PROFIL_CONFIG = {
     seuilPrincipal: 60,
     seuilSecondaire: 24,
   },
+  /**
+   * V8.16p — classification RELATIVE par écart (règle utilisateur) :
+   *   · équilibré (top−second ≤ ecartEquilibre) → les activités significatives
+   *     (part ≥ max(top×0.5, partMinPrincipale)) sont TOUTES « principale » ;
+   *   · écart marqué → hiérarchie RELATIVE : le dominant (ratio ≥ ratioPrincipal)
+   *     est « principale », les activités moyennes (ratio ≥ ratioSecondaire)
+   *     « secondaire », la queue « occasionnel ».
+   */
+  ecartEquilibre: 0.15,
+  partMinPrincipale: 0.1,
+  /** Ratio à la part maximale : activité « principale » (écart marqué) — seul le
+   *  dominant (ou une activité quasi égale, ≥ 75 % du top) est principale. */
+  ratioPrincipal: 0.75,
+  /** Ratio à la part maximale : activité « secondaire » (écart marqué). */
+  ratioSecondaire: 0.15,
+  /**
+   * V8.16p — BARÈME COMBINÉ : « part d'activité » = blendCommandes × part du
+   * NOMBRE DE COMMANDES + blendMontant × part du MONTANT (jamais négatif). Les
+   * deux critères comptent : ex. 12562 isolat extérieure = 1 commande mais 35 k€
+   * (plus gros montant) → activité significative, pas « occasionnel ».
+   */
+  blendCommandes: 0.5,
+  blendMontant: 0.5,
 } as const;
 
 export interface ProfilCorps {
@@ -134,6 +157,8 @@ export interface ProfilCorps {
   montant: number;
   partCommandes: number;
   partMontant: number;
+  /** V8.16p — « part d'activité » combinée (commandes + montant) → classification. */
+  part_activite: number;
   /** Exercices distincts avec au moins une commande de ce corps. */
   annees_actives: number;
   /** Activité récente : 1 (exercice le plus récent), 0,5 (l'avant-dernier), 0 sinon. */
@@ -197,6 +222,62 @@ export function classerScoreActivite(score: number): ProfilNiveau {
   return "occasionnel";
 }
 
+/**
+ * V8.16p — Classification RELATIVE des niveaux par écart (règle utilisateur).
+ * Chaque corps porte une « part d'activité » combinée (nombre de commandes +
+ * montant, voir PROFIL_CONFIG.blendCommandes/blendMontant) :
+ *   · équilibré (top−second ≤ ecartEquilibre) : les activités significatives
+ *     (part ≥ max(top×0.5, partMinPrincipale)) deviennent TOUTES « principale »
+ *     (ex. étanchéité + divers 50/50, ou 12562 isolat extérieure 35 k€) ;
+ *   · écart marqué : hiérarchie RELATIVE — le dominant (ratio ≥ ratioPrincipal)
+ *     est « principale », les activités moyennes « secondaire », la queue
+ *     « occasionnel ». Ex. 5700 : 3/5 Fermetures → Fermetures principale.
+ * Pur et testable.
+ */
+export function classerNiveauxParEcart(
+  corps: Array<{ corps_etat: string; part: number }>,
+  config: {
+    ecartEquilibre?: number;
+    partMinPrincipale?: number;
+    ratioPrincipal?: number;
+    ratioSecondaire?: number;
+  } = {},
+): Map<string, ProfilNiveau> {
+  const {
+    ecartEquilibre = PROFIL_CONFIG.ecartEquilibre,
+    partMinPrincipale = PROFIL_CONFIG.partMinPrincipale,
+    ratioPrincipal = PROFIL_CONFIG.ratioPrincipal,
+    ratioSecondaire = PROFIL_CONFIG.ratioSecondaire,
+  } = config;
+  const out = new Map<string, ProfilNiveau>();
+  if (corps.length === 0) return out;
+  const tries = [...corps].sort((a, b) => b.part - a.part);
+  const top = tries[0]?.part ?? 0;
+  const second = tries[1]?.part ?? 0;
+  // Équilibre : les activités significatives sont TOUTES « principale ».
+  if (top - second <= ecartEquilibre) {
+    const seuil = Math.max(top * 0.5, partMinPrincipale);
+    for (const c of tries) {
+      out.set(c.corps_etat, c.part >= seuil ? "principal" : "occasionnel");
+    }
+    return out;
+  }
+  // Écart marqué : hiérarchie relative — le dominant et toute activité proche sont
+  // « principale », les activités moyennes « secondaire », la queue « occasionnel ».
+  for (const c of tries) {
+    const ratio = top > 0 ? c.part / top : 0;
+    out.set(
+      c.corps_etat,
+      ratio >= ratioPrincipal
+        ? "principal"
+        : ratio >= ratioSecondaire
+          ? "secondaire"
+          : "occasionnel",
+    );
+  }
+  return out;
+}
+
 /** Calcule le profil d'activité d'un fournisseur depuis ses commandes (toutes années). */
 export function calculerProfilActivite(
   commandes: Array<{
@@ -226,6 +307,10 @@ export function calculerProfilActivite(
     .map(([corps_etat, v]) => {
       const partCommandes = totalCommandes > 0 ? v.commandes / totalCommandes : 0;
       const partMontant = totalMontant > 0 ? v.montant / totalMontant : 0;
+      // V8.16p — « part d'activité » combinée (barème : commandes + montant).
+      const part_activite =
+        PROFIL_CONFIG.blendCommandes * partCommandes +
+        PROFIL_CONFIG.blendMontant * Math.max(partMontant, 0);
       const annees_actives = v.annees.size;
       const recence =
         anneeMax == null ? 0 : v.annees.has(anneeMax) ? 1 : v.annees.has(anneeMax - 1) ? 0.5 : 0;
@@ -243,6 +328,7 @@ export function calculerProfilActivite(
         montant: v.montant,
         partCommandes,
         partMontant,
+        part_activite,
         annees_actives,
         recence,
         score,
@@ -250,6 +336,20 @@ export function calculerProfilActivite(
       };
     })
     .sort((a, b) => b.montant - a.montant || b.commandes - a.commandes);
+
+  // V8.16p — niveau RELATIF par écart sur la PART D'ACTIVITÉ combinée (nombre de
+  // commandes + montant) : équilibré → activités significatives toutes « principale »
+  // ; écart marqué → hiérarchie relative (dominant = principale). Le score absolu
+  // reste disponible pour l'ordonnancement.
+  {
+    const ajustements = classerNiveauxParEcart(
+      corps.map((c) => ({ corps_etat: c.corps_etat, part: c.part_activite })),
+    );
+    for (const c of corps) {
+      const n = ajustements.get(c.corps_etat);
+      if (n) c.niveau = n;
+    }
+  }
 
   // Agrégation par famille
   const parFamille = new Map<FamilleMetier, { commandes: number; montant: number }>();

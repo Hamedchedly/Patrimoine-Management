@@ -140,6 +140,8 @@ export interface LigneFournisseurListe {
   /** Montant de l'année cible sur les seules activités principales effectives. */
   montant_annee_principaux: number;
   favori: boolean;
+  /** V8.16p — infos importantes manquantes (nom inconnu ou aucun email) → pastille. */
+  a_completer: boolean;
   actif_annee: boolean;
   actif_3ans: boolean;
   actif_5ans: boolean;
@@ -327,6 +329,19 @@ export const getFournisseursList = createServerFn({ method: "POST", strict: fals
           // table absente : favoris non disponibles, aucune erreur bloquante.
         }
       }
+      // V8.16p — emails des contacts (pastille « à compléter » si nom ou email manquant).
+      const emailParFournisseur = new Set<string>();
+      try {
+        const { data: contactsRows } = await db
+          .from("fournisseurs_contacts")
+          .select("fournisseur_id")
+          .not("email", "is", null);
+        for (const r of (contactsRows ?? []) as { fournisseur_id: string }[]) {
+          if (r.fournisseur_id) emailParFournisseur.add(r.fournisseur_id);
+        }
+      } catch {
+        // table absente : aucune erreur bloquante.
+      }
       // Construction des lignes analytiques (fournisseurs référencés + refs suivi sans fiche).
       const ligneDepuis = (params: {
         f: Fournisseur | null;
@@ -397,6 +412,7 @@ export const getFournisseursList = createServerFn({ method: "POST", strict: fals
           derniere_commande_date: dern.date,
           derniere_commande_numero: dern.numero,
           favori,
+          a_completer: !f?.id || !emailParFournisseur.has(f?.id ?? ""),
           actif_annee: commandes_annee > 0,
           actif_3ans: anneeCible != null && parAnnee.some((a) => a.annee >= anneeCible - 2),
           actif_5ans: anneeCible != null && parAnnee.some((a) => a.annee >= anneeCible - 4),

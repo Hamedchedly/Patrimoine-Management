@@ -11,12 +11,13 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, FileSearch, Loader2, Workflow } from "lucide-react";
+import { ArrowLeft, FileSearch, Loader2, Mail, Workflow } from "lucide-react";
 
 import PspCommandesARapprocherPanel from "@/components/suivi/PspCommandesARapprocherPanel";
 import PspCorrespondanceCommandeDialog from "@/components/suivi/PspCorrespondanceCommandeDialog";
 import SuiviOperationFiche from "@/components/suivi/SuiviOperationFiche";
 import TableauDemandesDevis from "@/components/suivi/TableauDemandesDevis";
+import ModeleMailEditor from "@/components/preparation-psp/ModeleMailEditor";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { money0 } from "@/lib/formats";
@@ -52,6 +53,19 @@ export const Route = createFileRoute("/suivi")({
 const ANNEE_SUIVI = 2026;
 const ANNEE_PSP = 2027;
 
+/** V8.16l — données des KPI du haut de /suivi (dynamiques selon l'onglet actif). */
+type KpiVue = {
+  totalOperations: number;
+  budgetProgramme: number;
+  engage: number;
+  paye: number;
+  travauxEnCours: number;
+  terminees: number;
+  devisSans: number;
+  devisAttente: number;
+  devisRecus: number;
+};
+
 function SuiviPage() {
   const fetchRegistre = useServerFn(getPspSuiviAnnuel);
   const fetchOperations = useServerFn(getPspSuiviOperations);
@@ -86,6 +100,10 @@ function SuiviPage() {
   const [selection, setSelection] = useState<SuiviOperationVue | null>(null);
   const [commandeSelection, setCommandeSelection] = useState<string | null>(null);
   const [aRapprocher, setARapprocher] = useState(false);
+  // V8.16l — onglet actif (les KPI du haut sont dynamiques selon l'onglet).
+  const [onglet, setOnglet] = useState<"suivi-annuel" | "psp-2027">("suivi-annuel");
+  // V8.16p — éditeur des modèles de mail (persistés en base).
+  const [modeleMailOuvert, setModeleMailOuvert] = useState(false);
 
   /** V8.3/V8.6.1 — recharge le registre après création/enregistrement. */
   const refresh = async () => {
@@ -102,7 +120,8 @@ function SuiviPage() {
     void d;
   };
 
-  // V8.10 — KPI du registre 2026 (7 conventions V8.6.1 §12, conservés).
+  // V8.10 — KPI du registre annuel (conventions V8.6.1 §12 / V8.16 : engagé-payé par ligne,
+  // enveloppe par LB distinctes). Les KPI du haut (KpiSuivi) sont dérivés de kpi2026/kpi2027.
   const kpi = useMemo(() => kpiRegistreAnnuel(lignes), [lignes]);
 
   // V8.10 — lignes des deux onglets (même tableau partagé LigneDemandeDevis).
@@ -123,6 +142,43 @@ function SuiviPage() {
         .map((o) => ligneDemandeDevisDepuisOperation(o, ANNEE_PSP)),
     [operations],
   );
+
+  // V8.16l — KPI du haut DYNAMIQUES selon l'onglet actif.
+  //  · « Suivi annuel » : registre 2026 — conventions V8.16 identiques au dashboard
+  //    (engagé/payé au niveau LIGNE, enveloppe = LB distinctes).
+  //  · « PSP 2027 » : opérations programmées 2027 (engagé/payé/travaux = 0 tant que
+  //    non commandé ; devis = avancement réel des consultations).
+  const kpi2026 = useMemo<KpiVue>(() => {
+    const k = kpi;
+    return {
+      totalOperations: k.operations,
+      budgetProgramme: k.budgetProgramme,
+      engage: k.budgetEngage,
+      paye: k.budgetPaye,
+      travauxEnCours: k.travauxEnCours,
+      terminees: k.terminees,
+      devisSans: lignesSuiviAnnuel.filter((l) => l.avancement === "sans_devis").length,
+      devisAttente: lignesSuiviAnnuel.filter((l) => l.avancement === "attente_devis").length,
+      devisRecus: lignesSuiviAnnuel.filter((l) => l.avancement === "devis_recus").length,
+    };
+  }, [kpi, lignesSuiviAnnuel]);
+
+  const kpi2027 = useMemo<KpiVue>(
+    () => ({
+      totalOperations: lignesPsp2027.length,
+      budgetProgramme: lignesPsp2027.reduce((s, l) => s + (l.montant ?? 0), 0),
+      engage: 0,
+      paye: 0,
+      travauxEnCours: 0,
+      terminees: 0,
+      devisSans: lignesPsp2027.filter((l) => l.avancement === "sans_devis").length,
+      devisAttente: lignesPsp2027.filter((l) => l.avancement === "attente_devis").length,
+      devisRecus: lignesPsp2027.filter((l) => l.avancement === "devis_recus").length,
+    }),
+    [lignesPsp2027],
+  );
+
+  const kpiVue = onglet === "suivi-annuel" ? kpi2026 : kpi2027;
 
   /** Ouvre la fiche opération depuis une ligne des onglets (demandes de devis). */
   const ouvrirDemande = (l: LigneDemandeDevis) => {
@@ -153,6 +209,10 @@ function SuiviPage() {
           <Button size="sm" variant="outline" onClick={() => setARapprocher(true)}>
             <FileSearch className="size-3.5" /> Commandes à rapprocher
           </Button>
+          {/* V8.16p — modèles de mail personnalisables (persistés en base) */}
+          <Button size="sm" variant="outline" onClick={() => setModeleMailOuvert(true)}>
+            <Mail className="size-3.5" /> Modèles de mail
+          </Button>
           <Button asChild variant="outline" size="sm">
             <Link to="/preparation-psp">
               <ArrowLeft className="size-3.5" /> Préparation PSP
@@ -182,25 +242,15 @@ function SuiviPage() {
       )}
 
       <main className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6">
-        {/* V8.10 — KPI du registre 2026 conservés (7 conventions V8.6.1 §12). */}
-        {!isLoading && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-            <Kpi label="Opérations" value={String(kpi.operations)} />
-            <Kpi label="Budget programmé" value={money0(kpi.budgetProgramme)} />
-            <Kpi label="Commandé" value={money0(kpi.budgetCommande)} />
-            <Kpi label="Engagé" value={money0(kpi.budgetEngage)} />
-            <Kpi label="Payé" value={money0(kpi.budgetPaye)} />
-            <Kpi label="Travaux en cours" value={String(kpi.travauxEnCours)} />
-            <Kpi label="Terminées" value={String(kpi.terminees)} />
-          </div>
-        )}
+        {/* V8.16l — KPI + barres empilées, DYNAMIQUES selon l'onglet actif. */}
+        {!isLoading && <KpiSuivi kpi={kpiVue} />}
 
         {isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Chargement du suivi annuel…
           </p>
         ) : (
-          <Tabs defaultValue="suivi-annuel">
+          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as "suivi-annuel" | "psp-2027")}>
             <TabsList>
               <TabsTrigger value="suivi-annuel">Suivi annuel {ANNEE_SUIVI}</TabsTrigger>
               <TabsTrigger value="psp-2027">PSP {ANNEE_PSP}</TabsTrigger>
@@ -211,6 +261,7 @@ function SuiviPage() {
                 sousTitre="Opérations de l'exercice sans commande : à demander en devis. Mises à jour à chaque import du fichier annuel."
                 lignes={lignesSuiviAnnuel}
                 onOpen={ouvrirDemande}
+                onEnvoye={refresh}
               />
             </TabsContent>
             <TabsContent value="psp-2027" className="pt-3">
@@ -219,6 +270,7 @@ function SuiviPage() {
                 sousTitre="Opérations de la préparation PSP programmées sur 2027."
                 lignes={lignesPsp2027}
                 onOpen={ouvrirDemande}
+                onEnvoye={refresh}
               />
             </TabsContent>
           </Tabs>
@@ -253,15 +305,71 @@ function SuiviPage() {
           }}
         />
       )}
+      {/* V8.16p — éditeur des modèles de mail (base) */}
+      <ModeleMailEditor ouvert={modeleMailOuvert} onFermer={() => setModeleMailOuvert(false)} />
     </div>
   );
 }
 
-function Kpi({ label, value }: { label: string; value: string }) {
+/** V8.16l — petite barre empilée (KPI /suivi) : segments proportionnels au total. */
+function MiniBarre({
+  segments,
+  legende,
+}: {
+  segments: { label: string; value: number; color: string }[];
+  legende: string;
+}) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
   return (
-    <div className="rounded-lg border bg-card px-2 py-1.5">
-      <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="text-sm font-bold">{value}</p>
+    <div className="rounded-lg border bg-card p-2">
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+        {segments.map((s) =>
+          s.value > 0 ? (
+            <div
+              key={s.label}
+              className="h-full"
+              style={{ width: `${(s.value / total) * 100}%`, backgroundColor: s.color }}
+              title={`${s.label} : ${money0(s.value)}`}
+            />
+          ) : null,
+        )}
+      </div>
+      <p className="mt-1.5 text-[9px] font-black uppercase tracking-wide text-slate-400">
+        {legende}
+      </p>
+    </div>
+  );
+}
+
+/** V8.16l — bloc KPI du haut de /suivi : 3 barres empilées compactes (sans chiffres). */
+function KpiSuivi({ kpi }: { kpi: KpiVue }) {
+  const reste = Math.max(0, kpi.budgetProgramme - kpi.engage);
+  const autresTravaux = Math.max(0, kpi.totalOperations - kpi.travauxEnCours - kpi.terminees);
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <MiniBarre
+        segments={[
+          { label: "Engagé", value: kpi.engage, color: "#2563eb" },
+          { label: "Reste", value: reste, color: "#e2e8f0" },
+        ]}
+        legende={`Engagé ${money0(kpi.engage)} · Payé ${money0(kpi.paye)} · Reste ${money0(reste)}`}
+      />
+      <MiniBarre
+        segments={[
+          { label: "En cours", value: kpi.travauxEnCours, color: "#2563eb" },
+          { label: "Terminées", value: kpi.terminees, color: "#16a34a" },
+          { label: "Autres", value: autresTravaux, color: "#e2e8f0" },
+        ]}
+        legende={`En cours ${kpi.travauxEnCours} · Terminées ${kpi.terminees} · Total ${kpi.totalOperations}`}
+      />
+      <MiniBarre
+        segments={[
+          { label: "Sans devis", value: kpi.devisSans, color: "#f87171" },
+          { label: "Demande faite", value: kpi.devisAttente, color: "#f59e0b" },
+          { label: "Devis reçus", value: kpi.devisRecus, color: "#22c55e" },
+        ]}
+        legende={`Sans devis ${kpi.devisSans} · Demande faite ${kpi.devisAttente} · Devis reçus ${kpi.devisRecus}`}
+      />
     </div>
   );
 }

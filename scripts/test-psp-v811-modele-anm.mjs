@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 import * as XLSX from "xlsx";
 
 import { parseTravauxWorkbook } from "../src/lib/travaux.ts";
+import { enveloppeBudgetaire } from "../src/lib/psp.suivi.view.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = (p) => join(__dirname, "..", "src", p);
@@ -359,8 +360,60 @@ if (existsSync(cheminReel2023)) {
       return c?.budget === 3000 && c?.engage === 12677.5 && c?.fournisseur === "STARK";
     })(),
   );
+  check(
+    "H3. lignes sans commande 2023 : engagé 36 258,13 · payé 0",
+    (() => {
+      const eng = reel23.sansCommande.reduce((s, e) => s + (Number(e.engage) || 0), 0);
+      const pay = reel23.sansCommande.reduce((s, e) => s + (Number(e.paye) || 0), 0);
+      return Math.abs(eng - 36258.13) < 0.01 && pay === 0;
+    })(),
+  );
+  check(
+    "H4. 2023 réconciliation engagé : commandes 220 745,18 + sans commande 36 258,13 = 257 003,31",
+    (() => {
+      const engCmd = reel23.commandes.reduce((s, c) => s + (Number(c.engage) || 0), 0);
+      const engSans = reel23.sansCommande.reduce((s, e) => s + (Number(e.engage) || 0), 0);
+      return Math.abs(engCmd + engSans - 257003.31) < 0.01;
+    })(),
+  );
 } else {
   console.log("  (fichier réel 2023 absent — bloc H sauté)");
+}
+
+// ════════════ I. V8.15 — ENVELOPPE BUDGÉTAIRE (LB distinctes) ════════════════
+// Règle validée : enveloppe = somme du budget des lignes portant une LB,
+// chaque LB comptée UNE seule fois (des lignes peuvent partager le même n° LB).
+const lignesEnv = [
+  { ligne_budget: "565", budget: 5000 },
+  { ligne_budget: "565", budget: 6000 }, // même LB → comptée une seule fois
+  { ligne_budget: "534", budget: 5000 },
+  { ligne_budget: null, budget: 9999 }, // sans LB → exclue de l'enveloppe
+];
+check(
+  "I1. LB dupliquée comptée une seule fois ; ligne sans LB exclue",
+  enveloppeBudgetaire(lignesEnv) === 10000,
+  `got ${enveloppeBudgetaire(lignesEnv)}`,
+);
+
+if (existsSync(cheminReel)) {
+  const reelEnv = parseTravauxWorkbook(readFileSync(cheminReel));
+  const envLignes = [
+    ...reelEnv.commandes.map((c) => ({
+      ligne_budget: c.ligne_budget,
+      budget: c.budget,
+      programme_annee: null,
+    })),
+    ...reelEnv.sansCommande.map((e) => ({
+      ligne_budget: e.ligne_budget,
+      budget: e.budget,
+      programme_annee: null,
+    })),
+  ];
+  check(
+    "I2. fichier réel 2026 : enveloppe = 317 000 € (LB distinctes, pas 333 k€)",
+    Math.abs(enveloppeBudgetaire(envLignes) - 317000) < 0.01,
+    `got ${enveloppeBudgetaire(envLignes)}`,
+  );
 }
 
 console.log(`\nV8.11 MODÈLE ANM PUR — ${passed} ok / ${failed} échec(s)`);

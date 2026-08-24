@@ -12,7 +12,6 @@ import {
   getAlertesCommande,
   getDernierImportExercice,
   matchesAnnee,
-  repartitionCommandesParSecteur,
   resyncImportErrors,
   secteurDe,
   sliderYearDomain,
@@ -20,20 +19,7 @@ import {
   visibleParPerimetre,
   yearRangeInitial,
 } from "@/lib/travaux";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  Legend,
-  LabelList,
-} from "recharts";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import {
   AlertTriangle,
   ArrowDownUp,
@@ -98,6 +84,8 @@ import {
   type ImportTravaux,
 } from "@/lib/travaux.dashboard.functions";
 import { getVillesGeo, type VilleGeo } from "@/lib/geo.functions";
+import { calculerStatsSuiviAnnuel, detecterLBIncoherentes } from "@/lib/travaux.suivi.stats";
+import { normaliserVille } from "@/lib/geo";
 import {
   construireCleMetierCommande,
   extraireChargePsp,
@@ -145,6 +133,7 @@ type ClassementRow = {
   label: string;
   value: number;
   ville?: string;
+  adresse?: string;
   tranche?: string;
 };
 const SECTEURS = ["GT", "GE", "CP"] as const;
@@ -184,40 +173,13 @@ function YearRangeSlider({
 }
 
 /** Normalisation et matching de villes + secteur dérivé : helpers importés de "@/lib/travaux"
- * (secteurDe, villeDeCommande, repartitionCommandesParSecteur, buildDataVilles). */
+ * (secteurDe, villeDeCommande, buildDataVilles). */
 
 const yearOf = (row: Commande) => {
   if (row.annee_exercice) return String(row.annee_exercice);
   const date = row.date_demarrage || row.date_fin_travaux || row.date_communication;
   return date ? date.slice(0, 4) : "Sans année";
 };
-
-function Kpi({
-  label,
-  value,
-  detail,
-  trend,
-}: {
-  label: string;
-  value: string;
-  detail?: string;
-  trend?: string;
-}) {
-  return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-      <div className="mt-1 flex items-baseline gap-2">
-        <p className="text-2xl font-black text-slate-900">{value}</p>
-        {trend && (
-          <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-tighter">
-            {trend}
-          </span>
-        )}
-      </div>
-      {detail && <p className="mt-1 text-[10px] font-bold text-slate-400">{detail}</p>}
-    </div>
-  );
-}
 
 function MultiSelect({
   label,
@@ -373,6 +335,17 @@ function DashboardTravauxPage() {
       const trancheCode = l["tranche_code"] ? String(l["tranche_code"]) : null;
       const detail = tranchesDetails.find((td) => td.code === trancheCode);
       const programme = (l["programme"] as Record<string, number> | undefined) ?? {};
+      // V8.16 — année d'exercice : colonne dédiée si présente (migration V8.16), sinon
+      // dérivée des clés de `programme` (une ligne suivi matérialisée = une seule année).
+      const anneeExercice =
+        typeof l["annee_exercice"] === "number" && Number.isFinite(Number(l["annee_exercice"]))
+          ? Number(l["annee_exercice"])
+          : (() => {
+              const annees = Object.keys(programme)
+                .map(Number)
+                .filter((a) => Number.isFinite(a) && (programme[String(a)] ?? 0) > 0);
+              return annees.length ? Math.max(...annees) : null;
+            })();
       return {
         id: String(l["id"]),
         sans_commande: true,
@@ -388,13 +361,15 @@ function DashboardTravauxPage() {
         charge_operation: null,
         ligne_budget: l["ligne_budget"] ? String(l["ligne_budget"]) : null,
         descriptif: l["nature_travaux"] ? String(l["nature_travaux"]) : null,
-        budget: Number(programme[2026] ?? 0) || null,
+        budget:
+          anneeExercice != null ? Number(programme[String(anneeExercice)] ?? 0) || null : null,
         numero_fournisseur: null,
         fournisseur: null,
         etat_commande: null,
-        engage: 0,
+        // V8.16 — engagé/payé réels des lignes sans commande (colonnes migration V8.16).
+        engage: Number(l["montant_engage"]) || 0,
         ecart: null,
-        paye: 0,
+        paye: Number(l["montant_paye"]) || 0,
         solde: null,
         etat_travaux: null,
         date_demarrage: null,
@@ -402,7 +377,7 @@ function DashboardTravauxPage() {
         observations: null,
         support_communication: null,
         date_communication: null,
-        annee_exercice: 2026,
+        annee_exercice: anneeExercice,
         classification_programmation: null,
         classification_secteur: null,
         actif: true,
@@ -465,7 +440,6 @@ function DashboardTravauxPage() {
   const [actFilter, setActFilter] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [showAllTranches, setShowAllTranches] = useState(false);
   const [mapMode, setMapMode] = useState<"map" | "classement">("map");
   const [rankingMode, setRankingMode] = useState<"ville" | "tranche" | "adresse">("ville");
 
@@ -887,75 +861,109 @@ function DashboardTravauxPage() {
     const base = actFilter
       ? filtered.filter((row) => getAlertesCommande(row).length > 0 || historyMap.has(row.id))
       : filtered;
-    // V8.12 — lignes annuelles SANS commande ajoutées au tableau (année dans la plage).
-    const suivi = lignesSuiviRows.filter((l) => matchesAnnee(l, yearRange));
+    // V8.12/V8.16 — lignes annuelles SANS commande ajoutées au tableau (année dans la
+    // plage ; les lignes suivi sans année sont exclues des vues annuelles).
+    const suivi = lignesSuiviRows.filter(
+      (l) => l.annee_exercice != null && matchesAnnee(l, yearRange),
+    );
     return [...base, ...suivi];
   }, [filtered, actFilter, historyMap, lignesSuiviRows, yearRange]);
 
-  const stats = useMemo(() => {
-    const budget = filtered.reduce((s, r) => s + (r.budget || 0), 0);
-    const engage = filtered.reduce((s, r) => s + (r.engage || 0), 0);
-    const count = filtered.length;
-    const countProg = filtered.filter((r) => !!r.ligne_budget).length;
-    // Source unique de vérité : etatMetier() (même logique que le filtre État).
-    const countDone = filtered.filter((r) => {
-      const e = etatMetier(r, exercice);
-      return e === "Terminés" || e === "Close";
-    }).length;
+  // V8.16 — lignes suivi de l'exercice (les lignes sans année sont exclues des vues
+  // annuelles), passées à la fonction pure de stats (testable).
+  const suiviAnnee = useMemo(
+    () => lignesSuiviRows.filter((l) => l.annee_exercice != null && matchesAnnee(l, yearRange)),
+    [lignesSuiviRows, yearRange],
+  );
+
+  // V8.16 — alerte lignes budgétaires incohérentes (même LB, budgets différents) sur
+  // l'EXERCICE (commandes de l'année + lignes suivi de l'année ; indépendant des filtres
+  // secteur/état/archivage). Une LB peut légitimement changer de montant entre exercices :
+  // la détection est donc limitée à l'année affichée. Correction au prochain import.
+  const alertesLB = useMemo(
+    () =>
+      detecterLBIncoherentes([
+        ...allCommandes.filter((c) => matchesAnnee(c, yearRange)),
+        ...suiviAnnee,
+      ]),
+    [allCommandes, suiviAnnee, yearRange],
+  );
+
+  // V8.12/V8.16 — KPI du suivi annuel ANM (engagé, payé, % engagé/budget, % payé/engagé,
+  // % hors budget) + barres d'avancement par catégorie (GT/GE/CP). Calcul PUR dans
+  // `calculerStatsSuiviAnnuel` : lignes suivi incluses dans compteurs et totaux.
+  const statsAnm = useMemo(
+    () => calculerStatsSuiviAnnuel(filtered, suiviAnnee),
+    [filtered, suiviAnnee],
+  );
+
+  // V8.16 — répartition de l'ENGAGÉ par catégorie GT/GE/CP (montants, lignes suivi
+  // comprises), en complément du comptage par secteur.
+  const dataCategorieEngage = useMemo(
+    () =>
+      statsAnm.cat.map((c) => ({
+        name: c.code,
+        value: c.engage,
+        count: c.nbProg + c.nbHors,
+        prog: c.prog,
+        hors: c.hors,
+        paye: c.paye,
+      })),
+    [statsAnm.cat],
+  );
+
+  // V8.16e — donut « % programmé / % hors budget » de la carte « % Engagé vs Budget »
+  // (100 % = enveloppe budgétaire : programmé + hors prog + reste).
+  const dataDonutBudget = useMemo(
+    () => [
+      { name: "Programmées", value: statsAnm.engProg, color: "#2563eb" },
+      { name: "Hors budget", value: statsAnm.engHors, color: "#f59e0b" },
+      {
+        name: "Reste",
+        value: Math.max(0, statsAnm.budgetTotal - statsAnm.engage),
+        color: "#e2e8f0",
+      },
+    ],
+    [statsAnm],
+  );
+
+  // V8.16e — barre empilée « payé / engagé non payé / reste » de la carte Total engagé
+  // (100 % = enveloppe budgétaire, ou engagé total si dépassement).
+  const barreFlux = useMemo(() => {
+    const scale = Math.max(statsAnm.budgetTotal, statsAnm.engage, 1);
+    const engRestant = Math.max(0, statsAnm.engage - statsAnm.paye);
+    const resteBudget = Math.max(0, statsAnm.budgetTotal - statsAnm.engage);
     return {
-      budget,
-      engage,
-      pctHors: count ? Math.round(((count - countProg) / count) * 100) : 0,
-      pctProg: count ? Math.round((countProg / count) * 100) : 0,
-      done: countDone,
-      total: count,
+      pPaye: (statsAnm.paye / scale) * 100,
+      pEngRestant: (engRestant / scale) * 100,
+      pResteBudget: (resteBudget / scale) * 100,
+      engRestant,
+      resteBudget,
     };
-  }, [filtered, exercice]);
-
-  // V8.12 — KPI du suivi annuel ANM (engagé, payé, % programmé, nb commandes) + barres
-  // d'avancement par catégorie (GT/GE/CP). Les lignes SANS commande (lignesSuiviRows)
-  // entrent dans le budget total et le « reste » des barres.
-  const statsAnm = useMemo(() => {
-    const eng = (rows: Array<{ engage?: number | null }>) =>
-      rows.reduce((s, r) => s + (r.engage || 0), 0);
-    const bud = (rows: Array<{ budget?: number | null }>) =>
-      rows.reduce((s, r) => s + (r.budget || 0), 0);
-    const prog = filtered.filter((r) => !!r.ligne_budget);
-    const hors = filtered.filter((r) => !r.ligne_budget);
-    const suiviAnnee = lignesSuiviRows.filter((l) => matchesAnnee(l, yearRange));
-    const engage = eng(filtered);
-    const paye = filtered.reduce((s, r) => s + (r.paye || 0), 0);
-    const engProg = eng(prog);
-    const budgetTotal = bud(filtered) + bud(suiviAnnee);
-    const pct = budgetTotal > 0 ? Math.round((engProg / budgetTotal) * 100) : 0;
-    const cat = (["GT", "GE", "CP"] as const).map((code) => {
-      const cmds = filtered.filter((r) => r.nature_analytique === code);
-      const suivi = suiviAnnee.filter((l) => l.nature_analytique === code);
-      const cmdsProg = cmds.filter((r) => !!r.ligne_budget);
-      const cmdsHors = cmds.filter((r) => !r.ligne_budget);
-      return {
-        code,
-        budget: bud(cmds) + bud(suivi),
-        // V8.12 — segments « commandes » mesurés en ENGAGÉ : les commandes hors
-        // programmation n'ont pas de budget dans le fichier ANM ; leur engagé rend
-        // le segment visible. Reste = budget − engagé (non engagé).
-        prog: eng(cmdsProg),
-        hors: eng(cmdsHors),
-        engage: eng(cmds),
-        reste: Math.max(0, bud(cmds) + bud(suivi) - eng(cmds)),
-        nbProg: cmdsProg.length,
-        nbHors: cmdsHors.length,
-        nbSuivi: suivi.length,
-      };
-    });
-    return { engage, paye, pct, budgetTotal, nProg: prog.length, nHors: hors.length, cat };
-  }, [filtered, lignesSuiviRows, yearRange]);
-
-  const dataSecteur = useMemo(() => repartitionCommandesParSecteur(filtered), [filtered]);
+  }, [statsAnm]);
 
   /** Ville canonique d'une commande (source de vérité : villeDeCommande). */
   const villeDe = (r: Commande) =>
     villeDeCommande(r, tranchesDetails, villesGeo ?? []) ?? "Inconnue";
+
+  /**
+   * Adresse sans la ville en suffixe (format d'import « ADRESSE, VILLE »). Le dernier
+   * segment (après la dernière virgule) est retiré s'il correspond à la ville donnée
+   * (comparaison normalisée) — évite « 10 RUE BONAPARTE, OZOIR-LA-FERRIÈRE · OZOIR-LA-FERRIÈRE ».
+   */
+  const adresseSansVille = (adresse: string, ville: string): string => {
+    const parts = adresse
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length > 1) {
+      const dernier = parts.at(-1) ?? "";
+      const v = normaliserVille(ville);
+      const d = normaliserVille(dernier);
+      if (v && d && (d.includes(v) || v.includes(d))) return parts.slice(0, -1).join(", ");
+    }
+    return adresse;
+  };
 
   const dataClassement = useMemo<ClassementRow[]>(() => {
     if (rankingMode === "ville") {
@@ -974,24 +982,42 @@ function DashboardTravauxPage() {
     }
 
     if (rankingMode === "tranche") {
-      // Classement par tranche : la ville affichée est celle avec le plus gros montant engagé.
+      // Classement par tranche : la ville et l'adresse affichées sont celles de la commande
+      // au plus gros montant engagé de la tranche.
       const map = filtered.reduce((acc, r) => {
         const tranche = r.tranche_code || "Sans tranche";
         const ville = villeDe(r);
+        const adresse = r.adresse || "Adresse inconnue";
         const engage = r.engage || 0;
-        const g = acc.get(tranche) ?? { tranche, ville, value: 0, villeValue: -1 };
+        const g = acc.get(tranche) ?? {
+          tranche,
+          ville,
+          adresse,
+          value: 0,
+          villeValue: -1,
+          adresseValue: -1,
+        };
         g.value += engage;
         if (engage > g.villeValue) {
           g.villeValue = engage;
           g.ville = ville;
         }
+        if (engage > g.adresseValue) {
+          g.adresseValue = engage;
+          g.adresse = adresse;
+        }
         acc.set(tranche, g);
         return acc;
-      }, new Map<string, { tranche: string; ville: string; value: number; villeValue: number }>());
+      }, new Map<string, { tranche: string; ville: string; adresse: string; value: number; villeValue: number; adresseValue: number }>());
       return [...map.values()]
         .filter((g) => g.value > 0)
         .sort((a, b) => b.value - a.value)
-        .map((g) => ({ label: g.tranche, ville: g.ville, value: g.value }));
+        .map((g) => ({
+          label: g.tranche,
+          adresse: adresseSansVille(g.adresse, g.ville),
+          ville: g.ville,
+          value: g.value,
+        }));
     }
 
     // Classement par adresse : la ville et la/les tranche(s) sont affichées à côté.
@@ -1024,28 +1050,6 @@ function DashboardTravauxPage() {
     () => buildDataVilles(filtered, tranchesDetails, villesGeo ?? []),
     [filtered, tranchesDetails, villesGeo],
   );
-
-  const dataTranche = useMemo(() => {
-    const map = filtered.reduce(
-      (acc, r) => {
-        const t = r.tranche_code || "Sans tranche";
-        if (!acc[t]) acc[t] = { engage: 0, adresse: r.adresse || "Adresse inconnue" };
-        acc[t].engage += r.engage || 0;
-        return acc;
-      },
-      {} as Record<string, { engage: number; adresse: string }>,
-    );
-    const total = stats.engage || 1;
-    return Object.entries(map)
-      .map(([name, data]) => ({
-        name,
-        value: data.engage,
-        adresse: data.adresse,
-        pct: ((data.engage / total) * 100).toFixed(1),
-      }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, showAllTranches ? 20 : 5);
-  }, [filtered, stats.engage, showAllTranches]);
 
   const dataDrilldown = useMemo(() => {
     if (!drilldownSector) return [];
@@ -1168,14 +1172,23 @@ function DashboardTravauxPage() {
                 </span>
                 <button
                   onClick={() => setSelectedImportErrors(dernierImportExercice ?? null)}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase transition-all ${(dernierImportExercice?.erreurs || 0) > 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600"}`}
+                  title={
+                    alertesLB.length > 0
+                      ? "Lignes budgétaires incohérentes — voir le détail"
+                      : "Voir l'analyse des erreurs d'import"
+                  }
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase transition-all ${alertesLB.length > 0 ? "bg-amber-50 text-amber-700 hover:bg-amber-100" : (dernierImportExercice?.erreurs || 0) > 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600"}`}
                 >
-                  {(dernierImportExercice?.erreurs || 0) > 0 ? (
+                  {alertesLB.length > 0 ? (
+                    <AlertTriangle className="size-3" />
+                  ) : (dernierImportExercice?.erreurs || 0) > 0 ? (
                     <AlertCircle className="size-3" />
                   ) : (
                     <CheckCircle2 className="size-3" />
                   )}
-                  {dernierImportExercice?.erreurs || 0} ERREURS
+                  {alertesLB.length > 0
+                    ? `${alertesLB.length} LB incohérente${alertesLB.length > 1 ? "s" : ""}`
+                    : `${dernierImportExercice?.erreurs || 0} ERREURS`}
                 </button>
                 {dernierImportExercice ? (
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
@@ -1338,12 +1351,18 @@ function DashboardTravauxPage() {
           </div>
         </section>
 
-        {/* V8.12 — KPIs (engagé + payé combinés) et barres d'avancement sur la même ligne */}
+        {/* V8.16j — alerte lignes budgétaires incohérentes déplacée dans la boîte de dialogue
+            « Analyse des Erreurs d'Import » (voir plus bas). */}
+
+        {/* V8.12/V8.16e — KPIs réorganisés : Total engagé (payé + barre flux), % Engagé vs
+            Budget (donut programmé/hors), % payé vs engagé, Lignes suivies (LB avec/sans n°) */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Engagé + Payé dans la MÊME carte */}
-            <div className="rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow sm:col-span-2">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* V8.16g — Total engagé seul sur sa ligne (pleine largeur) ; en dessous
+              % Engagé vs Budget (2/4) · % payé vs engagé (1/4) · Lignes suivies (1/4) */}
+          <div className="grid grid-cols-1 gap-4">
+            {/* Carte 1 — Total engagé (pleine largeur) : grand nombre + payé + barre flux */}
+            <div className="rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     Total engagé
@@ -1355,26 +1374,157 @@ function DashboardTravauxPage() {
                     </span>
                   </div>
                 </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Montant payé
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <p className="text-2xl font-black text-slate-900">{money0(statsAnm.paye)}</p>
-                    <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-tighter">
-                      FLUX
-                    </span>
+                <p className="text-[9px] font-bold text-slate-400 text-right">
+                  Enveloppe :{" "}
+                  <span className="font-black text-slate-700">{money0(statsAnm.budgetTotal)}</span>
+                </p>
+              </div>
+              {/* Barre empilée : payé / engagé non payé / reste budget (100 % = enveloppe ou engagé) */}
+              <div className="relative mt-3 h-3">
+                <div className="absolute inset-0 rounded-full bg-slate-100" />
+                <div className="relative flex h-3 overflow-hidden rounded-full">
+                  <div
+                    className="h-full"
+                    style={{ width: `${barreFlux.pPaye}%`, background: "#2563eb" }}
+                    title={`Payé ${money0(statsAnm.paye)}`}
+                  />
+                  <div
+                    className="h-full"
+                    style={{ width: `${barreFlux.pEngRestant}%`, background: "#0f766e" }}
+                    title={`Engagé non payé ${money0(barreFlux.engRestant)}`}
+                  />
+                  <div
+                    className="h-full bg-[repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1_4px,#e2e8f0_4px,#e2e8f0_8px)]"
+                    style={{ width: `${barreFlux.pResteBudget}%` }}
+                    title={`Reste (enveloppe − engagé) ${money0(barreFlux.resteBudget)}`}
+                  />
+                </div>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-3 text-[9px] font-bold text-slate-500">
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-sm bg-blue-600" />
+                  Payé {money0(statsAnm.paye)} ({statsAnm.pctPaye} %)
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-sm bg-teal-700" />
+                  Engagé {money0(statsAnm.engage)} ({statsAnm.pctTotal} % du budget)
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-sm bg-[repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1_2px,#e2e8f0_2px,#e2e8f0_4px)]" />
+                  Reste {money0(barreFlux.resteBudget)}
+                </span>
+              </div>
+            </div>
+
+            {/* Ligne 2 — % Engagé vs Budget (2/4) · % payé vs engagé (1/4) · Lignes suivies (1/4) */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+              {/* Carte 2 — % Engagé vs Budget (2/4) + donut programmé/hors/reste */}
+              <div className="rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow sm:col-span-2">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-[90px]">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      % Engagé vs Budget
+                    </p>
+                    <div className="mt-1 flex items-baseline gap-2">
+                      <p className="text-2xl font-black text-slate-900">{statsAnm.pctTotal}%</p>
+                      <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                        BUDGET
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-24 w-24 shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={dataDonutBudget}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={30}
+                          outerRadius={46}
+                          paddingAngle={2}
+                          strokeWidth={0}
+                        >
+                          {dataDonutBudget.map((d) => (
+                            <Cell key={d.name} fill={d.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const d = payload[0]?.payload as { name: string; value: number };
+                              return (
+                                <div className="bg-slate-900 text-white p-3 rounded-2xl shadow-2xl border-none">
+                                  <p className="text-[10px] font-black uppercase">{d.name}</p>
+                                  <p className="text-xs font-black text-blue-400">
+                                    {money0(d.value)}
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 space-y-1 text-[9px] font-bold text-slate-500">
+                    <p className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-sm" style={{ background: "#2563eb" }} />
+                      Programmées {statsAnm.pct}%
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-sm" style={{ background: "#f59e0b" }} />
+                      Hors budget {statsAnm.pctHorsBudget}%
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-sm bg-slate-200" />
+                      Reste {Math.max(0, 100 - statsAnm.pctTotal)}%
+                    </p>
                   </div>
                 </div>
               </div>
+
+              {/* Carte 3 — % payé vs engagé (1/4) */}
+              <div className="rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow sm:col-span-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  % payé vs engagé
+                </p>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <p className="text-2xl font-black text-slate-900">{statsAnm.pctPaye}%</p>
+                  <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                    FLUX
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] font-bold text-slate-400">
+                  programmé {statsAnm.pctPayeProg} % · hors {statsAnm.pctPayeHors} %
+                </p>
+              </div>
+
+              {/* Carte 4 — Lignes suivies (1/4) + LB avec/sans n° de commande */}
+              <div className="rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow sm:col-span-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Lignes suivies
+                </p>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <p className="text-2xl font-black text-slate-900">
+                    {statsAnm.nProg + statsAnm.nHors}
+                  </p>
+                  <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                    FLUX
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] font-bold text-slate-400">
+                  {statsAnm.nProg} prog · {statsAnm.nHors} hors
+                </p>
+                <p className="mt-0.5 text-[9px] font-bold text-slate-500">
+                  LB n° de commande :{" "}
+                  <span className="font-black text-slate-900">{statsAnm.nProgCmd}</span>
+                  <span className="mx-1 text-slate-300">·</span>
+                  LB sans commande :{" "}
+                  <span className="font-black text-slate-900">{statsAnm.nProgSuivi}</span>
+                </p>
+              </div>
             </div>
-            <Kpi label="% Programmé" value={`${statsAnm.pct}%`} trend="QUALITÉ" />
-            <Kpi
-              label="Commandes"
-              value={String(statsAnm.nProg + statsAnm.nHors)}
-              detail={`${statsAnm.nProg} programmées · ${statsAnm.nHors} hors programmation`}
-              trend="FLUX"
-            />
           </div>
 
           {/* Barres d'avancement budgétaire par catégorie (GT · GE · CP) — à côté des KPI */}
@@ -1383,41 +1533,64 @@ function DashboardTravauxPage() {
               <BarChart3 className="size-4 text-blue-600" /> Avancement budgétaire par catégorie
             </h3>
             <p className="mb-3 text-[9px] text-slate-400">
-              Segments : montant engagé (programmées / hors programmation) · reste = budget non
-              engagé (rayé).
+              Barre 100 % = enveloppe budgétaire (ou engagé si dépassement) : programmé + hors
+              programmation + reste — toujours à l&apos;intérieur, aucun débordement.
             </p>
             <div className="space-y-5">
               {statsAnm.cat.map((c) => {
-                const total = c.budget || 1;
-                const pProg = (c.prog / total) * 100;
-                const pHors = (c.hors / total) * 100;
-                const pReste = (c.reste / total) * 100;
+                // 100 % = MAX(enveloppe, engagé total) : prog + hors + reste tiennent dans la
+                // barre. En cas de dépassement (engagé > budget), un marqueur indique l'enveloppe.
+                const scale = Math.max(c.budget, c.prog + c.hors, 1);
+                const pProg = (c.prog / scale) * 100;
+                const pHors = (c.hors / scale) * 100;
+                const pReste = (c.reste / scale) * 100;
+                const pBudgetMark = (c.budget / scale) * 100;
+                const pPayeCat = c.engage > 0 ? Math.round((c.paye / c.engage) * 100) : 0;
                 return (
                   <div key={c.code}>
                     <div className="flex items-baseline justify-between text-[10px] font-black uppercase tracking-widest">
                       <span className="text-slate-700">{c.code}</span>
                       <span className="text-slate-400">
-                        {money0(c.budget)} · engagé {money0(c.engage)}
+                        {money0(c.budget)} · engagé {money0(c.engage)} · payé {money0(c.paye)} (
+                        {pPayeCat} %)
                       </span>
                     </div>
-                    <div className="mt-1.5 flex h-4 w-full overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        style={{ width: `${pProg}%`, background: SECTOR_COLORS[c.code] }}
-                        title={`Programmées (engagé) ${money0(c.prog)}`}
-                      />
-                      <div
-                        style={{
-                          width: `${pHors}%`,
-                          background: SECTOR_COLORS[c.code],
-                          opacity: 0.4,
-                        }}
-                        title={`Hors programmation (engagé) ${money0(c.hors)}`}
-                      />
-                      <div
-                        className="bg-[repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1_4px,#e2e8f0_4px,#e2e8f0_8px)]"
-                        style={{ width: `${pReste}%` }}
-                        title={`Reste (budget − engagé) ${money0(c.reste)}`}
-                      />
+                    {/* Barre 100 % = enveloppe : programmé (plein) + hors prog (translucide) +
+                        reste (rayé) — tout est à l'intérieur. Marqueur vertical = enveloppe. */}
+                    <div className="relative mt-1.5 h-4">
+                      <div className="absolute inset-0 rounded-full bg-slate-100" />
+                      <div className="relative flex h-4 overflow-hidden rounded-full">
+                        <div
+                          className="h-full"
+                          style={{ width: `${pProg}%`, background: SECTOR_COLORS[c.code] }}
+                          title={`Programmées (engagé) ${money0(c.prog)} (${c.nbProg})`}
+                        />
+                        {pHors > 0 && (
+                          <div
+                            className="h-full"
+                            style={{
+                              width: `${pHors}%`,
+                              background: SECTOR_COLORS[c.code],
+                              opacity: 0.35,
+                            }}
+                            title={`Hors programmation (engagé) ${money0(c.hors)} (${c.nbHors})`}
+                          />
+                        )}
+                        {pReste > 0 && (
+                          <div
+                            className="h-full bg-[repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1_4px,#e2e8f0_4px,#e2e8f0_8px)]"
+                            style={{ width: `${pReste}%` }}
+                            title={`Reste (budget − engagé) ${money0(c.reste)}`}
+                          />
+                        )}
+                      </div>
+                      {c.overrun > 0 && (
+                        <div
+                          className="absolute inset-y-0 w-0.5 bg-slate-700"
+                          style={{ left: `${pBudgetMark}%` }}
+                          title={`Enveloppe budgétaire (100 % = ${money0(c.budget)}) — dépassement ${money0(c.overrun)}`}
+                        />
+                      )}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-3 text-[9px] text-slate-400">
                       <span className="inline-flex items-center gap-1">
@@ -1428,16 +1601,22 @@ function DashboardTravauxPage() {
                         Programmées (engagé) {money0(c.prog)} ({c.nbProg})
                       </span>
                       <span className="inline-flex items-center gap-1">
+                        <span className="size-2 rounded-sm bg-[repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1_2px,#e2e8f0_2px,#e2e8f0_4px)]" />
+                        Reste {money0(c.reste)}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
                         <span
                           className="size-2 rounded-sm"
                           style={{ background: SECTOR_COLORS[c.code], opacity: 0.4 }}
                         />
                         Hors prog (engagé) {money0(c.hors)} ({c.nbHors})
                       </span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="size-2 rounded-sm bg-[repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1_2px,#e2e8f0_2px,#e2e8f0_4px)]" />
-                        Reste {money0(c.reste)} · sans commande {c.nbSuivi}
-                      </span>
+                      {c.overrun > 0 && (
+                        <span className="inline-flex items-center gap-1 font-black text-red-600">
+                          +{money0(c.overrun)} au-delà de l&apos;enveloppe
+                        </span>
+                      )}
+                      {c.nbSuivi > 0 && <span>· dont {c.nbSuivi} sans commande</span>}
                     </div>
                   </div>
                 );
@@ -1500,9 +1679,11 @@ function DashboardTravauxPage() {
                             </span>
                             {row.ville && (
                               <span className="text-[9px] font-bold text-slate-400 truncate">
-                                {row.tranche
-                                  ? `· ${row.ville} · Tr. ${row.tranche}`
-                                  : `· ${row.ville}`}
+                                {rankingMode === "tranche"
+                                  ? `· ${row.adresse ?? ""} · ${row.ville}`
+                                  : row.tranche
+                                    ? `· ${row.ville} · Tr. ${row.tranche}`
+                                    : `· ${row.ville}`}
                               </span>
                             )}
                           </div>
@@ -1526,7 +1707,7 @@ function DashboardTravauxPage() {
           <article className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Répartition Type
+                Engagé par catégorie
               </h3>
               <Filter className="size-3.5 text-slate-300" />
             </div>
@@ -1534,7 +1715,7 @@ function DashboardTravauxPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={dataSecteur}
+                    data={dataCategorieEngage}
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
@@ -1545,7 +1726,7 @@ function DashboardTravauxPage() {
                     onClick={(e) => setDrilldownSector(e.name)}
                     className="cursor-pointer"
                   >
-                    {dataSecteur.map((entry) => (
+                    {dataCategorieEngage.map((entry) => (
                       <Cell
                         key={entry.name}
                         fill={SECTOR_COLORS[entry.name as keyof typeof SECTOR_COLORS]}
@@ -1558,16 +1739,20 @@ function DashboardTravauxPage() {
                         const d = payload[0]?.payload as {
                           name: string;
                           value: number;
-                          engage: number;
+                          count: number;
+                          paye: number;
                         };
                         return (
                           <div className="bg-slate-900 text-white p-3 rounded-2xl shadow-2xl border-none">
                             <p className="text-[10px] font-black uppercase mb-1">{d.name}</p>
                             <p className="text-[9px] font-bold text-slate-400 uppercase mb-2">
-                              {d.value} commandes
+                              {d.count} lignes
                             </p>
                             <p className="text-xs font-black text-blue-400">
-                              Engagé : {money0(d.engage)}
+                              Engagé : {money0(d.value)}
+                            </p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">
+                              Payé : {money0(d.paye)}
                             </p>
                           </div>
                         );
@@ -1595,67 +1780,9 @@ function DashboardTravauxPage() {
           </article>
         </div>
 
-        {/* Classement Tranches */}
-        <article className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Classement des Tranches (Top Engagé)
-            </h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAllTranches(!showAllTranches)}
-              className="text-[9px] font-black uppercase tracking-widest border-slate-200 rounded-xl"
-            >
-              {showAllTranches ? "TOP 5" : "TOP 20"}
-            </Button>
-          </div>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dataTranche} layout="vertical" margin={{ left: 20, right: 100 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis type="number" hide />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  fontSize={9}
-                  fontWeight="black"
-                  width={100}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const d = payload[0]?.payload;
-                      return (
-                        <div className="bg-slate-900 text-white p-3 rounded-2xl shadow-2xl border-none">
-                          <p className="text-[10px] font-black uppercase mb-1">{d.name}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase mb-2">
-                            {d.adresse}
-                          </p>
-                          <p className="text-xs font-black text-blue-400">{money0(d.value)}</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar dataKey="value" fill="#2563eb" radius={[0, 8, 8, 0]} barSize={25}>
-                  <LabelList
-                    dataKey="value"
-                    position="right"
-                    formatter={(v: number) => money0(v)}
-                    className="text-[9px] font-black fill-slate-900"
-                  />
-                  {dataTranche.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 0 ? "#1e40af" : "#3b82f6"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </article>
+        {/* V8.16k — section « Classement des Tranches » supprimée du dashboard : le classement
+            (villes / tranches / adresses) vit désormais dans l'onglet « Classement » de la
+            carte « Cartographie vs Classement ». */}
 
         {/* JOURNAL DES COMMANDES */}
         <section className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -2358,6 +2485,33 @@ function DashboardTravauxPage() {
                 <p className="text-xl font-black text-green-700">{selectedImportErrors?.creees}</p>
               </div>
             </div>
+            {/* V8.16j — lignes budgétaires incohérentes (même LB, budgets différents) */}
+            {alertesLB.length > 0 && (
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-800">
+                <p className="flex items-center gap-2 font-black uppercase tracking-widest">
+                  <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+                  {alertesLB.length} ligne{alertesLB.length > 1 ? "s" : ""} budgétaire
+                  {alertesLB.length > 1 ? "s" : ""} incohérente{alertesLB.length > 1 ? "s" : ""}
+                </p>
+                <div className="mt-2 space-y-2">
+                  {alertesLB.map((a) => (
+                    <div
+                      key={a.ligne_budget}
+                      className="rounded-xl border border-amber-200 bg-white/60 p-3"
+                    >
+                      <p className="font-black uppercase">LB {a.ligne_budget}</p>
+                      <p className="mt-0.5 font-bold">
+                        {a.budgets.map((b) => money0(b)).join(" vs ")} ({a.nbLignes} lignes)
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 font-bold text-amber-600">
+                  La même ligne budgétaire porte des montants différents — l&apos;enveloppe sera
+                  re-calculée au prochain import.
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button

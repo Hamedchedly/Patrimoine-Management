@@ -17,6 +17,7 @@ import { CheckSquare, Mail, RefreshCcw, Search, Square } from "lucide-react";
 import PspFournisseurSearch, {
   type FournisseurSelection,
 } from "@/components/preparation-psp/PspFournisseurSearch";
+import { useMailModeles } from "@/lib/psp.mail.client";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,13 +42,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  MAIL_MODELES,
-  composerMail,
-  construireMailto,
-  dateRetourParDefaut,
-} from "@/lib/psp.suivi.foundation";
-import { libelleEntrepriseAvecId } from "@/lib/psp.prep.v7";
+import { composerMail, construireMailto, dateRetourParDefaut } from "@/lib/psp.suivi.foundation";
+import { libelleEntrepriseAvecNumero } from "@/lib/psp.prep.v7";
 import { createPspDevis, getPspEntreprisesSuggestions } from "@/lib/psp.prep.supabase.functions";
 
 /**
@@ -88,6 +84,8 @@ export default function PspDemandeDevisWorkflow({
 }) {
   const fetchSuggestions = useServerFn(getPspEntreprisesSuggestions);
   const creerDevis = useServerFn(createPspDevis);
+  // V8.16p — modèles de mail persistés (base sinon constantes).
+  const { modeles } = useMailModeles();
   const { data: suggestions } = useQuery({
     queryKey: ["psp-suggestions", operation.id],
     queryFn: () =>
@@ -115,7 +113,13 @@ export default function PspDemandeDevisWorkflow({
   };
   const modele = () =>
     composerMail(
-      MAIL_MODELES.find((m) => m.id === "demande_devis")!,
+      modeles.find((m) => m.id === "demande_devis") ??
+        modeles[0] ?? {
+          id: "demande_devis",
+          libelle: "Demande de devis",
+          sujet: "",
+          corps: "",
+        },
       variables,
     );
 
@@ -200,7 +204,7 @@ export default function PspDemandeDevisWorkflow({
                   ) : (
                     <Square className="size-3.5 text-muted-foreground" />
                   )}
-                  {libelleEntrepriseAvecId(s.nom, s.numero ?? null, s.fournisseur_id)}
+                  {libelleEntrepriseAvecNumero(s.nom, s.numero)}
                 </button>
                 <Badge
                   variant={s.correspondance === "forte" ? "default" : "secondary"}
@@ -268,13 +272,7 @@ export default function PspDemandeDevisWorkflow({
           <DialogHeader>
             <DialogTitle className="text-sm">
               Demande de devis —{" "}
-              {editeur
-                ? libelleEntrepriseAvecId(
-                    editeur.nom,
-                    editeur.numero ?? null,
-                    editeur.fournisseur_id,
-                  )
-                : ""}
+              {editeur ? libelleEntrepriseAvecNumero(editeur.nom, editeur.numero) : ""}
             </DialogTitle>
             <DialogDescription>
               Destinataire :{" "}
@@ -327,23 +325,42 @@ export default function PspDemandeDevisWorkflow({
             >
               Copier
             </Button>
+            {/* V8.16p — ancre NATIVE (aucun wrapper AlertDialog) : l'ouverture du
+                mailto ne déclenche plus le dialogue → plus de blocage du site. */}
+            <a
+              href={mailto}
+              target="_blank"
+              rel="noreferrer"
+              aria-disabled={!editeur?.email}
+              onClick={(e) => {
+                if (!editeur?.email) e.preventDefault();
+              }}
+              title={
+                editeur?.email
+                  ? "Ouvrir le mail dans votre messagerie"
+                  : "Ajoutez un email fournisseur pour ouvrir le mail"
+              }
+              className={
+                editeur?.email
+                  ? "inline-flex h-7 items-center gap-1 rounded-md bg-primary px-3 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
+                  : "inline-flex h-7 cursor-not-allowed items-center gap-1 rounded-md bg-muted px-3 text-[10px] font-medium text-muted-foreground"
+              }
+            >
+              <Mail className="size-3" /> Ouvrir dans ma messagerie
+            </a>
+            {/* V8.16p — confirmation SÉPARÉE de l'ouverture du mail */}
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <a
-                  href={mailto}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-7 items-center gap-1 rounded-md bg-primary px-3 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  <Mail className="size-3" /> Ouvrir dans ma messagerie
-                </a>
+                <Button variant="outline" size="sm" className="h-7 text-[10px]">
+                  <CheckSquare className="size-3" /> Confirmer l'envoi
+                </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Demande préparée / envoyée ?</AlertDialogTitle>
+                  <AlertDialogTitle>Demande envoyée ?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Le mail va être ouvert dans votre messagerie (mailto:). PAT S11 ne peut pas
-                    vérifier l'envoi. Confirmez pour enregistrer la demande (date = aujourd'hui,
+                    Ouvrez le mail dans votre messagerie (mailto:) puis confirmez ici. PAT S11 ne
+                    peut pas vérifier l'envoi. Confirmer enregistre la demande (date = aujourd'hui,
                     statut « Demande envoyée », montant vide).
                   </AlertDialogDescription>
                 </AlertDialogHeader>

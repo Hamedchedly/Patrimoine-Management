@@ -31,6 +31,9 @@ const issueSchema = z.object({
   budget: z.number().nullable().optional(),
   adresse: z.string().nullable().optional(),
   charge_clientele: z.string().nullable().optional(),
+  // V8.16 — engage/payé réels d'une ligne annuelle sans commande (totaux du dashboard).
+  engage: z.number().nullable().optional(),
+  paye: z.number().nullable().optional(),
 });
 const commandeSchema = z.object({
   numero_commande: z.string().min(1),
@@ -108,6 +111,9 @@ export const materialiserLignesSansCommande = async (
     corps_etat?: string | null | undefined;
     budget?: number | null | undefined;
     adresse?: string | null | undefined;
+    // V8.16 — engage/payé réels de la ligne (STSN_ENGAGE / STSN_PAYE), totaux dashboard.
+    engage?: number | null | undefined;
+    paye?: number | null | undefined;
   }>,
   annee: number,
   fichier: string,
@@ -160,6 +166,12 @@ export const materialiserLignesSansCommande = async (
       corps_etat: corps,
       nature_travaux: nature,
       programme: budget != null ? { [String(annee)]: budget } : {},
+      // V8.16 — exercice + engagé/payé réels (colonnes ajoutées par migration V8.16).
+      annee_exercice: annee,
+      montant_engage:
+        typeof issue.engage === "number" && Number.isFinite(issue.engage) ? issue.engage : null,
+      montant_paye:
+        typeof issue.paye === "number" && Number.isFinite(issue.paye) ? issue.paye : null,
       ligne_budget: (issue.ligne_budget ?? "").trim() || null,
       remarques: [
         `Matérialisée depuis l'import annuel ${annee} (${fichier}, ligne ${issue.line}) — sans commande`,
@@ -255,13 +267,18 @@ export const importTravauxBatch = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const numbers = data.commandes.map((row) => row.numero_commande);
+    // V8.16b — identité d'une commande = (numero_commande, annee_exercice) : une même
+    // commande peut exister sur plusieurs exercices (report). L'existant est recherché sur
+    // le couple (numéro, année d'import) pour créer la ligne de l'exercice courant.
+    const cleIdentite = (row: Record<string, unknown>) =>
+      `${String(row["numero_commande"] ?? "")}::${String(row["annee_exercice"] ?? "")}`;
     const { data: existingRows, error: existingError } = await db
       .from("travaux_commandes")
       .select("*")
       .in("numero_commande", numbers);
     if (existingError) throw new Error(`Lecture des commandes : ${existingError.message}`);
-    const existingParNumero = new Map(
-      (existingRows ?? []).map((row: Record<string, unknown>) => [row["numero_commande"], row]),
+    const existingParCle = new Map(
+      (existingRows ?? []).map((row: Record<string, unknown>) => [cleIdentite(row), row]),
     );
     const trancheCodes = [
       ...new Set(data.commandes.map((row) => row.tranche_code).filter(Boolean)),
@@ -309,11 +326,13 @@ export const importTravauxBatch = createServerFn({ method: "POST" })
             `Détail ignoree ${source.numero_commande} : ${ignoredDetail.error.message}`,
           );
       }
-      const before = existingParNumero.get(source.numero_commande) as
-        Record<string, unknown> | undefined;
+      const before = existingParCle.get(
+        `${String(source.numero_commande)}::${String(data.annee_exercice)}`,
+      ) as Record<string, unknown> | undefined;
 
-      // Décision métier (règle validée) : numero_commande = identité unique et immuable ;
-      // annee_exercice = propriété mutable (report d'exercice).
+      // Décision métier (V8.16b) : une commande = un n° + un exercice. Un même n° sur un
+      // AUTRE exercice n'existe pas encore → création de la ligne de l'exercice courant
+      // (inchangee / report / conflit ne concernent que le MÊME couple n°+année).
       const decision = decisionImportCommande({ source: row, before });
       // La décision « creee » n'existe que si before est absent ; pour les autres cas
       // (inchangee / report / conflit), la commande existante est garantie.

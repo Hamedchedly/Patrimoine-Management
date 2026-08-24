@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { ArrowDown, ArrowUp, Building2, Plus, Search, Star, X } from "lucide-react";
 import { toast } from "sonner";
 
+import NiveauBadge from "@/components/NiveauBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -121,13 +122,29 @@ export const Route = createFileRoute("/fournisseurs/")({
   component: FournisseursPage,
 });
 
-/** Colonne « Activités principales » : corps d'état à niveau EFFECTIF principal (codes conservés). */
-function ActivitesPrincipalesCell({ corps }: { corps: string[] }) {
-  return (
-    <span className="block max-w-[320px] text-xs leading-tight text-slate-600">
-      {corps.length ? corps.slice(0, 5).join(" · ") : "—"}
-    </span>
-  );
+/** Colonne « Activités principales » : corps d'état à niveau EFFECTIF principal (codes conservés).
+ *  V8.16p — repli : si aucune activité « principale », affiche l'activité la plus forte avec son
+ *  niveau (règle utilisateur : un petit fournisseur doit montrer son activité réelle). */
+function ActivitesPrincipalesCell({ ligne }: { ligne: LigneFournisseurListe }) {
+  const corps = ligne.corps_principaux_effectifs;
+  if (corps.length) {
+    return (
+      <span className="block max-w-[320px] text-xs leading-tight text-slate-600">
+        {corps.slice(0, 5).join(" · ")}
+      </span>
+    );
+  }
+  if (ligne.corps_etat_principal) {
+    return (
+      <span className="flex max-w-[320px] flex-wrap items-center gap-1.5 text-xs leading-tight text-slate-600">
+        <span>{ligne.corps_etat_principal}</span>
+        {ligne.niveau_corps_principal && ligne.niveau_corps_principal !== "principal" && (
+          <NiveauBadge niveau={ligne.niveau_corps_principal} />
+        )}
+      </span>
+    );
+  }
+  return <span className="block max-w-[320px] text-xs leading-tight text-slate-600">—</span>;
 }
 
 /** Colonne « Famille » : classification métier CEA / CVC-P / TCE / AUTRE (jamais un corps). */
@@ -625,13 +642,29 @@ function FournisseursPage() {
                             Entreprise non renseignée
                           </span>
                         )}
+                        {/* V8.16p — pastille jaune « à compléter » (nom ou email manquant) */}
+                        {l.a_completer &&
+                          (l.id ? (
+                            <Link
+                              to="/fournisseurs/$fournisseurId"
+                              params={{ fournisseurId: l.id }}
+                              search={{ cmd: undefined, annee: undefined }}
+                              className="ml-1.5 inline-block size-2.5 rounded-full bg-amber-400 align-middle"
+                              title="Fiche à compléter : email fournisseur manquant"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => l.ref_isis && renseignerRef(l.ref_isis)}
+                              className="ml-1.5 inline-block size-2.5 rounded-full bg-amber-400 align-middle"
+                              title="Créer la fiche fournisseur (nom/email manquants)"
+                            />
+                          ))}
                         <div className="text-[10px] text-muted-foreground">
                           {(l.identifiants ?? []).join(", ") || "aucun identifiant"}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {ActivitesPrincipalesCell({ corps: l.corps_principaux_effectifs })}
-                      </TableCell>
+                      <TableCell>{ActivitesPrincipalesCell({ ligne: l })}</TableCell>
                       <TableCell>
                         <FamilleCell famille={l.famille} />
                       </TableCell>
@@ -642,7 +675,11 @@ function FournisseursPage() {
                             {l.derniere_commande_numero ? (
                               <Link
                                 to="/dashboard-travaux"
-                                search={{ commande: l.derniere_commande_numero, de: undefined, a: undefined }}
+                                search={{
+                                  commande: l.derniere_commande_numero,
+                                  de: undefined,
+                                  a: undefined,
+                                }}
                                 className="font-semibold text-primary hover:underline"
                               >
                                 #{l.derniere_commande_numero}

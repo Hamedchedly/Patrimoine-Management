@@ -1,8 +1,9 @@
 /**
  * V7.8 §6 — Recherche d'ENTREPRISE fournisseur pour un devis : liste déroulante
- * avec recherche progressive par NOM / code / identifiant / alias.
- * Réutilise `rechercherFournisseursDevis` (table fournisseurs existante) —
- * aucun nouveau référentiel fournisseur.
+ * avec recherche progressive par NOM / code / identifiant / alias / CORPS D'ÉTAT
+ * (une seule case). Réutilise `rechercherFournisseursDevis` (référentiel
+ * fournisseurs + refs sans fiche des commandes passées) — aucun nouveau
+ * référentiel fournisseur.
  */
 import { useEffect, useState } from "react";
 import { Search, X } from "lucide-react";
@@ -19,6 +20,15 @@ export type FournisseurSelection = {
   numero?: string | null;
 };
 
+type SuggestionFournisseur = {
+  id: string | null;
+  nom: string;
+  ville: string | null;
+  codes: string[];
+  /** V8.16p — corps d'état distincts (recherche + affichage). */
+  corps?: string[];
+};
+
 export default function PspFournisseurSearch({
   value,
   onSelect,
@@ -32,9 +42,7 @@ export default function PspFournisseurSearch({
 }) {
   const fournisseursFn = useServerFn(rechercherFournisseursDevis);
   const [q, setQ] = useState(value);
-  const [sug, setSug] = useState<
-    Array<{ id: string; nom: string; ville: string | null; codes: string[] }>
-  >([]);
+  const [sug, setSug] = useState<SuggestionFournisseur[]>([]);
   // V8.8 §1 — la recherche ne se déclenche QUE sur frappe utilisateur (onChange),
   // jamais à l'initialisation : à l'ouverture/modification d'une demande existante,
   // aucun dropdown ne doit s'ouvrir automatiquement. La valeur enregistrée reste
@@ -52,9 +60,7 @@ export default function PspFournisseurSearch({
     }
     const t = setTimeout(() => {
       void fournisseursFn({ data: { q: r } }).then((res) => {
-        setSug(
-          (res ?? []) as Array<{ id: string; nom: string; ville: string | null; codes: string[] }>,
-        );
+        setSug((res ?? []) as SuggestionFournisseur[]);
       });
     }, 250);
     return () => clearTimeout(t);
@@ -79,21 +85,36 @@ export default function PspFournisseurSearch({
         <div className="absolute z-40 mt-1 max-h-36 w-full overflow-auto rounded-lg border bg-popover p-1 shadow-lg">
           {sug.map((f) => (
             <button
-              key={f.id}
+              key={f.id ?? `ref:${f.codes[0] ?? f.nom}`}
               type="button"
               className="flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-[10px] hover:bg-accent"
               onClick={() => {
-                onSelect({ id: f.id, nom: f.nom, numero: f.codes[0] ?? null });
+                // V8.16p — ref sans fiche (nom vide) : on enregistre le n° comme nom
+                // (devis.entreprise = n°), sinon libellé « Fournisseur n°XXXX ».
+                onSelect({ id: f.id, nom: f.nom || f.codes[0] || "", numero: f.codes[0] ?? null });
                 setQ(libelleEntreprise(f.nom, f.codes[0]));
                 setRechercheActive("");
                 setSug([]);
               }}
             >
-              <span className="truncate font-medium">{libelleEntreprise(f.nom, f.codes[0])}</span>
-              <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
-                {f.codes[0] ? <span className="font-mono">#{f.codes[0]}</span> : null}
-                {f.ville ? <span>{f.ville}</span> : null}
+              <span className="flex min-w-0 flex-col">
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate font-medium">
+                    {libelleEntreprise(f.nom, f.codes[0])}
+                  </span>
+                  {f.codes[0] ? (
+                    <span className="shrink-0 font-mono text-[9px] text-muted-foreground">
+                      #{f.codes[0]}
+                    </span>
+                  ) : null}
+                </span>
+                {f.corps && f.corps.length > 0 ? (
+                  <span className="truncate text-[9px] text-muted-foreground">
+                    {f.corps.slice(0, 3).join(" · ")}
+                  </span>
+                ) : null}
               </span>
+              {f.ville ? <span className="shrink-0 text-muted-foreground">{f.ville}</span> : null}
             </button>
           ))}
         </div>

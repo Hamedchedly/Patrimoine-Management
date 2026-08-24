@@ -100,7 +100,9 @@ const cmd = (corps_etat, montant, annee = 2026) => ({ corps_etat, montant, annee
   const plomb = p.corps.find((c) => c.corps_etat === "(o) Plomberie");
   const cages = p.corps.find((c) => c.corps_etat === "(h) Cages");
   check("T3 maçonnerie = principal", maçon?.niveau === "principal");
-  check("T3 plomberie = secondaire", plomb?.niveau === "secondaire");
+  // V8.16p — barème combiné (commandes + montant) : plomberie (2/15 cmd, 7,5 % du
+  // montant) → occasionnel face à la dominance de maçonnerie.
+  check("T3 plomberie = occasionnel", plomb?.niveau === "occasionnel");
   check("T3 cages = occasionnel", cages?.niveau === "occasionnel");
 }
 
@@ -166,13 +168,89 @@ const cmd = (corps_etat, montant, annee = 2026) => ({ corps_etat, montant, annee
     cmd("(j) Couvertures", 50),
   ]);
   check("T6 niveau plomberie = principal", niveauCorpsRecherche(p, "plomberie") === "principal");
+  // V8.16p — écart marqué → hiérarchie relative : couvertures (1/5, ratio 0,25) = secondaire.
   check(
-    "T6 niveau couvertures = occasionnel",
-    niveauCorpsRecherche(p, "couvertures") === "occasionnel",
+    "T6 niveau couvertures = secondaire",
+    niveauCorpsRecherche(p, "couvertures") === "secondaire",
   );
   check("T6 niveau absent = null", niveauCorpsRecherche(p, "ascenseur") === null);
   check("T6 ordre principal < secondaire", ORDRE_NIVEAU.principal < ORDRE_NIVEAU.secondaire);
   check("T6 ordre secondaire < occasionnel", ORDRE_NIVEAU.secondaire < ORDRE_NIVEAU.occasionnel);
+}
+
+// ── 6b. V8.16p — classification RELATIVE par écart (règle utilisateur) ────────
+{
+  const eq = calculerProfilActivite([cmd("(u) Etanchéité", 1532), cmd("Divers", 1980)]);
+  const etan = eq.corps.find((c) => c.corps_etat === "(u) Etanchéité");
+  const divers = eq.corps.find((c) => c.corps_etat === "Divers");
+  check("T6b équilibré 50/50 : étanchéité = principal", etan?.niveau === "principal");
+  check("T6b équilibré 50/50 : divers = principal", divers?.niveau === "principal");
+
+  const eq2 = calculerProfilActivite([
+    cmd("(o) Plomberie", 100),
+    cmd("(o) Plomberie", 100),
+    cmd("(q) Menuiseries ext", 100),
+    cmd("(q) Menuiseries ext", 100),
+  ]);
+  const pl = eq2.corps.find((c) => c.corps_etat === "(o) Plomberie");
+  const menu = eq2.corps.find((c) => c.corps_etat === "(q) Menuiseries ext");
+  check("T6b équilibré 2×2 : plomberie = principal", pl?.niveau === "principal");
+  check("T6b équilibré 2×2 : menuiseries = principal", menu?.niveau === "principal");
+
+  // V8.16p — cas RÉEL 5700 : 3/5 Fermetures + 2/5 Divers → le dominant est principale.
+  const f5700 = calculerProfilActivite([
+    cmd("(r) Fermetures", 100),
+    cmd("(r) Fermetures", 100),
+    cmd("(r) Fermetures", 100),
+    cmd("(e) Divers", 100),
+    cmd("(e) Divers", 100),
+  ]);
+  const ferm = f5700.corps.find((c) => c.corps_etat === "(r) Fermetures");
+  const div = f5700.corps.find((c) => c.corps_etat === "(e) Divers");
+  check("T6b 5700 : fermetures (3/5) = principal", ferm?.niveau === "principal");
+  check("T6b 5700 : divers (2/5) ≠ occasionnel", div?.niveau !== "occasionnel");
+
+  // Écart marqué → hiérarchie relative (dominant = principale, autres classés).
+  const gap = calculerProfilActivite([
+    cmd("(u) Etanchéité", 1000),
+    cmd("(u) Etanchéité", 1000),
+    cmd("(u) Etanchéité", 1000),
+    cmd("(u) Etanchéité", 1000),
+    cmd("(u) Etanchéité", 1000),
+    cmd("(o) Plomberie", 200),
+  ]);
+  const etanG = gap.corps.find((c) => c.corps_etat === "(u) Etanchéité");
+  const plombG = gap.corps.find((c) => c.corps_etat === "(o) Plomberie");
+  check("T6b écart marqué : étanchéité = principal", etanG?.niveau === "principal");
+  check(
+    "T6b écart marqué : plomberie ≠ principal (hiérarchie conservée)",
+    plombG?.niveau !== "principal",
+  );
+}
+
+// ── 6c. V8.16p — BARÈME COMBINÉ : le MONTANT compte aussi (cas réel 12562) ────
+{
+  // 12562 : isolat extérieure = 1 commande (6,7 %) mais 35 k€ (34 % du montant,
+  // plus gros montant) → activité SIGNIFICATIVE, pas « occasionnel ».
+  const p = calculerProfilActivite([
+    cmd("(d) Espaces Ext", 17144),
+    cmd("(y) amenagt ext", 11988.35),
+    cmd("(y) amenagt ext", 0),
+    cmd("(a) Maçonnerie", 10555.6),
+    cmd("(a) Maçonnerie", 0),
+    cmd("(r) Fermetures", 8481),
+    cmd("(r) Fermetures", 0),
+    cmd("(q) Menuiseries ext", 0),
+    cmd("(q) Menuiseries ext", 0),
+    cmd("(w) isolat extérieure", 35088.35),
+    cmd("(e) Divers", 12677.5),
+    cmd("(g) Halls", 7174.2),
+    cmd("(h) Cages", 0),
+  ]);
+  const isol = p.corps.find((c) => c.corps_etat === "(w) isolat extérieure");
+  const espaces = p.corps.find((c) => c.corps_etat === "(d) Espaces Ext");
+  check("T6c 12562 : isolat extérieure (1 cmd / 35 k€) = principal", isol?.niveau === "principal");
+  check("T6c 12562 : espaces ext (3 cmd) = principal", espaces?.niveau === "principal");
 }
 
 // ── 7. Évolutions / part de marché ────────────────────────────────────────────
@@ -457,7 +535,7 @@ const cmd = (corps_etat, montant, annee = 2026) => ({ corps_etat, montant, annee
   );
   check(
     "T25 niveau_auto conservé",
-    couv?.niveau_auto === "secondaire" && couv?.niveau_manuel === "principal",
+    couv?.niveau_auto === "occasionnel" && couv?.niveau_manuel === "principal",
   );
   const plomb = eff.find((a) => a.code === "o");
   check(
@@ -467,7 +545,7 @@ const cmd = (corps_etat, montant, annee = 2026) => ({ corps_etat, montant, annee
   const eff2 = calculerActivitesEffectives(profil, []);
   check(
     "T25 suppression override → retour auto",
-    eff2.find((a) => a.code === "j")?.niveau === "secondaire",
+    eff2.find((a) => a.code === "j")?.niveau === "occasionnel",
   );
 }
 
@@ -598,9 +676,11 @@ const cmd = (corps_etat, montant, annee = 2026) => ({ corps_etat, montant, annee
   );
 }
 
-// ── 30. Cas réel 5832 : Etanchéité et Toitures doivent être PRINCIPALES ───────
+// ── 30. Cas réel 5832 : Couvertures DOMINANTE → principale (règle relative V8.16p) ───
 {
   // Répartition RÉELLE de l'entreprise 5832 (60 commandes, montants réels par corps).
+  // V8.16p : parts de commandes → Couvertures 33/60 (55 %) principale ; Étanchéité 18 %
+  // et Toitures 17 % → secondaires ; le reste occasionnel.
   const mk = (corps, montant, annee) => ({ corps_etat: corps, montant, annee });
   const cmd = [];
   const repeter = (c, m, a, n) => {
@@ -626,12 +706,10 @@ const cmd = (corps_etat, montant, annee = 2026) => ({ corps_etat, montant, annee
     p.corps.find((c) => extraireCorpsEtatCode(c.corps_etat).code === code)?.niveau;
   check("T30 60 commandes", cmd.length === 60);
   check("T30 (j) Couvertures → principal", niv("j") === "principal");
-  check(
-    "T30 (u) Etanchéité → principal (18 % / 11 cmd / 3 ans / 50 % montant)",
-    niv("u") === "principal",
-  );
-  check("T30 (p) Toitures → principal (17 % / 10 cmd / 4 ans)", niv("p") === "principal");
-  check("T30 (w) isolat extérieure → secondaire (5 % / 3 cmd)", niv("w") === "secondaire");
+  // V8.16p — barème combiné : étanchéité = 18 % des commandes mais 50 % du MONTANT → principale.
+  check("T30 (u) Etanchéité → principal (18 % cmd / 50 % montant)", niv("u") === "principal");
+  check("T30 (p) Toitures → occasionnel (17 % / 10 cmd)", niv("p") === "occasionnel");
+  check("T30 (w) isolat extérieure → occasionnel (5 % / 3 cmd)", niv("w") === "occasionnel");
   check("T30 (q) Menuiseries ext → occasionnel (1 cmd)", niv("q") === "occasionnel");
   check("T30 (c) Isolation → occasionnel (1 cmd)", niv("c") === "occasionnel");
   check("T30 (e) Divers → occasionnel (1 cmd)", niv("e") === "occasionnel");

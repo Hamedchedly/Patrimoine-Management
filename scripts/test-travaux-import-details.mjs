@@ -61,10 +61,10 @@ const parsed = parseTravauxWorkbook(
     ["ER", "TR1", null, "RUE B", "SANS NUMERO", 2000],
   ]),
 );
-assert("T5  erreur : ligne sans numéro détectée", parsed.erreurs.length === 1);
+assert("T5  sans numéro : ligne détectée", parsed.sansCommande.length === 1);
 assert(
-  "T5  erreur : ligne et message conservés",
-  parsed.erreurs[0]?.line === 3 && parsed.erreurs[0]?.message.includes("manquant"),
+  "T5  sans numéro : ligne et message conservés",
+  parsed.sansCommande[0]?.line === 3 && parsed.sansCommande[0]?.message.includes("manquant"),
 );
 
 // ---- T6 : doublons du parseur ----
@@ -213,7 +213,7 @@ const parsedNoNum = parseTravauxWorkbook(
     ["ER", "TR1", null, "RUE B", "SANS NUMERO", 2000],
   ]),
 );
-assert("T4  sans numéro : 1 erreur de parsing", parsedNoNum.erreurs.length === 1);
+assert("T4  sans numéro : 1 ligne sans commande détectée", parsedNoNum.sansCommande.length === 1);
 assert(
   "T4  sans numéro : absente de commandes",
   parsedNoNum.commandes.every((c) => c.numero_commande !== null && c.numero_commande !== undefined),

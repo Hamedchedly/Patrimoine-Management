@@ -285,6 +285,20 @@ export const libelleEntrepriseAvecId = (
   return fournisseurId ? "Entreprise non renseignée" : base;
 };
 
+/**
+ * V8.16p — libellé avec le NUMÉRO TOUJOURS affiché à côté du nom (suggestions
+ * de devis) : « Nom n°XXXX ». Nom seul si aucun numéro ; repli robuste sinon.
+ */
+export const libelleEntrepriseAvecNumero = (
+  nom: string | null | undefined,
+  numeroFournisseur?: string | null | undefined,
+): string => {
+  const n = (nom ?? "").trim();
+  const num = (numeroFournisseur ?? "").trim();
+  if (!n) return num ? `Fournisseur n°${num}` : "Entreprise non renseignée";
+  return num ? `${n} n°${num}` : n;
+};
+
 // ── 6. Enveloppes — type de la carte clé `${annee}|${categorie}` (jamais stocké) ──
 export type EnveloppeMap = Record<string, number>;
 

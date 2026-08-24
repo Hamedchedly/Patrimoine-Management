@@ -448,10 +448,20 @@ export type LigneRegistreAnnuel = {
   corps_etat: string | null;
   nature: string | null;
   adresse: string | null;
+  /** V8.16n — adresse de rue (périmètre) — « null » si non disponible. */
+  adresse_rue: string | null;
+  /** V8.16o — ville (localité de la tranche). */
+  ville: string | null;
+  /** V8.16o — entreprises auxquelles une demande de devis a été envoyée. */
+  entreprises: string[];
   ligne_budget: string | null;
   budget: number | null;
   programme_annee: number | null;
   commande: CommandeAnnuelle | null;
+  // V8.16 — engagé/payé au niveau LIGNE : montant_engage/paye des lignes suivi sans
+  // commande, sinon ceux de la commande liée (source unique pour les KPI annuels).
+  engage: number | null;
+  paye: number | null;
   etat_annuel: EtatSuiviAnnuel;
   consultation: {
     nb_demandes: number;
@@ -478,10 +488,19 @@ export const construireLigneRegistreAnnuel = (input: {
   corpsEtat?: string | null;
   nature?: string | null;
   adresse?: string | null;
+  /** V8.16n — adresse de rue (périmètre patrimonial). */
+  adresseRue?: string | null;
+  /** V8.16o — ville (localité de la tranche). */
+  ville?: string | null;
+  /** V8.16o — entreprises auxquelles une demande de devis a été envoyée. */
+  entreprises?: string[];
   ligneBudget?: string | null;
   budget?: number | null;
   programmeAnnee?: number | null;
   commande?: CommandeAnnuelle | null;
+  // V8.16 — engagé/payé de la ligne suivi sans commande (montant_engage/paye).
+  engage?: number | null;
+  paye?: number | null;
   consultation?: {
     nb_demandes: number;
     nb_devis_recus: number;
@@ -506,10 +525,16 @@ export const construireLigneRegistreAnnuel = (input: {
     corps_etat: input.corpsEtat ?? null,
     nature: input.nature ?? null,
     adresse: input.adresse ?? null,
+    adresse_rue: input.adresseRue ?? null,
+    ville: input.ville ?? null,
+    entreprises: input.entreprises ?? [],
     ligne_budget: input.ligneBudget ?? null,
     budget: input.budget ?? null,
     programme_annee: input.programmeAnnee ?? null,
     commande,
+    // V8.16 — engagé/payé ligne (suivi sans commande), sinon de la commande liée.
+    engage: input.engage ?? commande?.engage ?? null,
+    paye: input.paye ?? commande?.paye ?? null,
     etat_annuel,
     consultation: input.consultation ?? {
       nb_demandes: 0,
@@ -569,6 +594,29 @@ export const filtrerRegistreAnnuel = (
   });
 };
 
+/**
+ * V8.15 — ENVELOPPE BUDGÉTAIRE : somme du budget des lignes portant une ligne
+ * budgétaire (LB), chaque LB comptée UNE SEULE FOIS. Règle validée : le budget
+ * réel 2026 = 317 k€ (somme des LB distinctes), pas 333 k€ (somme par ligne —
+ * des lignes peuvent partager le même n° de LB et ne doivent pas être comptées
+ * 2× ou plus). Une ligne sans LB (hors budget) n'entre pas dans l'enveloppe.
+ */
+export const enveloppeBudgetaire = (
+  lignes: Array<{
+    ligne_budget?: string | null;
+    budget?: number | null;
+    programme_annee?: number | null;
+  }>,
+): number => {
+  const parLB = new Map<string, number>();
+  for (const l of lignes) {
+    const lb = (l.ligne_budget ?? "").trim();
+    if (!lb) continue;
+    if (!parLB.has(lb)) parLB.set(lb, l.programme_annee ?? l.budget ?? 0);
+  }
+  return [...parLB.values()].reduce((s, v) => s + v, 0);
+};
+
 /** KPI du registre annuel (dérivés — aucun montant inventé). */
 export const kpiRegistreAnnuel = (lignes: LigneRegistreAnnuel[]) => {
   const somme = (vs: Array<number | null | undefined>) =>
@@ -576,13 +624,13 @@ export const kpiRegistreAnnuel = (lignes: LigneRegistreAnnuel[]) => {
   const commandes = lignes.map((l) => l.commande).filter((c): c is CommandeAnnuelle => !!c);
   return {
     operations: lignes.length,
-    // V8.6.1 — 7 KPI conventionnels (tableau lisible, §12) : les états
-    // détaillés (Sans commande / En cours / Terminées / À vérifier) restent
-    // disponibles via le filtre État et les badges du tableau.
-    budgetProgramme: somme(lignes.map((l) => l.programme_annee ?? l.budget)),
+    // V8.15 — « Budget programmé » = enveloppe budgétaire (LB distinctes).
+    budgetProgramme: enveloppeBudgetaire(lignes),
     budgetCommande: somme(commandes.map((c) => c.budget)),
-    budgetEngage: somme(commandes.map((c) => c.engage)),
-    budgetPaye: somme(commandes.map((c) => c.paye)),
+    // V8.16 — engagé/payé au niveau LIGNE (inclut l'engagé/payé des lignes suivi
+    // sans commande — montant_engage/paye — en plus des commandes liées).
+    budgetEngage: somme(lignes.map((l) => l.engage)),
+    budgetPaye: somme(lignes.map((l) => l.paye)),
     travauxEnCours: lignes.filter((l) => l.etat_annuel === "en_cours").length,
     terminees: lignes.filter((l) => l.etat_annuel === "terminee").length,
     // Détails des états (badges + filtre) — jamais affichés comme KPI.
@@ -642,6 +690,24 @@ export const filtrerAvancementDevis = <
   });
 };
 
+export const adresseRueDepuisPerimetre = (
+  perimetres: Array<{ rue?: string | null; numero?: string | null }>,
+): string | null => {
+  const per = perimetres.find((p) => p.rue && p.rue !== "Adresse inconnue");
+  if (!per?.rue) return null;
+  return [per.numero, per.rue].filter(Boolean).join(" ");
+};
+
+/** V8.16o — ville depuis « LIBELLÉ – LOCALITÉ » ou « RUE, VILLE » (dernier segment). */
+export const villeDepuisAdresse = (adresse: string | null): string | null => {
+  if (!adresse) return null;
+  const parts = adresse
+    .split(/[–,]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parts.at(-1) ?? null;
+};
+
 /** Ligne commune des onglets « demandes de devis » — les deux onglets partagent
  *  le même tableau ; la fiche opération s'ouvre via pspLigneId. */
 export type LigneDemandeDevis = {
@@ -649,9 +715,17 @@ export type LigneDemandeDevis = {
   pspLigneId: string | null;
   tranche: string;
   adresse: string | null;
+  /** V8.16n — adresse de rue (périmètre) — à afficher avec l'adresse. */
+  adresse_rue?: string | null;
+  /** V8.16o — ville (localité de la tranche). */
+  ville?: string | null;
+  /** V8.16o — entreprises auxquelles une demande de devis a été envoyée. */
+  entreprises?: string[];
   cc: string | null;
   corps_etat: string | null;
   nature: string | null;
+  /** V8.16m — ligne budgétaire (LB) — « — » si absente. */
+  ligne_budget?: string | null;
   origine: "psp" | "hors_psp";
   /** Montant programmé sur l'année de l'onglet — nul si hors programme. */
   montant: number | null;
@@ -668,10 +742,14 @@ export const ligneDemandeDevisDepuisRegistre = (l: LigneRegistreAnnuel): LigneDe
   pspLigneId: l.pspLigneId,
   tranche: l.tranche,
   adresse: l.adresse,
+  adresse_rue: l.adresse_rue ?? null,
+  ville: l.ville ?? null,
+  entreprises: l.entreprises ?? [],
   cc: l.cc,
   corps_etat: l.corps_etat,
   nature: l.nature,
   origine: l.origine,
+  ligne_budget: l.ligne_budget ?? null,
   montant: l.programme_annee != null && l.programme_annee > 0 ? l.programme_annee : l.budget,
   nb_demandes: l.consultation.nb_demandes,
   nb_devis_recus: l.consultation.nb_devis_recus,
@@ -692,10 +770,14 @@ export const ligneDemandeDevisDepuisOperation = (
     pspLigneId: op.identite.id,
     tranche: op.identite.tranche,
     adresse: op.programmation.adresse,
+    adresse_rue: adresseRueDepuisPerimetre(op.programmation.perimetre),
+    ville: villeDepuisAdresse(op.programmation.adresse),
+    entreprises: op.consultation.entreprises.map((e) => e.entreprise).filter(Boolean),
     cc: op.programmation.cc,
     corps_etat: op.programmation.corps_etat,
     nature: op.programmation.nature,
     origine: op.identite.origine,
+    ligne_budget: op.programmation.ligne.ligne_budget ?? null,
     montant: prog && prog.montant > 0 ? prog.montant : null,
     nb_demandes: op.consultation.nb_demandes,
     nb_devis_recus: op.consultation.nb_devis_recus,

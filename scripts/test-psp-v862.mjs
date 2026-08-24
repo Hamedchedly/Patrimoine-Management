@@ -12,6 +12,7 @@
 //   H/I. commande future → moteur V8.5 → rattachement psp_command_links ;
 //   J. aucune deuxième psp_ligne ;
 //   K. montants commandé/engagé/payé → exclusivement travaux_commandes ;
+//   K2. V8.16 — lignes sans commande : engagé/payé en colonnes DÉDIÉES (montant_engage/paye) ;
 //   L. états (sans commande / en cours / terminée / à vérifier) ;
 //   M. préparation 2027-2031 non polluée ;
 //   N. imports : aucune écriture sur les tables d'import.
@@ -159,8 +160,12 @@ check(
   supabaseFn.includes('.eq("annee_exercice", annee)'),
 );
 check(
-  "K2. la matérialisation n'écrit AUCUN montant de commande (engage/paye) dans psp_lignes",
-  !blocMaterialisation.includes("engage") && !blocMaterialisation.includes("paye"),
+  "K2. V8.16 — la matérialisation stocke l'engagé/payé de la ligne sans commande en colonnes DÉDIÉES (montant_engage/montant_paye + annee_exercice), jamais en engage/paye",
+  blocMaterialisation.includes("montant_engage") &&
+    blocMaterialisation.includes("montant_paye") &&
+    blocMaterialisation.includes("annee_exercice") &&
+    !/\n\s+engage:/.test(blocMaterialisation) &&
+    !/\n\s+paye:/.test(blocMaterialisation),
 );
 
 // ════════════ M. PRÉPARATION 2027-2031 NON POLLUÉE ════════════════════════════

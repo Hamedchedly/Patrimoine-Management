@@ -1,11 +1,12 @@
 /**
- * V8.16p — ÉDITEUR des modèles de mail (mail_modeles). Le hook partagé
- * `useMailModeles` vit dans src/lib/psp.mail.client.ts (utilisé par l'envoi par
+ * V8.16p/r — ÉDITEUR des modèles de mail (mail_modeles). Le hook partagé
+ * `useMailModeles` vit dans src/lib/psp.mail.hooks.ts (utilisé par l'envoi par
  * ligne et l'envoi groupé). Le moteur de composition (composerMail /
  * remplacerVariablesMail) est inchangé.
  *
- * `ModeleMailEditor` : liste des modèles + édition sujet/corps avec aide des
- * variables disponibles ({TR}, {NATURE_TRAVAUX}…), sauvegarde en base.
+ * `ModeleMailEditor` : liste des modèles (demande de devis, relance, groupé) +
+ * édition sujet/corps + DÉLAI DE RÉPONSE (jours, défaut 7) + aide des variables
+ * disponibles ({TR}, {VILLE}, {CODE_LOT}…), sauvegarde en base.
  */
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { VARIABLES_MAIL } from "@/lib/psp.suivi.foundation";
+import { JOURS_REPONSE_DEFAUT_MAIL, VARIABLES_MAIL } from "@/lib/psp.suivi.foundation";
 import { saveMailModele, type ModeleMail } from "@/lib/psp.mail.functions";
 import { MAIL_MODELES_QUERY_KEY, MODELES_REPLI, useMailModeles } from "@/lib/psp.mail.hooks";
 
@@ -41,6 +42,7 @@ export default function ModeleMailEditor({
   const [actifId, setActifId] = useState<string>(MODELES_REPLI[0]?.id ?? "demande_devis");
   const [sujet, setSujet] = useState("");
   const [corps, setCorps] = useState("");
+  const [delai, setDelai] = useState<number>(JOURS_REPONSE_DEFAUT_MAIL);
   const [sauvegarde, setSauvegarde] = useState(false);
 
   const actif = modeles.find((m) => m.id === actifId) ?? modeles[0] ?? null;
@@ -52,6 +54,7 @@ export default function ModeleMailEditor({
       setActifId(actif.id);
       setSujet(actif.sujet);
       setCorps(actif.corps);
+      setDelai(actif.delai_jours ?? JOURS_REPONSE_DEFAUT_MAIL);
     }
     setSauvegarde(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,6 +64,7 @@ export default function ModeleMailEditor({
     setActifId(m.id);
     setSujet(m.sujet);
     setCorps(m.corps);
+    setDelai(m.delai_jours ?? JOURS_REPONSE_DEFAUT_MAIL);
     setSauvegarde(false);
   };
 
@@ -69,6 +73,7 @@ export default function ModeleMailEditor({
     if (defaut) {
       setSujet(defaut.sujet);
       setCorps(defaut.corps);
+      setDelai(defaut.delai_jours ?? JOURS_REPONSE_DEFAUT_MAIL);
       setSauvegarde(false);
     }
   };
@@ -76,7 +81,15 @@ export default function ModeleMailEditor({
   const enregistrer = async () => {
     if (!actif) return;
     try {
-      await saveFn({ data: { id: actif.id, libelle: actif.libelle, sujet, corps } });
+      await saveFn({
+        data: {
+          id: actif.id,
+          libelle: actif.libelle,
+          sujet,
+          corps,
+          delai_jours: delai,
+        },
+      });
       setSauvegarde(true);
       toast.success("Modèle de mail enregistré.");
       await queryClient.invalidateQueries({ queryKey: MAIL_MODELES_QUERY_KEY });
@@ -126,6 +139,23 @@ export default function ModeleMailEditor({
                 onChange={(e) => setSujet(e.target.value)}
                 className="h-8 text-[11px]"
               />
+              <div className="flex items-center gap-2">
+                <label className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Délai de réponse (jours)
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={delai}
+                  onChange={(e) => setDelai(Number(e.target.value) || JOURS_REPONSE_DEFAUT_MAIL)}
+                  className="h-8 w-24 text-[11px]"
+                  title="Date de retour souhaitée = date d'envoi + délai"
+                />
+                <span className="text-[10px] text-muted-foreground">
+                  (défaut : 7 = une semaine)
+                </span>
+              </div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Corps
               </label>

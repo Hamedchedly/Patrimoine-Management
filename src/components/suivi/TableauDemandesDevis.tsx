@@ -42,7 +42,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { money0 } from "@/lib/formats";
 import { secteurDe } from "@/lib/travaux";
-import { composerMail, construireMailto, dateRetourParDefaut } from "@/lib/psp.suivi.foundation";
+import {
+  JOURS_REPONSE_DEFAUT_MAIL,
+  codeLotDepuis,
+  composerMail,
+  construireMailto,
+  dateRetourParDefaut,
+} from "@/lib/psp.suivi.foundation";
 import { libelleEntrepriseAvecNumero } from "@/lib/psp.prep.v7";
 import { createPspDevis, getPspEntreprisesSuggestions } from "@/lib/psp.prep.supabase.functions";
 import {
@@ -165,31 +171,37 @@ function DialogueMailGroupe({
     }
   }, [ouvert]);
 
-  // V8.16o — UN seul mail : le corps réutilise le modèle « demande_devis » avec
-  // des variables MULTI-valeurs (chaque section liste toutes les opérations).
-  const modeleDemande = modeles.find((m) => m.id === "demande_devis") ??
-    modeles[0] ?? { id: "demande_devis", libelle: "Demande de devis", sujet: "", corps: "" };
-  const blocs = lignes
+  // V8.16r — UN seul mail, modèle dédié « demande_devis_groupe » (liste élaborée).
+  // Destinataires en CCI (bcc), date au format jj/mm/aaaa, délai du modèle.
+  const modeleGroupe = modeles.find((m) => m.id === "demande_devis_groupe") ??
+    modeles[0] ?? {
+      id: "demande_devis_groupe",
+      libelle: "Demande de devis groupée",
+      sujet: "Demande de devis – {N_OPERATIONS} opération(s)",
+      corps: "",
+      delai_jours: JOURS_REPONSE_DEFAUT_MAIL,
+    };
+  const delaiGroupe = modeleGroupe.delai_jours ?? JOURS_REPONSE_DEFAUT_MAIL;
+  const listeOperations = lignes
     .map((l, i) => {
-      const adresse = [l.adresse_rue ?? l.adresse, l.ville].filter(Boolean).join(", ");
-      return `${i + 1}. TR ${l.tranche} — ${adresse}\n   ${l.nature ?? "Travaux non précisés"}${
-        l.corps_etat ? ` · ${secteurDe({ corps_etat: l.corps_etat })} / ${l.corps_etat}` : ""
-      }`;
+      const adresse = [l.adresse_rue ?? l.adresse, l.ville].filter(Boolean).join(", ") || "—";
+      const codeLot = codeLotDepuis(l.nature);
+      return [
+        `${i + 1}. Référence patrimoine : ${l.tranche}`,
+        `   Adresse : ${adresse}`,
+        ...(codeLot ? [`   Code lot : ${codeLot}`] : []),
+        `   Nature des travaux : ${l.nature ?? "—"}`,
+        `   Corps d'état : ${l.corps_etat ?? "—"}`,
+      ].join("\n");
     })
     .join("\n");
-  const sujetCompose = composerMail(modeleDemande, {
-    TR: `${lignes.length} opération(s)`,
-    NATURE_TRAVAUX: lignes[0]?.tranche ?? "travaux",
+  const sujetCompose = composerMail(modeleGroupe, {
+    N_OPERATIONS: String(lignes.length),
   }).sujet;
-  const corpsCompose = composerMail(modeleDemande, {
-    TR: lignes.map((l) => l.tranche).join(", "),
-    NATURE_TRAVAUX: blocs,
-    CORPS_ETAT:
-      [...new Set(lignes.map((l) => l.corps_etat ?? "").filter(Boolean))].join(" · ") || "—",
-    ADRESSE: lignes
-      .map((l) => [l.adresse_rue ?? l.adresse, l.ville].filter(Boolean).join(", "))
-      .join("\n"),
-    DATE_RETOUR: dateRetourParDefaut(new Date()),
+  const corpsCompose = composerMail(modeleGroupe, {
+    N_OPERATIONS: String(lignes.length),
+    LISTE_OPERATIONS: listeOperations,
+    DATE_RETOUR: dateRetourParDefaut(new Date(), delaiGroupe),
   }).corps;
 
   useEffect(() => {
@@ -236,7 +248,8 @@ function DialogueMailGroupe({
     setEntrChoisies((prev) => prev.filter((e) => e.fournisseur_id !== id));
 
   const emails = entrChoisies.map((e) => e.email ?? "").filter((e) => e !== "");
-  const mailto = construireMailto({ email: emails.join(","), sujet, corps });
+  // V8.16r — envoi groupé en CCI (copie cachée) : les destinataires ne se voient pas.
+  const mailto = construireMailto({ bcc: emails.join(","), sujet, corps });
 
   // V8.16o — enregistrement psp_devis pour chaque couple (opération × entreprise),
   // même logique que l'envoi ligne par ligne (statut demande_envoyee, montant vide).

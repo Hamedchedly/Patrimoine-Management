@@ -42,7 +42,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { composerMail, construireMailto, dateRetourParDefaut } from "@/lib/psp.suivi.foundation";
+import {
+  JOURS_REPONSE_DEFAUT_MAIL,
+  codeLotDepuis,
+  composerMail,
+  construireMailto,
+  dateRetourParDefaut,
+} from "@/lib/psp.suivi.foundation";
 import { libelleEntrepriseAvecNumero } from "@/lib/psp.prep.v7";
 import { createPspDevis, getPspEntreprisesSuggestions } from "@/lib/psp.prep.supabase.functions";
 
@@ -58,6 +64,8 @@ export interface OperationDemandeDevis {
   corps_etat?: string | null;
   adresse?: string | null;
   ville?: string | null;
+  /** V8.16r — code lot (ex. ER.26154) si connu (sinon extrait de la nature). */
+  code_lot?: string | null;
 }
 
 type SuggestionAvecEmail = {
@@ -104,24 +112,28 @@ export default function PspDemandeDevisWorkflow({
   // V8.8 §2 — entreprise libre choisie hors suggestions (référentiel fournisseurs).
   const [entrepriseLibre, setEntrepriseLibre] = useState<FournisseurSelection | null>(null);
 
+  // V8.16r — modèle courant (délai du modèle pour la date de retour, format jj/mm/aaaa).
+  const modeleDemande = modeles.find((m) => m.id === "demande_devis") ??
+    modeles[0] ?? {
+      id: "demande_devis",
+      libelle: "Demande de devis",
+      sujet: "",
+      corps: "",
+      delai_jours: JOURS_REPONSE_DEFAUT_MAIL,
+    };
   const variables = {
     TR: operation.tranche,
     NATURE_TRAVAUX: operation.nature_travaux ?? "",
     CORPS_ETAT: operation.corps_etat ?? "",
     ADRESSE: [operation.adresse, operation.ville].filter(Boolean).join(", "),
-    DATE_RETOUR: dateRetourParDefaut(new Date()),
+    VILLE: operation.ville ?? "",
+    CODE_LOT: operation.code_lot ?? codeLotDepuis(operation.nature_travaux),
+    DATE_RETOUR: dateRetourParDefaut(
+      new Date(),
+      modeleDemande.delai_jours ?? JOURS_REPONSE_DEFAUT_MAIL,
+    ),
   };
-  const modele = () =>
-    composerMail(
-      modeles.find((m) => m.id === "demande_devis") ??
-        modeles[0] ?? {
-          id: "demande_devis",
-          libelle: "Demande de devis",
-          sujet: "",
-          corps: "",
-        },
-      variables,
-    );
+  const modele = () => composerMail(modeleDemande, variables);
 
   useEffect(() => {
     if (!editeur) return;

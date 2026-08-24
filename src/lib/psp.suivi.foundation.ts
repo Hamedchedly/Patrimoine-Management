@@ -733,8 +733,12 @@ export const VARIABLES_MAIL: VariableMail[] = [
   { cle: "NATURE_TRAVAUX", libelle: "Nature des travaux" },
   { cle: "CORPS_ETAT", libelle: "Corps d'état" },
   { cle: "ADRESSE", libelle: "Adresse du patrimoine" },
-  { cle: "DATE_RETOUR", libelle: "Date souhaitée de retour" },
+  { cle: "VILLE", libelle: "Ville (localité de la tranche)" },
+  { cle: "CODE_LOT", libelle: "Code lot (ex. ER.26154)" },
+  { cle: "DATE_RETOUR", libelle: "Date souhaitée de retour (jj/mm/aaaa)" },
   { cle: "DATE_DEMANDE", libelle: "Date de la demande initiale (relance)" },
+  { cle: "N_OPERATIONS", libelle: "Nombre d'opérations (envoi groupé)" },
+  { cle: "LISTE_OPERATIONS", libelle: "Liste des opérations (envoi groupé)" },
 ];
 
 export interface ModeleMail {
@@ -742,20 +746,27 @@ export interface ModeleMail {
   libelle: string;
   sujet: string;
   corps: string;
+  /** V8.16r — délai de réponse souhaité (jours), défaut 7 (une semaine), éditable. */
+  delai_jours?: number;
 }
+
+/** Délai par défaut des modèles de mail (une semaine — V8.16r). */
+export const JOURS_REPONSE_DEFAUT_MAIL = 7;
 
 /**
  * Modèles centraux (un seul endroit) : les textes ne sont PAS figés dans les
- * composants. Ils restent personnalisables avant mailto:.
+ * composants. Ils restent personnalisables avant mailto: (et dans l'éditeur de
+ * modèles de mail). Le délai par défaut est d'une semaine (éditable par modèle).
  */
 export const MAIL_MODELES: ModeleMail[] = [
   {
     id: "demande_devis",
     libelle: "Demande de devis",
+    delai_jours: JOURS_REPONSE_DEFAUT_MAIL,
     sujet: "Demande de devis – {TR} – {NATURE_TRAVAUX}",
     corps: `Bonjour,
 
-Dans le cadre de travaux à réaliser sur notre patrimoine situé {ADRESSE},
+Dans le cadre de travaux à réaliser sur notre patrimoine situé {ADRESSE} ({VILLE}),
 
 nous souhaiterions recevoir votre proposition pour :
 
@@ -768,8 +779,11 @@ Corps d'état :
 Référence patrimoine :
 {TR}
 
+Code lot :
+{CODE_LOT}
+
 Adresse :
-{ADRESSE}
+{ADRESSE} ({VILLE})
 
 Date souhaitée de retour :
 {DATE_RETOUR}
@@ -779,10 +793,11 @@ Cordialement,`,
   {
     id: "relance",
     libelle: "Relance de demande de devis",
+    delai_jours: JOURS_REPONSE_DEFAUT_MAIL,
     sujet: "Relance – Demande de devis – {TR} – {NATURE_TRAVAUX}",
     corps: `Bonjour,
 
-Nous vous avons adressé le {DATE_DEMANDE} une demande de devis pour des travaux sur notre patrimoine situé {ADRESSE}.
+Nous vous avons adressé le {DATE_DEMANDE} une demande de devis pour des travaux sur notre patrimoine situé {ADRESSE} ({VILLE}).
 
 Dans l'attente de votre proposition pour :
 
@@ -795,11 +810,29 @@ Corps d'état :
 Référence patrimoine :
 {TR}
 
+Code lot :
+{CODE_LOT}
+
 Adresse :
-{ADRESSE}
+{ADRESSE} ({VILLE})
 
 Date souhaitée de retour :
 {DATE_RETOUR}
+
+Cordialement,`,
+  },
+  {
+    id: "demande_devis_groupe",
+    libelle: "Demande de devis groupée",
+    delai_jours: JOURS_REPONSE_DEFAUT_MAIL,
+    sujet: "Demande de devis – {N_OPERATIONS} opération(s)",
+    corps: `Bonjour,
+
+Dans le cadre de travaux à réaliser sur notre patrimoine, nous souhaiterions recevoir votre proposition pour les {N_OPERATIONS} opérations suivantes :
+
+{LISTE_OPERATIONS}
+
+Merci de nous adresser votre proposition avant le {DATE_RETOUR}.
 
 Cordialement,`,
   },
@@ -827,22 +860,33 @@ export const composerMail = (
 /** Construit une URL mailto: (ouverture client local — PAT S11 ne prétend pas que le mail est parti). */
 export const construireMailto = (input: {
   email?: string | null;
+  /** V8.16r — copie cachée (CCI) : destinataires invisibles (envoi groupé). */
+  bcc?: string | null;
   sujet: string;
   corps: string;
 }): string => {
   const base = input.email && input.email.trim() !== "" ? input.email : "";
   const params: string[] = [];
+  const bcc = (input.bcc ?? "").trim();
+  if (bcc !== "") params.push(`bcc=${encodeURIComponent(bcc)}`);
   if (input.sujet.trim() !== "") params.push(`subject=${encodeURIComponent(input.sujet)}`);
   if (input.corps.trim() !== "") params.push(`body=${encodeURIComponent(input.corps)}`);
   return `mailto:${base}${params.length > 0 ? `?${params.join("&")}` : ""}`;
 };
 
-/** Date de retour par défaut (created_at de la demande + jours). */
+/** Date de retour par défaut (created_at de la demande + jours) — format jj/mm/aaaa. */
 export const dateRetourParDefaut = (dateRef: Date, jours = JOURS_REPONSE_DEFAUT): string => {
   const d = new Date(dateRef);
   d.setDate(d.getDate() + jours);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
+/** V8.16r — code lot (ex. « ER.26154 ») extrait d'un texte descriptif (repli). */
+export const codeLotDepuis = (texte: string | null | undefined): string | null => {
+  const m = /(ER\.[A-Za-z0-9]+)/i.exec((texte ?? "").trim());
+  const code = m?.[1];
+  return code ? code.toUpperCase() : null;
 };
 // ── Recommandation d'entreprises (données RÉELLES uniquement) ───────────────
 

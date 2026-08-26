@@ -100,6 +100,7 @@ export default function PspTable({
   onModifier,
   onDevis,
   onUpdateInline,
+  onDelete,
   perimetresParLigne,
   lotsParId,
   quickAdd,
@@ -123,6 +124,7 @@ export default function PspTable({
       remarques?: string;
     },
   ) => void;
+  onDelete: (id: string) => void;
   perimetresParLigne: Map<string, PerimetreLigne[]>;
   lotsParId: Map<string, LotInfo>;
   quickAdd: {
@@ -234,6 +236,7 @@ export default function PspTable({
                     onModifier={onModifier}
                     onDevis={onDevis}
                     onUpdateInline={onUpdateInline}
+                    onDelete={onDelete}
                   />
                 ))
               : null}
@@ -259,6 +262,7 @@ export default function PspTable({
                         onModifier={onModifier}
                         onDevis={onDevis}
                         onUpdateInline={onUpdateInline}
+                        onDelete={onDelete}
                       />
                     </Fragment>
                   );
@@ -286,6 +290,7 @@ export default function PspTable({
                         onModifier={onModifier}
                         onDevis={onDevis}
                         onUpdateInline={onUpdateInline}
+                        onDelete={onDelete}
                       />
                     </Fragment>
                   );

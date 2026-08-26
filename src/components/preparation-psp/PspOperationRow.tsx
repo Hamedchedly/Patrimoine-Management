@@ -1,8 +1,19 @@
 import { useState } from "react";
-import { Building2, Pencil, SquarePen } from "lucide-react";
+import { Building2, Check, Pencil, Trash2, X } from "lucide-react";
 
 import PspSecteurBadge from "@/components/preparation-psp/PspSecteurBadge";
 import PspCorpsEtatSelect from "@/components/preparation-psp/PspCorpsEtatSelect";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +62,7 @@ export default function PspOperationRow({
   onModifier,
   onDevis,
   onUpdateInline,
+  onDelete,
 }: {
   op: PspOperation;
   perimetres: PerimetreLigne[];
@@ -70,6 +82,8 @@ export default function PspOperationRow({
       remarques?: string;
     },
   ) => void;
+  /** V8.16x — suppression d'une ligne (bouton corbeille, confirmation AlertDialog). */
+  onDelete: (id: string) => void;
 }) {
   // V8.16x — édition inline : statut/priorité/notes ne sont PLUS éditables au clic
   // direct ; ils ne se modifient que via « Modifier » (sur le tableau) ou la fiche.
@@ -94,11 +108,26 @@ export default function PspOperationRow({
   // Devis retenu). Aucun état stocké, aucun moteur parallèle.
   const consultation = statutConsultationDepuisDevis(op.devis);
 
+  /** V8.16x — un SIMPLE CLIC débloque les champs (édition sur le tableau). */
+  const ouvrirEdition = () => {
+    setEdit({
+      corps_etat: op.corps_etat ?? "",
+      nature_travaux: op.nature_travaux ?? "",
+      statut: op.statut ?? "a_definir",
+      priorite: op.priorite ?? "normale",
+      notes: op.remarques ?? "",
+    });
+    setEditionInline(true);
+  };
+
   return (
     <TableRow
-      className="cursor-pointer transition-colors hover:bg-primary/5"
-      onClick={() => onOpen(op)}
-      title={`Ouvrir la fiche — ${op.nature_travaux}`}
+      className={cn(
+        "cursor-pointer transition-colors hover:bg-primary/5",
+        editionInline && "bg-primary/5",
+      )}
+      onClick={ouvrirEdition}
+      title="Cliquer pour modifier directement sur le tableau"
     >
       <TableCell className="py-2 font-mono text-xs font-semibold">{op.tranche}</TableCell>
       <TableCell className="py-2 text-xs font-medium">{op.charge_clientele}</TableCell>
@@ -241,15 +270,26 @@ export default function PspOperationRow({
         )}
       </TableCell>
 
-      {/* Actions */}
+      {/* Actions — V8.16x : un clic sur la ligne débloque les champs ; 4 icônes à
+          droite (ouvrir la fiche · valider · annuler · supprimer). */}
       <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-muted-foreground hover:text-primary"
+            title="Ouvrir la fiche opération (opération + devis + historique)"
+            onClick={() => onModifier(op)}
+          >
+            <Pencil className="size-3.5" />
+          </Button>
           {editionInline ? (
             <>
               <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-[10px] text-emerald-700"
+                variant="ghost"
+                size="icon"
+                className="size-7 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                title="Valider la modification"
                 onClick={() => {
                   onUpdateInline(op.id, {
                     corps_etat: edit.corps_etat,
@@ -261,46 +301,44 @@ export default function PspOperationRow({
                   setEditionInline(false);
                 }}
               >
-                Enregistrer
+                <Check className="size-3.5" />
               </Button>
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-7 text-[10px]"
+                size="icon"
+                className="size-7 text-muted-foreground hover:text-foreground"
+                title="Annuler la modification"
                 onClick={() => setEditionInline(false)}
               >
-                Annuler
+                <X className="size-3.5" />
               </Button>
             </>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 text-muted-foreground hover:text-primary"
-              title="Modifier directement sur le tableau"
-              onClick={() => {
-                setEdit({
-                  corps_etat: op.corps_etat ?? "",
-                  nature_travaux: op.nature_travaux ?? "",
-                  statut: op.statut ?? "a_definir",
-                  priorite: op.priorite ?? "normale",
-                  notes: op.remarques ?? "",
-                });
-                setEditionInline(true);
-              }}
-            >
-              <SquarePen className="size-3.5" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground hover:text-primary"
-            title="Ouvrir la fiche opération (opération + devis + historique)"
-            onClick={() => onModifier(op)}
-          >
-            <Pencil className="size-3.5" />
-          </Button>
+          ) : null}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 text-muted-foreground hover:text-destructive"
+                title="Supprimer la ligne"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer cette ligne ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {op.tranche} — {op.nature_travaux || "sans nature"}. Cette action est définitive
+                  (psp_lignes).
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(op.id)}>Supprimer</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </TableCell>
     </TableRow>

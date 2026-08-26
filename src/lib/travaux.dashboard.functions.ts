@@ -332,6 +332,9 @@ export const getTravauxDashboard = createServerFn({ method: "GET", strict: false
         const a = (l.adresse ?? "").replace(/\s+/g, " ").trim();
         if (!l.tranche_code || !a || a === "Adresse inconnue" || /^\d+$/.test(a)) continue;
         if (!/[A-Za-zÀ-ÿ]/.test(a)) continue;
+        // V8.16x — ignore les désignations de lot (« LOT 115 », « ER.… », garages…)
+        // au profit d'une VRAIE rue (ex. TR 2086 → « 3 AV FRANCOIS MITTERAND »).
+        if (/^(LOT|LOTS|ER\.|GAR|PAR|BOX|BAT|BÂT|BLOC|ILOT|PARC)\b/i.test(a)) continue;
         if (!freq.has(l.tranche_code)) freq.set(l.tranche_code, new Map());
         const m = freq.get(l.tranche_code);
         if (!m) continue;

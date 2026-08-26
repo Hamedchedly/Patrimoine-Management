@@ -1147,6 +1147,7 @@ function PreparationPspPage() {
                     onModifier={ouvrirModification}
                     onDevis={ouvrirDevis}
                     onUpdateInline={handleModifierInline}
+                    onDelete={(id) => void handleSupprimer(id)}
                     perimetresParLigne={perimetresParLigne}
                     lotsParId={lotsParId}
                     quickAdd={

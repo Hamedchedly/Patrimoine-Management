@@ -2252,31 +2252,33 @@ function DashboardTravauxPage() {
               </tbody>
             </table>
           </div>
-          <div className="p-4 bg-slate-50/50 border-t flex items-center justify-between">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-              PAGE {page} SUR {Math.ceil(filteredJournal.length / PAGE_SIZE) || 1}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 font-black text-[9px] rounded-xl uppercase tracking-widest"
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                PRÉCÉDENT
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 font-black text-[9px] rounded-xl uppercase tracking-widest"
-                disabled={page * PAGE_SIZE >= filteredJournal.length}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                SUIVANT
-              </Button>
+          {filteredJournal.length > PAGE_SIZE ? (
+            <div className="p-4 bg-slate-50/50 border-t flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                PAGE {page} SUR {Math.ceil(filteredJournal.length / PAGE_SIZE) || 1}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 font-black text-[9px] rounded-xl uppercase tracking-widest"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  PRÉCÉDENT
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 font-black text-[9px] rounded-xl uppercase tracking-widest"
+                  disabled={page * PAGE_SIZE >= filteredJournal.length}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  SUIVANT
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : null}
         </section>
       </div>
 

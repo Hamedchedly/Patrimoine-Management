@@ -2,8 +2,8 @@ import { Fragment, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 
 import PspDetailFilters from "@/components/preparation-psp/PspDetailFilters";
-import PspOperationForm from "@/components/preparation-psp/PspOperationForm";
 import PspOperationRow from "@/components/preparation-psp/PspOperationRow";
+import PspOperationRowEdit from "@/components/preparation-psp/PspOperationRowEdit";
 import PspQuickAddRow from "@/components/preparation-psp/PspQuickAddRow";
 import type { ModeAffichage } from "@/components/preparation-psp/PspGroupingSelector";
 import {
@@ -130,31 +130,39 @@ export default function PspTable({
   reference?: ReferencePatrimoine | null;
 }) {
   const [tri, setTri] = useState<{ cle: CleTri; asc: boolean } | null>(null);
-  // V8.16y — ligne en cours d'édition : formulaire COMPLET étendu sous la ligne
-  // (périmètre/ER lot, montants, tranche, corps, nature, statut, priorité, notes).
+  // V8.16y (partie 2) — ligne en cours d'édition : ses CASES sont débloquées
+  // (comme la ligne d'ajout), pas de gros formulaire étendu.
   const [editionId, setEditionId] = useState<string | null>(null);
 
-  const renderLigneEditee = (op: PspOperation) =>
+  /** Rend la ligne d'une opération : la ligne ÉDITABLE si elle est en cours
+   *  d'édition (cases débloquées, type saisie directe), sinon la ligne affichage. */
+  const renderLigne = (op: PspOperation) =>
     op.id === editionId ? (
-      <tr className="bg-muted/20">
-        <td colSpan={NB_COLS_TOTAL} className="p-3">
-          <PspOperationForm
-            open
-            embedded
-            mode="modification"
-            operation={op}
-            reference={reference}
-            perimetresLigne={perimetresParLigne.get(op.id) ?? []}
-            lotsParId={lotsParId}
-            onSave={(saisie) => {
-              onEditInline(op, saisie);
-              setEditionId(null);
-            }}
-            onClose={() => setEditionId(null)}
-          />
-        </td>
-      </tr>
-    ) : null;
+      <PspOperationRowEdit
+        op={op}
+        reference={reference}
+        perimetres={perimetresParLigne.get(op.id) ?? []}
+        lotsParId={lotsParId}
+        figee={figee}
+        onSave={(saisie) => {
+          onEditInline(op, saisie);
+          setEditionId(null);
+        }}
+        onCancel={() => setEditionId(null)}
+      />
+    ) : (
+      <PspOperationRow
+        op={op}
+        perimetres={perimetresParLigne.get(op.id) ?? []}
+        lotsParId={lotsParId}
+        onOpen={onOpenOperation}
+        onModifier={onModifier}
+        onDevis={onDevis}
+        onDelete={onDelete}
+        editionActive={false}
+        onEditRequest={() => setEditionId(op.id)}
+      />
+    );
 
   const filtrees = useMemo(() => filtrerOperations(operations, filters), [operations, filters]);
   const triees = useMemo(
@@ -245,22 +253,7 @@ export default function PspTable({
             ) : null}
 
             {mode === "detail"
-              ? triees.map((op) => (
-                  <Fragment key={op.id}>
-                    <PspOperationRow
-                      op={op}
-                      perimetres={perimetresParLigne.get(op.id) ?? []}
-                      lotsParId={lotsParId}
-                      onOpen={onOpenOperation}
-                      onModifier={onModifier}
-                      onDevis={onDevis}
-                      onDelete={onDelete}
-                      editionActive={op.id === editionId}
-                      onEditRequest={() => setEditionId((cur) => (cur === op.id ? null : op.id))}
-                    />
-                    {renderLigneEditee(op)}
-                  </Fragment>
-                ))
+              ? triees.map((op) => <Fragment key={op.id}>{renderLigne(op)}</Fragment>)
               : null}
 
             {mode === "tranche"
@@ -276,18 +269,7 @@ export default function PspTable({
                             .join(" — ")}
                         />
                       ) : null}
-                      <PspOperationRow
-                        op={op}
-                        perimetres={perimetresParLigne.get(op.id) ?? []}
-                        lotsParId={lotsParId}
-                        onOpen={onOpenOperation}
-                        onModifier={onModifier}
-                        onDevis={onDevis}
-                        onDelete={onDelete}
-                        editionActive={op.id === editionId}
-                        onEditRequest={() => setEditionId((cur) => (cur === op.id ? null : op.id))}
-                      />
-                      {renderLigneEditee(op)}
+                      {renderLigne(op)}
                     </Fragment>
                   );
                 })
@@ -306,18 +288,7 @@ export default function PspTable({
                           label={op.charge_clientele || "Sans chargé de clientèle"}
                         />
                       ) : null}
-                      <PspOperationRow
-                        op={op}
-                        perimetres={perimetresParLigne.get(op.id) ?? []}
-                        lotsParId={lotsParId}
-                        onOpen={onOpenOperation}
-                        onModifier={onModifier}
-                        onDevis={onDevis}
-                        onDelete={onDelete}
-                        editionActive={op.id === editionId}
-                        onEditRequest={() => setEditionId((cur) => (cur === op.id ? null : op.id))}
-                      />
-                      {renderLigneEditee(op)}
+                      {renderLigne(op)}
                     </Fragment>
                   );
                 })

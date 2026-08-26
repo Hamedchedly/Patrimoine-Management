@@ -198,7 +198,7 @@ export function ReferentielCorpsEtatsBody({ onChanged }: { onChanged?: (() => vo
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(["GE", "GT", "CP"] as PspCategorie[]).map((c) => (
+                      {(["GT", "GE", "CP"] as PspCategorie[]).map((c) => (
                         <SelectItem key={c} value={c}>
                           {c}
                         </SelectItem>

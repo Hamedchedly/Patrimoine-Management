@@ -15,7 +15,7 @@ import {
 } from "@/lib/psp.prep.v7";
 import { cn } from "@/lib/utils";
 
-const CATEGORIES = ["GE", "GT", "CP"] as const;
+const CATEGORIES = ["GT", "GE", "CP"] as const;
 
 /**
  * KPI du module : Budget disponible, Budget programmé, Écart disponible,

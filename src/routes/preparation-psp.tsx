@@ -1303,7 +1303,7 @@ function SimulationDialog({
       (programmePar[`${a}|CP`] ?? 0),
     0,
   );
-  const categories = ["GE", "GT", "CP"] as const;
+  const categories = ["GT", "GE", "CP"] as const;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>

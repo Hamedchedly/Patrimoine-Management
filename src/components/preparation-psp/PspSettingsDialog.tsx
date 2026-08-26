@@ -30,7 +30,7 @@ import type { EnveloppeMap } from "@/lib/psp.prep.v7";
 
 export type OngletParametres = "charges" | "corps" | "enveloppes";
 
-const CATEGORIES = ["GE", "GT", "CP"] as const;
+const CATEGORIES = ["GT", "GE", "CP"] as const;
 
 export default function PspSettingsDialog({
   open,

@@ -2,6 +2,7 @@ import { Fragment, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 
 import PspDetailFilters from "@/components/preparation-psp/PspDetailFilters";
+import PspOperationForm from "@/components/preparation-psp/PspOperationForm";
 import PspOperationRow from "@/components/preparation-psp/PspOperationRow";
 import PspQuickAddRow from "@/components/preparation-psp/PspQuickAddRow";
 import type { ModeAffichage } from "@/components/preparation-psp/PspGroupingSelector";
@@ -24,6 +25,7 @@ import {
   type CleTri,
   type FiltresDetail,
   type PspOperation,
+  type SaisieOperation,
 } from "@/lib/psp.prep";
 import type { LotInfo, PerimetreLigne } from "@/lib/psp.prep.v7";
 import type { ReferencePatrimoine } from "@/lib/psp.prep.data";
@@ -99,7 +101,7 @@ export default function PspTable({
   onOpenOperation,
   onModifier,
   onDevis,
-  onUpdateInline,
+  onEditInline,
   onDelete,
   perimetresParLigne,
   lotsParId,
@@ -114,16 +116,8 @@ export default function PspTable({
   onOpenOperation: (op: PspOperation) => void;
   onModifier: (op: PspOperation) => void;
   onDevis: (op: PspOperation) => void;
-  onUpdateInline: (
-    id: string,
-    patch: {
-      corps_etat?: string;
-      nature_travaux?: string;
-      statut?: string;
-      priorite?: string;
-      remarques?: string;
-    },
-  ) => void;
+  /** V8.16y — enregistrement du formulaire complet étendu (périmètre, montants, tranche…). */
+  onEditInline: (op: PspOperation, saisie: SaisieOperation) => void;
   onDelete: (id: string) => void;
   perimetresParLigne: Map<string, PerimetreLigne[]>;
   lotsParId: Map<string, LotInfo>;
@@ -136,6 +130,31 @@ export default function PspTable({
   reference?: ReferencePatrimoine | null;
 }) {
   const [tri, setTri] = useState<{ cle: CleTri; asc: boolean } | null>(null);
+  // V8.16y — ligne en cours d'édition : formulaire COMPLET étendu sous la ligne
+  // (périmètre/ER lot, montants, tranche, corps, nature, statut, priorité, notes).
+  const [editionId, setEditionId] = useState<string | null>(null);
+
+  const renderLigneEditee = (op: PspOperation) =>
+    op.id === editionId ? (
+      <tr className="bg-muted/20">
+        <td colSpan={NB_COLS_TOTAL} className="p-3">
+          <PspOperationForm
+            open
+            embedded
+            mode="modification"
+            operation={op}
+            reference={reference}
+            perimetresLigne={perimetresParLigne.get(op.id) ?? []}
+            lotsParId={lotsParId}
+            onSave={(saisie) => {
+              onEditInline(op, saisie);
+              setEditionId(null);
+            }}
+            onClose={() => setEditionId(null)}
+          />
+        </td>
+      </tr>
+    ) : null;
 
   const filtrees = useMemo(() => filtrerOperations(operations, filters), [operations, filters]);
   const triees = useMemo(
@@ -227,17 +246,20 @@ export default function PspTable({
 
             {mode === "detail"
               ? triees.map((op) => (
-                  <PspOperationRow
-                    key={op.id}
-                    op={op}
-                    perimetres={perimetresParLigne.get(op.id) ?? []}
-                    lotsParId={lotsParId}
-                    onOpen={onOpenOperation}
-                    onModifier={onModifier}
-                    onDevis={onDevis}
-                    onUpdateInline={onUpdateInline}
-                    onDelete={onDelete}
-                  />
+                  <Fragment key={op.id}>
+                    <PspOperationRow
+                      op={op}
+                      perimetres={perimetresParLigne.get(op.id) ?? []}
+                      lotsParId={lotsParId}
+                      onOpen={onOpenOperation}
+                      onModifier={onModifier}
+                      onDevis={onDevis}
+                      onDelete={onDelete}
+                      editionActive={op.id === editionId}
+                      onEditRequest={() => setEditionId((cur) => (cur === op.id ? null : op.id))}
+                    />
+                    {renderLigneEditee(op)}
+                  </Fragment>
                 ))
               : null}
 
@@ -261,9 +283,11 @@ export default function PspTable({
                         onOpen={onOpenOperation}
                         onModifier={onModifier}
                         onDevis={onDevis}
-                        onUpdateInline={onUpdateInline}
                         onDelete={onDelete}
+                        editionActive={op.id === editionId}
+                        onEditRequest={() => setEditionId((cur) => (cur === op.id ? null : op.id))}
                       />
+                      {renderLigneEditee(op)}
                     </Fragment>
                   );
                 })
@@ -289,9 +313,11 @@ export default function PspTable({
                         onOpen={onOpenOperation}
                         onModifier={onModifier}
                         onDevis={onDevis}
-                        onUpdateInline={onUpdateInline}
                         onDelete={onDelete}
+                        editionActive={op.id === editionId}
+                        onEditRequest={() => setEditionId((cur) => (cur === op.id ? null : op.id))}
                       />
+                      {renderLigneEditee(op)}
                     </Fragment>
                   );
                 })

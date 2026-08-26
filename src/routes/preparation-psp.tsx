@@ -106,7 +106,6 @@ import {
   type PerimetreLigne,
   programmeParAnneeCategorie,
   extraireCodeCorpsEtat,
-  categorieDepuisCorpsEtat,
 } from "@/lib/psp.prep.v7";
 
 export const Route = createFileRoute("/preparation-psp")({
@@ -726,60 +725,6 @@ function PreparationPspPage() {
     }
   };
 
-  /** V8.16x — édition INLINE d'une ligne directement sur le tableau (corps d'état,
-   * nature, statut, priorité, notes). Persiste via updatePspLigne ; la catégorie
-   * est dérivée du corps d'état (règle unique). */
-  const handleModifierInline = async (
-    id: string,
-    patch: {
-      corps_etat?: string;
-      nature_travaux?: string;
-      statut?: string;
-      priorite?: string;
-      remarques?: string;
-    },
-  ) => {
-    if (figee) {
-      toast.error("Programmation figée : modification impossible.");
-      return;
-    }
-    const op = operations.find((o) => o.id === id);
-    if (!op) return;
-    const corpsEtat = patch.corps_etat !== undefined ? patch.corps_etat : (op.corps_etat ?? "");
-    const prochain: PspOperation = {
-      ...op,
-      corps_etat: corpsEtat,
-      corps_etat_code: extraireCodeCorpsEtat(corpsEtat) ?? op.corps_etat_code,
-      categorie:
-        patch.corps_etat !== undefined ? categorieDepuisCorpsEtat(corpsEtat) : op.categorie,
-      nature_travaux:
-        patch.nature_travaux !== undefined ? patch.nature_travaux : (op.nature_travaux ?? ""),
-      statut: patch.statut !== undefined ? patch.statut : (op.statut ?? "a_definir"),
-      priorite: patch.priorite !== undefined ? patch.priorite : (op.priorite ?? "normale"),
-      remarques: patch.remarques !== undefined ? patch.remarques || null : op.remarques,
-    };
-    setOperations((prev) => prev.map((o) => (o.id === id ? prochain : o)));
-    try {
-      await updateLigneFn({
-        data: {
-          id,
-          trancheCode: prochain.tranche,
-          categorie: prochain.categorie,
-          corpsEtatCode: prochain.corps_etat_code || null,
-          corpsEtat: prochain.corps_etat || null,
-          natureTravaux: prochain.nature_travaux || null,
-          programme: prochain.programme,
-          ligneBudget: null,
-          remarques: prochain.remarques || null,
-          statut: prochain.statut,
-          priorite: prochain.priorite,
-        },
-      });
-    } catch (e) {
-      toast.error(`Modification non persistée : ${(e as Error).message}`);
-    }
-  };
-
   const majDevisOperation = (id: string, devis: PspOperation["devis"]) => {
     setOperations((prev) => prev.map((o) => (o.id === id ? { ...o, devis } : o)));
   };
@@ -1146,7 +1091,7 @@ function PreparationPspPage() {
                     onOpenOperation={(op) => setSelectedOpId(op.id)}
                     onModifier={ouvrirModification}
                     onDevis={ouvrirDevis}
-                    onUpdateInline={handleModifierInline}
+                    onEditInline={(op, saisie) => void handleModifier(saisie, op)}
                     onDelete={(id) => void handleSupprimer(id)}
                     perimetresParLigne={perimetresParLigne}
                     lotsParId={lotsParId}

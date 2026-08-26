@@ -198,22 +198,25 @@ export function useRecherchePatrimoine(options: {
 
   /**
    * V7.6 §3-4 — Résumé de la sélection d'adresse (toujours visible dans la
-   * cellule « Adresse / périmètre », y compris panneau fermé) : la rue reste
-   * affichée tant qu'une sélection existe. V8.16x — si AUCUNE adresse n'est
-   * sélectionnée mais qu'une TR l'est (tranche ENTIÈRE), la rue de RÉFÉRENCE
-   * de la tranche est affichée (le nom de la rue n'est plus invisible).
+   * cellule « Adresse / périmètre », y compris panneau fermé). V8.16y — quand un
+   * ER lot est sélectionné, on affiche sa VRAIE adresse (rue + numéro, ex.
+   * « 1 RUE DUPUY CROUZET ») et non plus seulement les codes ER : la rue et le
+   * numéro rattachés au lot s'actualisent automatiquement. Si aucune adresse n'est
+   * sélectionnée mais qu'une TR l'est (tranche ENTIÈRE), la rue de RÉFÉRENCE de la
+   * tranche est affichée.
    */
-  const resumeSelection = useMemo(
-    () => ({
-      rue,
-      detail: rue
-        ? resumeSelectionAdresse({ rue, adresses: adressesChoisies, lots: lotsChoisis })
-        : tranche
-          ? (referenceTranche?.adresse_reference ?? null)
-          : null,
-    }),
-    [rue, adressesChoisies, lotsChoisis, tranche, referenceTranche],
-  );
+  const resumeSelection = useMemo(() => {
+    const lotAdresse = lotsChoisis[0]?.adresse;
+    const detail =
+      lotsChoisis.length > 0 && lotAdresse
+        ? lotAdresse
+        : rue
+          ? resumeSelectionAdresse({ rue, adresses: adressesChoisies, lots: lotsChoisis })
+          : tranche
+            ? (referenceTranche?.adresse_reference ?? null)
+            : null;
+    return { rue, detail };
+  }, [rue, adressesChoisies, lotsChoisis, tranche, referenceTranche]);
 
   /** V7.6 §9 — alerte quand le sous-secteur n'a pas de CC dans le référentiel. */
   const alerteCc = useMemo(() => libelleCcManquant(referenceTranche), [referenceTranche]);

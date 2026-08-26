@@ -1,8 +1,6 @@
-import { useState } from "react";
-import { Building2, Check, Pencil, Trash2, X } from "lucide-react";
+import { Building2, Pencil, Trash2 } from "lucide-react";
 
 import PspSecteurBadge from "@/components/preparation-psp/PspSecteurBadge";
-import PspCorpsEtatSelect from "@/components/preparation-psp/PspCorpsEtatSelect";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,14 +14,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { money0 } from "@/lib/formats";
 import { PSP_ANNEES, montantAnnee, totalOperation, type PspOperation } from "@/lib/psp.prep";
@@ -61,8 +51,9 @@ export default function PspOperationRow({
   onOpen,
   onModifier,
   onDevis,
-  onUpdateInline,
   onDelete,
+  editionActive,
+  onEditRequest,
 }: {
   op: PspOperation;
   perimetres: PerimetreLigne[];
@@ -71,31 +62,16 @@ export default function PspOperationRow({
   onModifier: (op: PspOperation) => void;
   /** V7.5 §10 — clic « Devis » : ouvre la fiche unique sur la section Devis. */
   onDevis: (op: PspOperation) => void;
-  /** V8.16x — édition INLINE sur le tableau : corps d'état, nature, statut, priorité, notes. */
-  onUpdateInline: (
-    id: string,
-    patch: {
-      corps_etat?: string;
-      nature_travaux?: string;
-      statut?: string;
-      priorite?: string;
-      remarques?: string;
-    },
-  ) => void;
-  /** V8.16x — suppression d'une ligne (bouton corbeille, confirmation AlertDialog). */
+  /** V8.16y — suppression d'une ligne (bouton corbeille, confirmation AlertDialog). */
   onDelete: (id: string) => void;
+  /** V8.16y — vrai si la ligne est éditée (formulaire complet étendu sous la ligne). */
+  editionActive: boolean;
+  /** V8.16y — clic simple → ouvre/ferme le formulaire d'édition complet sous la ligne. */
+  onEditRequest: () => void;
 }) {
-  // V8.16x — édition inline : statut/priorité/notes ne sont PLUS éditables au clic
-  // direct ; ils ne se modifient que via « Modifier » (sur le tableau) ou la fiche.
-  const [editionInline, setEditionInline] = useState(false);
-  const [edit, setEdit] = useState({
-    corps_etat: "",
-    nature_travaux: "",
-    statut: "",
-    priorite: "",
-    notes: "",
-  });
-
+  // V8.16y — édition : le clic simple ouvre le formulaire COMPLET étendu sous la
+  // ligne (périmètre/ER lot, montants, tranche, corps, nature, statut, priorité,
+  // notes) ; plus aucun état inline dans la ligne elle-même.
   const adresse = libelleAdressePerimetre(perimetres, lotsParId, {
     adresse: op.adresse,
     ville: op.ville,
@@ -108,26 +84,14 @@ export default function PspOperationRow({
   // Devis retenu). Aucun état stocké, aucun moteur parallèle.
   const consultation = statutConsultationDepuisDevis(op.devis);
 
-  /** V8.16x — un SIMPLE CLIC débloque les champs (édition sur le tableau). */
-  const ouvrirEdition = () => {
-    setEdit({
-      corps_etat: op.corps_etat ?? "",
-      nature_travaux: op.nature_travaux ?? "",
-      statut: op.statut ?? "a_definir",
-      priorite: op.priorite ?? "normale",
-      notes: op.remarques ?? "",
-    });
-    setEditionInline(true);
-  };
-
   return (
     <TableRow
       className={cn(
         "cursor-pointer transition-colors hover:bg-primary/5",
-        editionInline && "bg-primary/5",
+        editionActive && "bg-primary/10",
       )}
-      onClick={ouvrirEdition}
-      title="Cliquer pour modifier directement sur le tableau"
+      onClick={onEditRequest}
+      title="Cliquer pour modifier sur le tableau"
     >
       <TableCell className="py-2 font-mono text-xs font-semibold">{op.tranche}</TableCell>
       <TableCell className="py-2 text-xs font-medium">{op.charge_clientele}</TableCell>
@@ -137,40 +101,24 @@ export default function PspOperationRow({
         </span>
       </TableCell>
       <TableCell className="max-w-[180px] py-2">
-        {editionInline ? (
-          <PspCorpsEtatSelect
-            value={edit.corps_etat}
-            onValueChange={(v) => setEdit({ ...edit, corps_etat: v })}
-          />
-        ) : (
-          <span className="block truncate text-xs" title={op.corps_etat}>
-            {op.corps_etat || "—"}
-          </span>
-        )}
+        <span className="block truncate text-xs" title={op.corps_etat}>
+          {op.corps_etat || "—"}
+        </span>
       </TableCell>
       <TableCell className="py-2">
         <PspSecteurBadge categorie={op.categorie} />
       </TableCell>
       <TableCell className="max-w-[240px] py-2">
-        {editionInline ? (
-          <Input
-            value={edit.nature_travaux}
-            onChange={(e) => setEdit({ ...edit, nature_travaux: e.target.value })}
-            placeholder="Nature des travaux"
-            className="h-7 text-xs"
-          />
-        ) : (
-          <span className="flex items-center gap-1.5">
-            <span className="block truncate text-xs font-medium" title={op.nature_travaux}>
-              {op.nature_travaux}
-            </span>
-            {op.reportee ? (
-              <Badge className="shrink-0 border-amber-200 bg-amber-50 px-1.5 py-0 text-[9px] font-black text-amber-700">
-                REPORTÉ{op.ancienne_annee ? ` DE ${op.ancienne_annee}` : ""}
-              </Badge>
-            ) : null}
+        <span className="flex items-center gap-1.5">
+          <span className="block truncate text-xs font-medium" title={op.nature_travaux}>
+            {op.nature_travaux}
           </span>
-        )}
+          {op.reportee ? (
+            <Badge className="shrink-0 border-amber-200 bg-amber-50 px-1.5 py-0 text-[9px] font-black text-amber-700">
+              REPORTÉ{op.ancienne_annee ? ` DE ${op.ancienne_annee}` : ""}
+            </Badge>
+          ) : null}
+        </span>
       </TableCell>
       {PSP_ANNEES.map((annee) => {
         const montant = montantAnnee(op, annee);
@@ -209,69 +157,28 @@ export default function PspOperationRow({
         </button>
       </TableCell>
 
-      {/* Priorité — édition UNIQUEMENT en mode « Modifier » (V8.16x). */}
+      {/* Priorité — affichage (édition via le formulaire étendu sous la ligne). */}
       <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-        {editionInline ? (
-          <Select value={edit.priorite} onValueChange={(v) => setEdit({ ...edit, priorite: v })}>
-            <SelectTrigger className="h-7 w-[130px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(PRIORITE_LABELS).map(([v, l]) => (
-                <SelectItem key={v} value={v}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Badge
-            className={cn("font-bold", PRIORITE_STYLES[priorite] ?? PRIORITE_STYLES["normale"])}
-          >
-            {PRIORITE_LABELS[priorite] ?? priorite}
-          </Badge>
-        )}
+        <Badge className={cn("font-bold", PRIORITE_STYLES[priorite] ?? PRIORITE_STYLES["normale"])}>
+          {PRIORITE_LABELS[priorite] ?? priorite}
+        </Badge>
       </TableCell>
 
-      {/* Statut / Notes — édition UNIQUEMENT en mode « Modifier » (V8.16x). */}
+      {/* Statut / Notes — affichage (édition via le formulaire étendu sous la ligne). */}
       <TableCell className="min-w-[180px] py-2" onClick={(e) => e.stopPropagation()}>
-        {editionInline ? (
-          <Select value={edit.statut} onValueChange={(v) => setEdit({ ...edit, statut: v })}>
-            <SelectTrigger className="h-7 w-[150px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(STATUT_LABELS).map(([v, l]) => (
-                <SelectItem key={v} value={v}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Badge className={cn("font-bold", STATUT_STYLES[statut] ?? STATUT_STYLES["a_definir"])}>
-            {STATUT_LABELS[statut] ?? statut}
-          </Badge>
-        )}
-        {editionInline ? (
-          <Input
-            value={edit.notes}
-            onChange={(e) => setEdit({ ...edit, notes: e.target.value })}
-            placeholder="Note libre…"
-            className="mt-1 h-7 text-xs"
-          />
-        ) : (
-          <p
-            className="mt-1 truncate text-[11px] text-muted-foreground"
-            title={op.remarques ?? undefined}
-          >
-            {op.remarques || ""}
-          </p>
-        )}
+        <Badge className={cn("font-bold", STATUT_STYLES[statut] ?? STATUT_STYLES["a_definir"])}>
+          {STATUT_LABELS[statut] ?? statut}
+        </Badge>
+        <p
+          className="mt-1 truncate text-[11px] text-muted-foreground"
+          title={op.remarques ?? undefined}
+        >
+          {op.remarques || ""}
+        </p>
       </TableCell>
 
-      {/* Actions — V8.16x : un clic sur la ligne débloque les champs ; 4 icônes à
-          droite (ouvrir la fiche · valider · annuler · supprimer). */}
+      {/* Actions — V8.16y : ouvrir la fiche + supprimer. L'édition se fait par un
+          clic simple → formulaire complet étendu sous la ligne (PspTable). */}
       <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-0.5">
           <Button
@@ -283,37 +190,6 @@ export default function PspOperationRow({
           >
             <Pencil className="size-3.5" />
           </Button>
-          {editionInline ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-                title="Valider la modification"
-                onClick={() => {
-                  onUpdateInline(op.id, {
-                    corps_etat: edit.corps_etat,
-                    nature_travaux: edit.nature_travaux,
-                    statut: edit.statut,
-                    priorite: edit.priorite,
-                    remarques: edit.notes,
-                  });
-                  setEditionInline(false);
-                }}
-              >
-                <Check className="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7 text-muted-foreground hover:text-foreground"
-                title="Annuler la modification"
-                onClick={() => setEditionInline(false)}
-              >
-                <X className="size-3.5" />
-              </Button>
-            </>
-          ) : null}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button

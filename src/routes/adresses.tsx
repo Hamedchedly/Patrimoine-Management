@@ -489,11 +489,26 @@ function AdressesPage() {
                       {resultatsRecherche.locataires.map((row) => (
                         <button
                           key={`${row.nom}|${row.ville}|${row.tranche}|${row.adresse}`}
-                          onClick={() =>
-                            navigate({
-                              search: { ville: row.ville, tranche: row.tranche, rue: row.adresse },
-                            })
-                          }
+                          onClick={() => {
+                            // V8.16x — un résultat LOCATAIRE ouvre la FICHE LOCATAIRE
+                            // (retrouve le 1er lot correspondant) ; repli = liste adresse.
+                            const lot = visibleLots.find(
+                              (l) =>
+                                (l.locataire_nom ?? "") === row.nom &&
+                                (l.adresse ?? "") === row.adresse &&
+                                (l.ville ?? "") === row.ville &&
+                                (l.tranche_code ?? "") === row.tranche,
+                            );
+                            if (lot) setSelectedLocataire(lot);
+                            else
+                              navigate({
+                                search: {
+                                  ville: row.ville,
+                                  tranche: row.tranche,
+                                  rue: row.adresse,
+                                },
+                              });
+                          }}
                           className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
                         >
                           <User className="size-4 shrink-0 text-primary" />

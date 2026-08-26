@@ -92,7 +92,6 @@ import {
   savePspEnveloppes,
   updatePspDevis,
   updatePspLigne,
-  updatePspLigneStatutPriorite,
   updatePspOperationComplete,
   type PspLignePersist,
   type PspPerimetrePersist,
@@ -107,6 +106,7 @@ import {
   type PerimetreLigne,
   programmeParAnneeCategorie,
   extraireCodeCorpsEtat,
+  categorieDepuisCorpsEtat,
 } from "@/lib/psp.prep.v7";
 
 export const Route = createFileRoute("/preparation-psp")({
@@ -711,7 +711,6 @@ function PreparationPspPage() {
   const createProgFn = useServerFn(createPspProgrammation);
   const createCompleteFn = useServerFn(createPspOperationComplete);
   const updateCompleteFn = useServerFn(updatePspOperationComplete);
-  const statutPrioriteFn = useServerFn(updatePspLigneStatutPriorite);
   const createDevisFn = useServerFn(createPspDevis);
   const updateDevisFn = useServerFn(updatePspDevis);
   const deleteDevisFn = useServerFn(deletePspDevis);
@@ -727,20 +726,57 @@ function PreparationPspPage() {
     }
   };
 
-  /** Statut / priorité : persistés dans psp_lignes (badges + sélecteurs). */
-  const handleStatutPriorite = async (
+  /** V8.16x — édition INLINE d'une ligne directement sur le tableau (corps d'état,
+   * nature, statut, priorité, notes). Persiste via updatePspLigne ; la catégorie
+   * est dérivée du corps d'état (règle unique). */
+  const handleModifierInline = async (
     id: string,
-    patch: { statut?: string; priorite?: string },
+    patch: {
+      corps_etat?: string;
+      nature_travaux?: string;
+      statut?: string;
+      priorite?: string;
+      remarques?: string;
+    },
   ) => {
     if (figee) {
       toast.error("Programmation figée : modification impossible.");
       return;
     }
-    setOperations((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+    const op = operations.find((o) => o.id === id);
+    if (!op) return;
+    const corpsEtat = patch.corps_etat !== undefined ? patch.corps_etat : (op.corps_etat ?? "");
+    const prochain: PspOperation = {
+      ...op,
+      corps_etat: corpsEtat,
+      corps_etat_code: extraireCodeCorpsEtat(corpsEtat) ?? op.corps_etat_code,
+      categorie:
+        patch.corps_etat !== undefined ? categorieDepuisCorpsEtat(corpsEtat) : op.categorie,
+      nature_travaux:
+        patch.nature_travaux !== undefined ? patch.nature_travaux : (op.nature_travaux ?? ""),
+      statut: patch.statut !== undefined ? patch.statut : (op.statut ?? "a_definir"),
+      priorite: patch.priorite !== undefined ? patch.priorite : (op.priorite ?? "normale"),
+      remarques: patch.remarques !== undefined ? patch.remarques || null : op.remarques,
+    };
+    setOperations((prev) => prev.map((o) => (o.id === id ? prochain : o)));
     try {
-      await statutPrioriteFn({ data: { id, ...patch } });
+      await updateLigneFn({
+        data: {
+          id,
+          trancheCode: prochain.tranche,
+          categorie: prochain.categorie,
+          corpsEtatCode: prochain.corps_etat_code || null,
+          corpsEtat: prochain.corps_etat || null,
+          natureTravaux: prochain.nature_travaux || null,
+          programme: prochain.programme,
+          ligneBudget: null,
+          remarques: prochain.remarques || null,
+          statut: prochain.statut,
+          priorite: prochain.priorite,
+        },
+      });
     } catch (e) {
-      toast.error(`Statut / priorité non persisté : ${(e as Error).message}`);
+      toast.error(`Modification non persistée : ${(e as Error).message}`);
     }
   };
 
@@ -970,38 +1006,6 @@ function PreparationPspPage() {
     }
   };
 
-  /** Notes/remarques éditables en ligne (psp_lignes.remarques). */
-  const handleNotes = async (id: string, remarques: string) => {
-    if (figee) {
-      toast.error("Programmation figée : modification impossible.");
-      return;
-    }
-    const op = operations.find((o) => o.id === id);
-    if (!op) return;
-    setOperations((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, remarques: remarques || null } : o)),
-    );
-    try {
-      await updateLigneFn({
-        data: {
-          id,
-          trancheCode: op.tranche,
-          categorie: op.categorie,
-          corpsEtatCode: op.corps_etat_code || null,
-          corpsEtat: op.corps_etat || null,
-          natureTravaux: op.nature_travaux || null,
-          programme: op.programme,
-          ligneBudget: null,
-          remarques: remarques || null,
-          statut: op.statut,
-          priorite: op.priorite,
-        },
-      });
-    } catch (e) {
-      toast.error(`Notes non persistées : ${(e as Error).message}`);
-    }
-  };
-
   const handleSupprimer = async (id: string) => {
     if (figee) {
       toast.error("Programmation figée : suppression impossible.");
@@ -1142,8 +1146,7 @@ function PreparationPspPage() {
                     onOpenOperation={(op) => setSelectedOpId(op.id)}
                     onModifier={ouvrirModification}
                     onDevis={ouvrirDevis}
-                    onStatutPriorite={handleStatutPriorite}
-                    onNotes={handleNotes}
+                    onUpdateInline={handleModifierInline}
                     perimetresParLigne={perimetresParLigne}
                     lotsParId={lotsParId}
                     quickAdd={

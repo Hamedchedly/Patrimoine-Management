@@ -335,6 +335,7 @@ export type FiltresDetail = {
   charge_clientele: string;
   corps_etat: string;
   annee: string;
+  statut: string;
 };
 
 export const FILTRES_VIDES: FiltresDetail = {
@@ -344,6 +345,7 @@ export const FILTRES_VIDES: FiltresDetail = {
   charge_clientele: "",
   corps_etat: "",
   annee: "",
+  statut: "",
 };
 
 /** Normalisation de recherche : majuscules, sans accents, ponctuation → espace. */
@@ -364,6 +366,7 @@ export const filtrerOperations = (ops: PspOperation[], filtres: FiltresDetail): 
     if (filtres.charge_clientele && op.charge_clientele !== filtres.charge_clientele) return false;
     if (filtres.corps_etat && op.corps_etat !== filtres.corps_etat) return false;
     if (filtres.annee && montantAnnee(op, filtres.annee) <= 0) return false;
+    if (filtres.statut && (op.statut ?? "a_definir") !== filtres.statut) return false;
     if (!q) return true;
     const cible = normaliser(
       [

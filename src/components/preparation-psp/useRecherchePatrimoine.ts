@@ -199,14 +199,20 @@ export function useRecherchePatrimoine(options: {
   /**
    * V7.6 §3-4 — Résumé de la sélection d'adresse (toujours visible dans la
    * cellule « Adresse / périmètre », y compris panneau fermé) : la rue reste
-   * affichée tant qu'une sélection existe.
+   * affichée tant qu'une sélection existe. V8.16x — si AUCUNE adresse n'est
+   * sélectionnée mais qu'une TR l'est (tranche ENTIÈRE), la rue de RÉFÉRENCE
+   * de la tranche est affichée (le nom de la rue n'est plus invisible).
    */
   const resumeSelection = useMemo(
     () => ({
       rue,
-      detail: resumeSelectionAdresse({ rue, adresses: adressesChoisies, lots: lotsChoisis }),
+      detail: rue
+        ? resumeSelectionAdresse({ rue, adresses: adressesChoisies, lots: lotsChoisis })
+        : tranche
+          ? (referenceTranche?.adresse_reference ?? null)
+          : null,
     }),
-    [rue, adressesChoisies, lotsChoisis],
+    [rue, adressesChoisies, lotsChoisis, tranche, referenceTranche],
   );
 
   /** V7.6 §9 — alerte quand le sous-secteur n'a pas de CC dans le référentiel. */

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Building2, Pencil } from "lucide-react";
+import { Building2, Pencil, SquarePen } from "lucide-react";
 
 import PspSecteurBadge from "@/components/preparation-psp/PspSecteurBadge";
+import PspCorpsEtatSelect from "@/components/preparation-psp/PspCorpsEtatSelect";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,8 +50,7 @@ export default function PspOperationRow({
   onOpen,
   onModifier,
   onDevis,
-  onStatutPriorite,
-  onNotes,
+  onUpdateInline,
 }: {
   op: PspOperation;
   perimetres: PerimetreLigne[];
@@ -59,11 +59,28 @@ export default function PspOperationRow({
   onModifier: (op: PspOperation) => void;
   /** V7.5 §10 — clic « Devis » : ouvre la fiche unique sur la section Devis. */
   onDevis: (op: PspOperation) => void;
-  onStatutPriorite: (id: string, patch: { statut?: string; priorite?: string }) => void;
-  onNotes: (id: string, remarques: string) => void;
+  /** V8.16x — édition INLINE sur le tableau : corps d'état, nature, statut, priorité, notes. */
+  onUpdateInline: (
+    id: string,
+    patch: {
+      corps_etat?: string;
+      nature_travaux?: string;
+      statut?: string;
+      priorite?: string;
+      remarques?: string;
+    },
+  ) => void;
 }) {
-  const [editing, setEditing] = useState<{ statut?: boolean; priorite?: boolean }>({});
-  const [notes, setNotes] = useState(op.remarques ?? "");
+  // V8.16x — édition inline : statut/priorité/notes ne sont PLUS éditables au clic
+  // direct ; ils ne se modifient que via « Modifier » (sur le tableau) ou la fiche.
+  const [editionInline, setEditionInline] = useState(false);
+  const [edit, setEdit] = useState({
+    corps_etat: "",
+    nature_travaux: "",
+    statut: "",
+    priorite: "",
+    notes: "",
+  });
 
   const adresse = libelleAdressePerimetre(perimetres, lotsParId, {
     adresse: op.adresse,
@@ -90,25 +107,41 @@ export default function PspOperationRow({
           {adresse}
         </span>
       </TableCell>
-      <TableCell className="max-w-[160px] py-2">
-        <span className="block truncate text-xs" title={op.corps_etat}>
-          {op.corps_etat || "—"}
-        </span>
+      <TableCell className="max-w-[180px] py-2">
+        {editionInline ? (
+          <PspCorpsEtatSelect
+            value={edit.corps_etat}
+            onValueChange={(v) => setEdit({ ...edit, corps_etat: v })}
+          />
+        ) : (
+          <span className="block truncate text-xs" title={op.corps_etat}>
+            {op.corps_etat || "—"}
+          </span>
+        )}
       </TableCell>
       <TableCell className="py-2">
         <PspSecteurBadge categorie={op.categorie} />
       </TableCell>
       <TableCell className="max-w-[240px] py-2">
-        <span className="flex items-center gap-1.5">
-          <span className="block truncate text-xs font-medium" title={op.nature_travaux}>
-            {op.nature_travaux}
+        {editionInline ? (
+          <Input
+            value={edit.nature_travaux}
+            onChange={(e) => setEdit({ ...edit, nature_travaux: e.target.value })}
+            placeholder="Nature des travaux"
+            className="h-7 text-xs"
+          />
+        ) : (
+          <span className="flex items-center gap-1.5">
+            <span className="block truncate text-xs font-medium" title={op.nature_travaux}>
+              {op.nature_travaux}
+            </span>
+            {op.reportee ? (
+              <Badge className="shrink-0 border-amber-200 bg-amber-50 px-1.5 py-0 text-[9px] font-black text-amber-700">
+                REPORTÉ{op.ancienne_annee ? ` DE ${op.ancienne_annee}` : ""}
+              </Badge>
+            ) : null}
           </span>
-          {op.reportee ? (
-            <Badge className="shrink-0 border-amber-200 bg-amber-50 px-1.5 py-0 text-[9px] font-black text-amber-700">
-              REPORTÉ{op.ancienne_annee ? ` DE ${op.ancienne_annee}` : ""}
-            </Badge>
-          ) : null}
-        </span>
+        )}
       </TableCell>
       {PSP_ANNEES.map((annee) => {
         const montant = montantAnnee(op, annee);
@@ -147,16 +180,10 @@ export default function PspOperationRow({
         </button>
       </TableCell>
 
-      {/* Priorité — AVANT Statut : badge + sélecteur inline */}
+      {/* Priorité — édition UNIQUEMENT en mode « Modifier » (V8.16x). */}
       <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-        {editing.priorite ? (
-          <Select
-            value={priorite}
-            onValueChange={(v) => {
-              onStatutPriorite(op.id, { priorite: v });
-              setEditing({ ...editing, priorite: false });
-            }}
-          >
+        {editionInline ? (
+          <Select value={edit.priorite} onValueChange={(v) => setEdit({ ...edit, priorite: v })}>
             <SelectTrigger className="h-7 w-[130px] text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -169,30 +196,18 @@ export default function PspOperationRow({
             </SelectContent>
           </Select>
         ) : (
-          <button
-            type="button"
-            onClick={() => setEditing({ ...editing, priorite: true })}
-            title="Cliquer pour modifier la priorité"
+          <Badge
+            className={cn("font-bold", PRIORITE_STYLES[priorite] ?? PRIORITE_STYLES["normale"])}
           >
-            <Badge
-              className={cn("font-bold", PRIORITE_STYLES[priorite] ?? PRIORITE_STYLES["normale"])}
-            >
-              {PRIORITE_LABELS[priorite] ?? priorite}
-            </Badge>
-          </button>
+            {PRIORITE_LABELS[priorite] ?? priorite}
+          </Badge>
         )}
       </TableCell>
 
-      {/* Statut / Notes — UNE seule cellule : statut structuré + texte libre */}
+      {/* Statut / Notes — édition UNIQUEMENT en mode « Modifier » (V8.16x). */}
       <TableCell className="min-w-[180px] py-2" onClick={(e) => e.stopPropagation()}>
-        {editing.statut ? (
-          <Select
-            value={statut}
-            onValueChange={(v) => {
-              onStatutPriorite(op.id, { statut: v });
-              setEditing({ ...editing, statut: false });
-            }}
-          >
+        {editionInline ? (
+          <Select value={edit.statut} onValueChange={(v) => setEdit({ ...edit, statut: v })}>
             <SelectTrigger className="h-7 w-[150px] text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -205,37 +220,83 @@ export default function PspOperationRow({
             </SelectContent>
           </Select>
         ) : (
-          <button
-            type="button"
-            onClick={() => setEditing({ ...editing, statut: true })}
-            title="Cliquer pour modifier le statut"
-          >
-            <Badge className={cn("font-bold", STATUT_STYLES[statut] ?? STATUT_STYLES["a_definir"])}>
-              {STATUT_LABELS[statut] ?? statut}
-            </Badge>
-          </button>
+          <Badge className={cn("font-bold", STATUT_STYLES[statut] ?? STATUT_STYLES["a_definir"])}>
+            {STATUT_LABELS[statut] ?? statut}
+          </Badge>
         )}
-        <Input
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => {
-            const value = notes.trim();
-            const actuelle = (op.remarques ?? "").trim();
-            if (value !== actuelle) onNotes(op.id, value);
-          }}
-          placeholder="Note libre…"
-          className="mt-1 h-7 text-xs"
-        />
+        {editionInline ? (
+          <Input
+            value={edit.notes}
+            onChange={(e) => setEdit({ ...edit, notes: e.target.value })}
+            placeholder="Note libre…"
+            className="mt-1 h-7 text-xs"
+          />
+        ) : (
+          <p
+            className="mt-1 truncate text-[11px] text-muted-foreground"
+            title={op.remarques ?? undefined}
+          >
+            {op.remarques || ""}
+          </p>
+        )}
       </TableCell>
 
       {/* Actions */}
       <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-1">
+          {editionInline ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] text-emerald-700"
+                onClick={() => {
+                  onUpdateInline(op.id, {
+                    corps_etat: edit.corps_etat,
+                    nature_travaux: edit.nature_travaux,
+                    statut: edit.statut,
+                    priorite: edit.priorite,
+                    remarques: edit.notes,
+                  });
+                  setEditionInline(false);
+                }}
+              >
+                Enregistrer
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[10px]"
+                onClick={() => setEditionInline(false)}
+              >
+                Annuler
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground hover:text-primary"
+              title="Modifier directement sur le tableau"
+              onClick={() => {
+                setEdit({
+                  corps_etat: op.corps_etat ?? "",
+                  nature_travaux: op.nature_travaux ?? "",
+                  statut: op.statut ?? "a_definir",
+                  priorite: op.priorite ?? "normale",
+                  notes: op.remarques ?? "",
+                });
+                setEditionInline(true);
+              }}
+            >
+              <SquarePen className="size-3.5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
             className="size-7 text-muted-foreground hover:text-primary"
-            title="Modifier (fiche unique : opération + devis + historique)"
+            title="Ouvrir la fiche opération (opération + devis + historique)"
             onClick={() => onModifier(op)}
           >
             <Pencil className="size-3.5" />

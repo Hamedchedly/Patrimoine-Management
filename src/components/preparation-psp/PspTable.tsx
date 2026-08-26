@@ -36,10 +36,13 @@ const FILTRES_VIDES: FiltresDetail = {
   charge_clientele: "",
   corps_etat: "",
   annee: "",
+  statut: "",
 };
 
 const filtersActive = (f: FiltresDetail): boolean =>
-  Boolean(f.q || f.categorie || f.tranche || f.charge_clientele || f.corps_etat || f.annee);
+  Boolean(
+    f.q || f.categorie || f.tranche || f.charge_clientele || f.corps_etat || f.annee || f.statut,
+  );
 
 /** Colonnes descriptives (avant les années) : TR CC Adresse Corps C Nature. */
 const NB_COLS_DESCRIPTIVES = 6;
@@ -96,8 +99,7 @@ export default function PspTable({
   onOpenOperation,
   onModifier,
   onDevis,
-  onStatutPriorite,
-  onNotes,
+  onUpdateInline,
   perimetresParLigne,
   lotsParId,
   quickAdd,
@@ -111,8 +113,16 @@ export default function PspTable({
   onOpenOperation: (op: PspOperation) => void;
   onModifier: (op: PspOperation) => void;
   onDevis: (op: PspOperation) => void;
-  onStatutPriorite: (id: string, patch: { statut?: string; priorite?: string }) => void;
-  onNotes: (id: string, remarques: string) => void;
+  onUpdateInline: (
+    id: string,
+    patch: {
+      corps_etat?: string;
+      nature_travaux?: string;
+      statut?: string;
+      priorite?: string;
+      remarques?: string;
+    },
+  ) => void;
   perimetresParLigne: Map<string, PerimetreLigne[]>;
   lotsParId: Map<string, LotInfo>;
   quickAdd: {
@@ -223,8 +233,7 @@ export default function PspTable({
                     onOpen={onOpenOperation}
                     onModifier={onModifier}
                     onDevis={onDevis}
-                    onStatutPriorite={onStatutPriorite}
-                    onNotes={onNotes}
+                    onUpdateInline={onUpdateInline}
                   />
                 ))
               : null}
@@ -249,8 +258,7 @@ export default function PspTable({
                         onOpen={onOpenOperation}
                         onModifier={onModifier}
                         onDevis={onDevis}
-                        onStatutPriorite={onStatutPriorite}
-                        onNotes={onNotes}
+                        onUpdateInline={onUpdateInline}
                       />
                     </Fragment>
                   );
@@ -277,8 +285,7 @@ export default function PspTable({
                         onOpen={onOpenOperation}
                         onModifier={onModifier}
                         onDevis={onDevis}
-                        onStatutPriorite={onStatutPriorite}
-                        onNotes={onNotes}
+                        onUpdateInline={onUpdateInline}
                       />
                     </Fragment>
                   );

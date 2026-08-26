@@ -48,6 +48,7 @@ export const CORPS_ETAT_CATEGORIE: Record<string, PspCategorie> = {
   f: "GE",
   g: "GE",
   h: "GE",
+  i: "GE",
   j: "GE",
   // CP
   m: "CP",
@@ -75,7 +76,7 @@ export function corpsEtatsGroupes(
     const cat = categorieDepuisCorpsEtat(c);
     groupes.set(cat, [...(groupes.get(cat) ?? []), c]);
   }
-  return (["GE", "GT", "CP"] as PspCategorie[])
+  return (["GT", "GE", "CP"] as PspCategorie[])
     .map((categorie) => ({
       categorie,
       items: [...(groupes.get(categorie) ?? [])].sort((a, b) => a.localeCompare(b, "fr")),
@@ -586,7 +587,7 @@ export function corpsEtatsGroupesReferentiel(
     .filter((r) => r.actif)
     .filter((r) => !filtre || r.libelle.toLowerCase().includes(filtre))
     .map((r) => r.libelle);
-  return (["GE", "GT", "CP"] as PspCategorie[])
+  return (["GT", "GE", "CP"] as PspCategorie[])
     .map((categorie) => ({
       categorie,
       items: actifs

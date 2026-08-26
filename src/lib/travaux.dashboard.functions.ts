@@ -154,6 +154,8 @@ export type TravauxDashboardData = {
   historique: HistoriqueTravaux[];
   imports: ImportTravaux[];
   tranchesDetails: TrancheDetail[];
+  /** V8.16x — rue réelle (mode des lots actifs) par tranche, pour un journal lisible. */
+  adresseRuesParTranche: Record<string, string>;
   /** V8.12 — lignes annuelles SANS commande (psp_lignes origine='suivi'). */
   lignesSuivi: Record<string, unknown>[];
 };
@@ -271,22 +273,31 @@ export const getTravauxDashboard = createServerFn({ method: "GET", strict: false
 
     // On charge TOUTES les commandes (actives et archivées) : le Dashboard peut ainsi filtrer
     // par année d'exercice et consulter les années historiques sans dépendre de `actif = true`.
-    const [commandesResult, importsResult, tranchesResult, enrichiesResult, lignesSuiviResult] =
-      await Promise.all([
-        db
-          .from("travaux_commandes")
-          .select("*")
-          .order("engage", { ascending: false, nullsFirst: false }),
-        // Tous les imports (tous exercices) : l'en-tête affiche la date du dernier import de
-        // l'exercice courant, qui ne figurerait pas forcément dans les 5 plus récents.
-        db.from("import_travaux").select("*").order("demarre_at", { ascending: false }).limit(500),
-        db.from("tranches").select("code, libelle, localite, nb_logements").eq("actif", true),
-        // Enrichissement Historique CMD via la vue de rapprochement (lecture seule).
-        db.from("v_travaux_commandes_enrichies").select(SELECT_PASP_ENRICHIES),
-        // V8.12 — lignes annuelles SANS commande (matérialisées à l'import, origine='suivi') :
-        // exposées dans le tableau + KPI/barres du Dashboard.
-        db.from("psp_lignes").select("*").eq("origine", "suivi"),
-      ]);
+    const [
+      commandesResult,
+      importsResult,
+      tranchesResult,
+      lotsResult,
+      enrichiesResult,
+      lignesSuiviResult,
+    ] = await Promise.all([
+      db
+        .from("travaux_commandes")
+        .select("*")
+        .order("engage", { ascending: false, nullsFirst: false }),
+      // Tous les imports (tous exercices) : l'en-tête affiche la date du dernier import de
+      // l'exercice courant, qui ne figurerait pas forcément dans les 5 plus récents.
+      db.from("import_travaux").select("*").order("demarre_at", { ascending: false }).limit(500),
+      db.from("tranches").select("code, libelle, localite, nb_logements").eq("actif", true),
+      // V8.16x — rues réelles par tranche (mode des lots actifs) pour afficher une
+      // adresse lisible dans le journal (au lieu d'un « LOT … » ou d'une ville).
+      db.from("lots").select("tranche_code, adresse").eq("actif", true),
+      // Enrichissement Historique CMD via la vue de rapprochement (lecture seule).
+      db.from("v_travaux_commandes_enrichies").select(SELECT_PASP_ENRICHIES),
+      // V8.12 — lignes annuelles SANS commande (matérialisées à l'import, origine='suivi') :
+      // exposées dans le tableau + KPI/barres du Dashboard.
+      db.from("psp_lignes").select("*").eq("origine", "suivi"),
+    ]);
 
     let historiqueResult;
     try {
@@ -309,6 +320,29 @@ export const getTravauxDashboard = createServerFn({ method: "GET", strict: false
     if (tranchesResult.error)
       throw new Error(`Chargement des tranches : ${tranchesResult.error.message}`);
 
+    // V8.16x — adresse réelle (rue) par tranche : mode des lots actifs, avec le même
+    // filtre anti-bruit que /suivi (vide, « Adresse inconnue », nombre pur, sans lettre).
+    const adresseRuesParTranche: Record<string, string> = {};
+    if (!lotsResult.error) {
+      const freq = new Map<string, Map<string, number>>();
+      for (const l of (lotsResult.data ?? []) as Array<{
+        tranche_code: string | null;
+        adresse: string | null;
+      }>) {
+        const a = (l.adresse ?? "").replace(/\s+/g, " ").trim();
+        if (!l.tranche_code || !a || a === "Adresse inconnue" || /^\d+$/.test(a)) continue;
+        if (!/[A-Za-zÀ-ÿ]/.test(a)) continue;
+        if (!freq.has(l.tranche_code)) freq.set(l.tranche_code, new Map());
+        const m = freq.get(l.tranche_code);
+        if (!m) continue;
+        m.set(a, (m.get(a) ?? 0) + 1);
+      }
+      for (const [tr, m] of freq.entries()) {
+        const meilleur = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+        if (meilleur) adresseRuesParTranche[tr] = meilleur[0];
+      }
+    }
+
     // Fusion suivi + enrichissement Historique CMD (même modèle que la fiche Fournisseur).
     const commandes = fusionnerEnrichissement(
       (commandesResult.data ?? []) as CommandeTravaux[],
@@ -322,6 +356,7 @@ export const getTravauxDashboard = createServerFn({ method: "GET", strict: false
       })[],
       imports: (importsResult.data ?? []) as ImportTravaux[],
       tranchesDetails: (tranchesResult.data ?? []) as TrancheDetail[],
+      adresseRuesParTranche,
       lignesSuivi: (lignesSuiviResult.data ?? []) as Record<string, unknown>[],
     } satisfies TravauxDashboardData;
   },

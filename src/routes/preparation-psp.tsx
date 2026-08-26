@@ -859,7 +859,12 @@ function PreparationPspPage() {
       toast.success(`Opération persistée dans Supabase (brouillon v${programmation.version}).`);
     } catch (e) {
       setOperations((prev) => supprimerOperationListe(prev, id));
-      toast.error(`Échec de la persistance : ${(e as Error).message}`);
+      const message = (e as Error).message;
+      toast.error(
+        message === "Failed to fetch"
+          ? "Serveur injoignable : la création n'a pas été enregistrée. Vérifiez que le serveur de dev tourne, rechargez la page puis réessayez."
+          : `Échec de la persistance : ${message}`,
+      );
     }
   };
 
@@ -947,7 +952,14 @@ function PreparationPspPage() {
       );
       toast.success("Opération modifiée — totaux recalculés et persistés.");
     } catch (e) {
-      toast.error(`Échec de la persistance : ${(e as Error).message}`);
+      const message = (e as Error).message;
+      // V8.16y — « Failed to fetch » = serveur injoignable (serveur de dev arrêté /
+      // rechargé en pleine requête), pas une erreur métier : message explicite.
+      toast.error(
+        message === "Failed to fetch"
+          ? "Serveur injoignable : la modification n'a pas été enregistrée. Vérifiez que le serveur de dev tourne, rechargez la page puis réessayez."
+          : `Échec de la persistance : ${message}`,
+      );
     }
   };
 

@@ -36,23 +36,27 @@ export default function PspAdressePanel({ rec }: { rec: Rec }) {
   return (
     <div ref={racineRef} className="relative space-y-1">
       {/* Rue sélectionnée — TOUJOURS affichée (chip + résumé) tant qu'une sélection existe.
-          La fermeture du panneau ne reset JAMAIS la sélection (V7.6 §3-4). */}
-      {rec.rue ? (
+          La fermeture du panneau ne reset JAMAIS la sélection (V7.6 §3-4).
+          V8.16z — le résumé s'affiche aussi quand la rue n'est pas dérivable d'un
+          lot restauré (lotsChoisis non vide) : la case adresse n'est plus vide. */}
+      {rec.rue || rec.lotsChoisis.length > 0 ? (
         <div className="rounded-md border border-primary/40 bg-primary/10 px-2 py-1">
           <div className="flex items-center justify-between gap-1">
             <span className="flex min-w-0 items-center gap-1 text-[10px] font-bold">
               <MapPin className="size-3 shrink-0 text-primary" />
-              <span className="truncate">{rec.rue}</span>
+              <span className="truncate">{rec.rue ?? "Adresse / périmètre"}</span>
             </span>
             <span className="flex shrink-0 items-center gap-1.5">
-              <button
-                type="button"
-                onClick={rec.reouvrirNumeros}
-                className="text-[9px] font-bold text-muted-foreground hover:text-primary"
-                title="Modifier la sélection (numéros / lots)"
-              >
-                Modifier
-              </button>
+              {rec.rue ? (
+                <button
+                  type="button"
+                  onClick={rec.reouvrirNumeros}
+                  className="text-[9px] font-bold text-muted-foreground hover:text-primary"
+                  title="Modifier la sélection (numéros / lots)"
+                >
+                  Modifier
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={rec.effacerAdresse}

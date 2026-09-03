@@ -9,7 +9,7 @@
  *
  * PAT S11 ne prétend JAMAIS avoir envoyé le mail ; aucune connexion messagerie.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { CheckSquare, Mail, RefreshCcw, Search, Square } from "lucide-react";
@@ -17,6 +17,7 @@ import { CheckSquare, Mail, RefreshCcw, Search, Square } from "lucide-react";
 import PspFournisseurSearch, {
   type FournisseurSelection,
 } from "@/components/preparation-psp/PspFournisseurSearch";
+import PspLotsDevisSection from "@/components/preparation-psp/PspLotsDevisSection";
 import { useMailModeles } from "@/lib/psp.mail.hooks";
 
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,8 @@ export interface OperationDemandeDevis {
   ville?: string | null;
   /** V8.16r — code lot (ex. ER.26154) si connu (sinon extrait de la nature). */
   code_lot?: string | null;
+  /** V8.16z — lots concernés, issus du périmètre (adresse/périmètre) de la ligne. */
+  lots?: Array<{ lot_id: string | null; niveau?: string | null }> | null;
 }
 
 type SuggestionAvecEmail = {
@@ -111,6 +114,9 @@ export default function PspDemandeDevisWorkflow({
   const [enregistre, setEnregistre] = useState(false);
   // V8.8 §2 — entreprise libre choisie hors suggestions (référentiel fournisseurs).
   const [entrepriseLibre, setEntrepriseLibre] = useState<FournisseurSelection | null>(null);
+  // V8.16z — bloc « Informations des lots » injecté dans le mail (rattaché à la
+  // ligne ; injecté immédiatement si l'éditeur est ouvert, sinon au prochain envoi).
+  const blocLotsRef = useRef("");
 
   // V8.16r — modèle courant (délai du modèle pour la date de retour, format jj/mm/aaaa).
   const modeleDemande = modeles.find((m) => m.id === "demande_devis") ??
@@ -139,7 +145,9 @@ export default function PspDemandeDevisWorkflow({
     if (!editeur) return;
     const m = modele();
     setSujet(m.sujet);
-    setCorps(m.corps);
+    // V8.16z — si un bloc « Informations des lots » a été composé dans le
+    // panneau, il est ajouté au corps du mail de chaque entreprise.
+    setCorps(blocLotsRef.current ? `${m.corps}\n\n${blocLotsRef.current}` : m.corps);
     setEnregistre(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editeur]);
@@ -196,6 +204,18 @@ export default function PspDemandeDevisWorkflow({
       <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
         <Mail className="size-3.5" /> Demande de devis — entreprises suggérées
       </p>
+
+      {/* V8.16z — lots concernés (périmètre de la ligne) : informations pour l'entreprise */}
+      <div className="mb-2 rounded-lg border bg-muted/30 p-2">
+        <PspLotsDevisSection
+          lots={operation.lots ?? []}
+          onAjouterAuMail={(bloc) => {
+            blocLotsRef.current = bloc;
+            // Éditeur ouvert → injection immédiate dans le corps du mail.
+            if (editeur) setCorps((prev) => [prev, bloc].filter(Boolean).join("\n\n"));
+          }}
+        />
+      </div>
 
       {suggestions && suggestions.length > 0 ? (
         <ul className="space-y-1">

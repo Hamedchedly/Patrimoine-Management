@@ -362,6 +362,10 @@ export default function SuiviOperationFiche({
                     corps_etat: p.corps_etat,
                     adresse: p.adresse,
                     ville: villeDepuisAdresse(p.adresse),
+                    // V8.16z — lots du périmètre (adresse/périmètre) de la ligne
+                    lots: (operation.programmation.perimetre ?? [])
+                      .filter((x) => x.niveau === "lot")
+                      .map((x) => ({ lot_id: x.lot_id, niveau: x.niveau })),
                   }}
                   figee={false}
                   onEnvoye={refresh}

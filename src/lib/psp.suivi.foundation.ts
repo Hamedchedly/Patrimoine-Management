@@ -529,6 +529,8 @@ export interface SuiviOperationVue {
     ligne: LignePspSuivi;
     perimetre: PerimetreSuivi[];
     adresse: string | null;
+    /** V8.16z — adresse résolue depuis le périmètre (lots ER) si disponible. */
+    adresse_rue: string | null;
     cc: string | null;
     sous_secteur: string | null;
     corps_etat: string | null;
@@ -589,7 +591,13 @@ export const construireSuiviOperation = (input: {
   liens?: LienCommandeSuivi[];
   commandes?: CommandeTravauxSuivi[];
   decisions?: DecisionSuivi[];
-  patrimoine?: { adresse: string | null; cc: string | null; sous_secteur?: string | null };
+  patrimoine?: {
+    adresse: string | null;
+    /** V8.16z — adresse résolue depuis le périmètre (lots ER) — ex. « 5 PSG DES ECOLES, CHESSY - ER.26141 » */
+    adresseRue?: string | null;
+    cc: string | null;
+    sous_secteur?: string | null;
+  };
   programmationStatut?: string | null;
   exercice?: number;
   dateRef?: Date;
@@ -679,6 +687,7 @@ export const construireSuiviOperation = (input: {
       ligne,
       perimetre: perimetres,
       adresse: patrimoine.adresse,
+      adresse_rue: patrimoine.adresseRue ?? null,
       cc: patrimoine.cc,
       sous_secteur: patrimoine.sous_secteur ?? null,
       corps_etat: ligne.corps_etat,

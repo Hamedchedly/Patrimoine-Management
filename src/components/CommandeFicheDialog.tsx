@@ -383,19 +383,40 @@ export default function CommandeFicheDialog({
                     className="bg-slate-800 border-slate-700 text-xs font-black h-7 rounded-lg"
                   />
                 ) : (
-                  <p className="text-sm font-black text-teal-400">
-                    {commande?.lot_code ? (
-                      <Link
-                        to="/adresses"
-                        search={construireSearchAdresses({ q: commande.lot_code })}
-                        className="hover:underline flex items-center gap-1"
-                      >
-                        {commande.lot_code} <ChevronRight className="size-3" />
-                      </Link>
-                    ) : (
-                      "Non rattaché"
-                    )}
-                  </p>
+                  (() => {
+                    // V8.17 — lot_code du suivi, sinon lot résolu (Historique CMD puis ER de la
+                    // ligne suivi) en lecture seule ; multi-lots → liste condensée.
+                    const lotAffiche = commande?.lot_code || commande?.lot_code_resolu || null;
+                    const codesMulti =
+                      commande?.lots_resolus?.statut === "multi_lots"
+                        ? (commande.lots_resolus.codes ?? [])
+                        : null;
+                    if (lotAffiche) {
+                      return (
+                        <p className="text-sm font-black text-teal-400">
+                          <Link
+                            to="/adresses"
+                            search={construireSearchAdresses({ q: lotAffiche })}
+                            className="hover:underline flex items-center gap-1"
+                          >
+                            {lotAffiche} <ChevronRight className="size-3" />
+                          </Link>
+                        </p>
+                      );
+                    }
+                    if (codesMulti && codesMulti.length > 0) {
+                      return (
+                        <p
+                          className="text-xs font-black text-teal-400 leading-snug"
+                          title={`${codesMulti.length} lots concernés`}
+                        >
+                          {codesMulti.slice(0, 3).join(" · ")}
+                          {codesMulti.length > 3 ? ` (+${codesMulti.length - 3})` : ""}
+                        </p>
+                      );
+                    }
+                    return <p className="text-sm font-black text-teal-400">Non rattaché</p>;
+                  })()
                 )}
               </div>
 

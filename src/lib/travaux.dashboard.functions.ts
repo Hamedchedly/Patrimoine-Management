@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { exerciceCourant } from "@/lib/travaux";
 import { extraireChargePsp } from "./psp.validation";
+import { rattacherLotsACommandes } from "./commande.rattachement.supabase.functions";
+import type { ResolutionRattachementLot } from "./commande.rattachement.lots";
 
 // Colonnes réellement présentes dans travaux_commandes (schéma de production).
 // Les colonnes classification_* n'existent pas encore en base : on les exclut des
@@ -82,6 +84,10 @@ export type CommandeTravaux = {
 export type CommandeTravauxEnrichie = CommandeTravaux & {
   /** V8.12 — marqueur des lignes annuelles SANS commande ajoutées au tableau du Dashboard. */
   sans_commande?: boolean;
+  /** V8.17 — résolution du rattachement lot (Historique CMD puis ER de la ligne suivi). */
+  lots_resolus?: ResolutionRattachementLot | null;
+  /** V8.17 — lot d'affichage (repli lecture) quand lot_code est vide mais 1 lot résolu. */
+  lot_code_resolu?: string | null;
   commande_id?: string | null;
   psp_date_commande?: string | null;
   nature_historique?: string | null;
@@ -165,6 +171,34 @@ export type CheckTravauxImportResult = {
   latestImport: ImportTravaux | null;
   exercice: number;
 };
+
+/**
+ * V8.17 — Rattache le lot résolu à chaque commande enrichie (Historique CMD puis ER de la
+ * ligne suivi). Lecture seule ; ne modifie que les champs d'affichage `lots_resolus` /
+ * `lot_code_resolu` (jamais `lot_code`, la source reste immuable).
+ */
+async function attacherLotsResolus(db: any, commandes: CommandeTravauxEnrichie[]): Promise<void> {
+  if (commandes.length === 0) return;
+  const resolution = await rattacherLotsACommandes(
+    db,
+    commandes.map((c) => ({
+      id: c.id,
+      numero_commande: c.numero_commande ?? null,
+      adresse: c.adresse ?? null,
+      descriptif: c.descriptif ?? null,
+    })),
+  );
+  for (const c of commandes) {
+    const r = resolution.get(c.id);
+    c.lots_resolus = r ?? null;
+    const premierLot = r?.statut === "rattache" ? r.lots[0] : undefined;
+    if (premierLot && !c.lot_code) {
+      c.lot_code_resolu = premierLot.code_patrimoine;
+    } else {
+      c.lot_code_resolu = null;
+    }
+  }
+}
 
 /**
  * Vérifie l'état réel des imports dans Supabase (lecture seule, aucune comparaison métier
@@ -351,6 +385,8 @@ export const getTravauxDashboard = createServerFn({ method: "GET", strict: false
       (commandesResult.data ?? []) as CommandeTravaux[],
       (enrichiesResult.error ? [] : (enrichiesResult.data ?? [])) as Record<string, unknown>[],
     );
+    // V8.17 — lot résolu (Historique CMD puis ER ligne suivi) pour la fiche commande.
+    await attacherLotsResolus(db, commandes);
 
     return {
       commandes,
@@ -392,10 +428,13 @@ export const getPspEnrichissementCommandes = createServerFn({ method: "POST", st
         .in("commande_id", data.commandeIds),
     ]);
     if (commandesResult.error) return [];
-    return fusionnerEnrichissement(
+    const commandes = fusionnerEnrichissement(
       (commandesResult.data ?? []) as CommandeTravaux[],
       (enrichiesResult.error ? [] : (enrichiesResult.data ?? [])) as Record<string, unknown>[],
     );
+    // V8.17 — lot résolu (Historique CMD puis ER de la ligne suivi) pour la fiche commande.
+    await attacherLotsResolus(db, commandes);
+    return commandes;
   });
 
 export const updateCommandeTravaux = createServerFn({ method: "POST" })

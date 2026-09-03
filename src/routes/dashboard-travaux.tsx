@@ -99,6 +99,8 @@ import CommandeFicheDialog, {
   type DecideState,
   type FicheFournisseurInfo,
 } from "@/components/CommandeFicheDialog";
+import { EtiquetteTranche } from "@/components/tranches/EtiquetteTranche";
+import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
 
 export const Route = createFileRoute("/dashboard-travaux")({
   // `?commande=` porte un NUMÉRO de commande (TanStack JSON-parse → number) ;
@@ -326,6 +328,9 @@ function DashboardTravauxPage() {
   const historique = data?.historique ?? [];
   const recentImports = data?.imports ?? [];
   const tranchesDetails = data?.tranchesDetails ?? [];
+  // V8.18 — étiquettes des tranches (VEFA, RACHAT…) affichées sous le TR du journal.
+  const etiquettes = useEtiquettesTranches();
+  const etiquettesParTranche = etiquettes.etiquettesParTranche;
   // V8.16x — rue réelle par tranche (mode des lots) pour un journal lisible.
   const adresseRuesParTranche = data?.adresseRuesParTranche ?? {};
 
@@ -2164,6 +2169,13 @@ function DashboardTravauxPage() {
                         >
                           {row.tranche_code || "—"}
                         </Link>
+                        {etiquettesParTranche[row.tranche_code ?? ""] ? (
+                          <span className="mt-0.5 block">
+                            <EtiquetteTranche
+                              etiquette={etiquettesParTranche[row.tranche_code ?? ""]}
+                            />
+                          </span>
+                        ) : null}
                       </td>
                       <td className="p-4 font-bold text-slate-600 truncate uppercase">
                         {adresseRuesParTranche[row.tranche_code ?? ""] || row.adresse || "—"}

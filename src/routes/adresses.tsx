@@ -12,6 +12,7 @@ import {
   MapPin,
   Phone,
   Search,
+  SquarePen,
   User,
   Wrench,
   Calendar,
@@ -69,6 +70,8 @@ import { libelleEntreprise } from "@/lib/fournisseurs";
 import type { FicheFournisseurInfo } from "@/components/CommandeFicheDialog";
 import CommandeFicheDialog from "@/components/CommandeFicheDialog";
 import PatrimoineSearch from "@/components/PatrimoineSearch";
+import { EtiquetteTranche, EtiquetteTrancheEditeur } from "@/components/tranches/EtiquetteTranche";
+import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
 
 // `z.coerce.string()` : TanStack Router JSON-parse les query params (« 1426 », « 1234 »)
 // arrivent en number → coerce les convertit en string sans casser le rendu (erreur 500 sinon).
@@ -190,6 +193,12 @@ function AdressesPage() {
   const [selectedLocataire, setSelectedLocataire] = useState<LotItem | null>(null);
   const [travauxScope, setTravauxScope] = useState<TravauxScope | null>(null);
   const [commandeFicheId, setCommandeFicheId] = useState<string | null>(null);
+
+  // V8.18 — étiquettes des tranches (badges + édition dans /adresses).
+  const [etiquetteEdit, setEtiquetteEdit] = useState<string | null>(null);
+  const etiquettes = useEtiquettesTranches();
+  const etiquettesParTranche = etiquettes.etiquettesParTranche;
+  const rafraichirEtiquettes = etiquettes.refetch;
 
   // Lignes de chaque niveau hiérarchique avec leurs compteurs.
   const villeRows = useMemo(() => {
@@ -659,11 +668,20 @@ function AdressesPage() {
                     <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/50 px-4 py-2.5">
                       <h3 className="flex items-center gap-2 text-sm font-semibold">
                         <Building2 className="size-4 text-primary" /> Tranche {t.code}
+                        <EtiquetteTranche etiquette={etiquettesParTranche[t.code] ?? null} />
                       </h3>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-muted-foreground">
                           {t.nbLots} lots · {t.nbAdresses} adresses
                         </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Ajouter / modifier l'étiquette de la tranche"
+                          onClick={() => setEtiquetteEdit(t.code)}
+                        >
+                          <SquarePen className="size-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -709,11 +727,23 @@ function AdressesPage() {
                 <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/50 px-4 py-2.5">
                   <h2 className="flex items-center gap-2 text-sm font-semibold">
                     <MapPin className="size-4 text-primary" /> Adresses · {ville}
+                    <span className="font-normal text-muted-foreground">· Tranche {tranche}</span>
+                    <EtiquetteTranche etiquette={etiquettesParTranche[tranche] ?? null} />
                   </h2>
-                  <span className="text-xs text-muted-foreground">
-                    {rueRows.length} adresse{rueRows.length > 1 ? "s" : ""} ·{" "}
-                    {rueRows.reduce((s, r) => s + r.lots, 0)} lots
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Ajouter / modifier l'étiquette de la tranche"
+                      onClick={() => setEtiquetteEdit(tranche)}
+                    >
+                      <SquarePen className="size-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {rueRows.length} adresse{rueRows.length > 1 ? "s" : ""} ·{" "}
+                      {rueRows.reduce((s, r) => s + r.lots, 0)} lots
+                    </span>
+                  </div>
                 </header>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-sm">
@@ -840,6 +870,17 @@ function AdressesPage() {
           </div>
         )}
       </main>
+
+      {/* V8.18 — éditeur d'étiquette de tranche (VEFA, RACHAT, USUFRUIT…). */}
+      <EtiquetteTrancheEditeur
+        open={!!etiquetteEdit}
+        trancheCode={etiquetteEdit}
+        etiquette={etiquetteEdit ? etiquettesParTranche[etiquetteEdit] : undefined}
+        onOpenChange={(o) => {
+          if (!o) setEtiquetteEdit(null);
+        }}
+        onSaved={() => void rafraichirEtiquettes()}
+      />
 
       <FicheLogement
         lot={selectedLot}

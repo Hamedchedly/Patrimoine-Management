@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { villeDeCommande, type TrancheGeo, type VilleGeoPure } from "@/lib/travaux";
+import { rattacherLotsACommandes } from "@/lib/commande.rattachement.supabase.functions";
+import type { ResolutionRattachementLot } from "@/lib/commande.rattachement.lots";
 
 const trancheSchema = z.object({
   code: z.string(),
@@ -278,6 +280,52 @@ export const getCcParTranche = createServerFn({ method: "GET" }).handler(async (
   return result;
 });
 
+/** Tranche + son étiquette (V8.18 — mode d'acquisition : VEFA, RACHAT, USUFRUIT…). */
+export type TrancheEtiquette = {
+  code: string;
+  libelle: string | null;
+  localite: string | null;
+  nb_logements: number;
+  etiquette: string | null;
+};
+
+/** Liste des tranches actives avec leur étiquette (badges /adresses, PSP, suivi, dashboard). */
+export const getTranchesEtiquettes = createServerFn({ method: "GET", strict: false }).handler(
+  async (): Promise<TrancheEtiquette[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    const { data, error } = await db
+      .from("tranches")
+      .select("code, libelle, localite, nb_logements, etiquette")
+      .eq("actif", true)
+      .order("code", { ascending: true });
+    if (error) throw new Error(`Tranches (étiquettes) : ${error.message}`);
+    return (data ?? []) as TrancheEtiquette[];
+  },
+);
+
+/** Met à jour l'étiquette d'une tranche (libre ; vide → effacée). */
+export const updateTrancheEtiquette = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({ code: z.string().min(1), etiquette: z.string().trim().max(80).nullable() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    const valeur = data.etiquette && data.etiquette.trim() !== "" ? data.etiquette.trim() : null;
+    const { data: row, error } = await db
+      .from("tranches")
+      .update({ etiquette: valeur })
+      .eq("code", data.code)
+      .select("code, etiquette")
+      .maybeSingle();
+    if (error) throw new Error(`Étiquette tranche ${data.code} : ${error.message}`);
+    return (row ?? { code: data.code, etiquette: valeur }) as {
+      code: string;
+      etiquette: string | null;
+    };
+  });
+
 export const travauxScopeSchema = z.object({
   niveau: z.enum(["ville", "tranche", "adresse", "lot"]),
   label: z.string().optional(),
@@ -333,7 +381,7 @@ export const getTravaux = createServerFn({ method: "POST" })
     // Le filtre `actif` est VOLONTAIREMENT absent : le modal « Travaux » est un historique
     // complet (commandes actives + archivées, tous exercices).
     const commandesSelect =
-      "id, tranche_code, lot_code, batiment, adresse, descriptif, engage, date_demarrage, date_fin_travaux, date_communication, etat_travaux, corps_etat, annee_exercice";
+      "id, numero_commande, tranche_code, lot_code, batiment, adresse, descriptif, engage, date_demarrage, date_fin_travaux, date_communication, etat_travaux, corps_etat, annee_exercice";
     let commandesQuery = supabaseAdmin
       .from("travaux_commandes")
       .select(commandesSelect)
@@ -342,6 +390,9 @@ export const getTravaux = createServerFn({ method: "POST" })
     if (data.niveau === "tranche" && data.trancheCode) {
       commandesQuery = commandesQuery.eq("tranche_code", data.trancheCode);
     } else if (data.niveau === "lot" && data.lotCode) {
+      // V8.17 — lot_code EXACT : inclut aussi les commandes d'une AUTRE tranche qui
+      // référencent le lot (ex. 5076678 = TR 2276 mais ER.39351 appartenant à TR 2443).
+      // Les commandes de la tranche du lot (sans lot_code) sont ajoutées plus bas.
       commandesQuery = commandesQuery.eq("lot_code", data.lotCode);
     } else if (data.niveau === "adresse") {
       commandesQuery = commandesQuery.in("tranche_code", trancheCodes);
@@ -378,6 +429,22 @@ export const getTravaux = createServerFn({ method: "POST" })
     // Périmètre ville : rattachement métier via villeDeCommande (adresse d'import prioritaire,
     // sinon tranche.localite), sur TOUTES les commandes (actives + archivées, tous exercices).
     let commandes = commandesResult.data ?? [];
+
+    // V8.17 — au niveau « lot », on complète avec les commandes de la/des tranches du logement :
+    // celles dont l'ER (Historique CMD / ligne suivi) désigne CE logement même sans lot_code
+    // renseigné (repli lecture — le lot_code exact est déjà chargé ci-dessus).
+    if (data.niveau === "lot" && data.lotCode) {
+      const { data: trancheCmd, error: errTranche } = await supabaseAdmin
+        .from("travaux_commandes")
+        .select(commandesSelect)
+        .order("date_demarrage", { ascending: false, nullsFirst: false })
+        .in("tranche_code", trancheCodes);
+      if (errTranche) throw new Error(errTranche.message);
+      const parId = new Map(commandes.map((c) => [c.id, c]));
+      for (const c of trancheCmd ?? []) if (!parId.has(c.id)) parId.set(c.id, c);
+      commandes = [...parId.values()];
+    }
+
     if (data.niveau === "ville" && data.ville) {
       const codes = [
         ...new Set(commandes.map((c) => c.tranche_code).filter((c): c is string => !!c)),
@@ -400,6 +467,21 @@ export const getTravaux = createServerFn({ method: "POST" })
       }));
       commandes = commandes.filter((c) => villeDeCommande(c, tranches, villesGeo) === data.ville);
     }
+
+    // V8.17 — Rattachement des commandes à leur lot pour la vue « lot » (fiche logement) :
+    // lot résolu via Historique CMD (prioritaire) puis ER de la ligne suivi (adresse/descriptif).
+    const resolvedParCommande =
+      data.niveau === "lot"
+        ? await rattacherLotsACommandes(
+            supabaseAdmin,
+            commandes.map((c) => ({
+              id: c.id,
+              numero_commande: c.numero_commande ?? null,
+              adresse: c.adresse ?? null,
+              descriptif: c.descriptif ?? null,
+            })),
+          )
+        : new Map<string, ResolutionRattachementLot>();
 
     // Conversion des commandes au format "travaux" pour l'affichage
     const commandesTravaux = commandes.map((c) => {
@@ -444,6 +526,15 @@ export const getTravaux = createServerFn({ method: "POST" })
     const mapped = travaux
       .filter((travail) => {
         if (data.niveau !== "lot") return true;
+        if (!data.lotCode) return true;
+        // V8.17 — commande : rattachée au logement si lot_code exact OU lot résolu.
+        if ("is_commande" in travail) {
+          if (travail.lot_code === data.lotCode) return true;
+          const res = resolvedParCommande.get(String(travail.id));
+          if (res && res.codes.includes(data.lotCode)) return true;
+          return false;
+        }
+        // Lignes `travaux` (hors commandes) : comportement historique inchangé.
         return (
           travail.lot_code === data.lotCode ||
           (!travail.lot_code && (!travail.batiment || travail.batiment === lots[0]!.batiment)) ||

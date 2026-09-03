@@ -10,11 +10,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckSquare, ChevronRight, Mail, RefreshCcw, Search, Send, Square, X } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckSquare,
+  ChevronRight,
+  Mail,
+  RefreshCcw,
+  Search,
+  Send,
+  Square,
+  X,
+} from "lucide-react";
 
 import PspFournisseurSearch, {
   type FournisseurSelection,
 } from "@/components/preparation-psp/PspFournisseurSearch";
+import { EtiquetteTranche } from "@/components/tranches/EtiquetteTranche";
 import { useMailModeles } from "@/lib/psp.mail.hooks";
 
 import { Badge } from "@/components/ui/badge";
@@ -542,6 +553,7 @@ export default function TableauDemandesDevis({
   lignes,
   onOpen,
   onEnvoye,
+  etiquettesParTranche,
 }: {
   titre: string;
   sousTitre?: string;
@@ -549,6 +561,8 @@ export default function TableauDemandesDevis({
   onOpen: (l: LigneDemandeDevis) => void;
   /** V8.16o — rechargement après un envoi groupé (demandes enregistrées). */
   onEnvoye?: (() => Promise<void>) | undefined;
+  /** V8.18 — étiquettes des tranches (VEFA, RACHAT…) affichées sous le TR. */
+  etiquettesParTranche?: Record<string, string | null>;
 }) {
   // V8.10 — vue par défaut « Sans devis » (ce qui doit encore être demandé).
   const [avancement, setAvancement] = useState<AvancementDevis | "toutes">("sans_devis");
@@ -749,13 +763,31 @@ export default function TableauDemandesDevis({
                   <td className="px-2 py-1.5">
                     <span className="font-semibold">{l.ligne_budget || "—"}</span>
                   </td>
-                  <td className="px-2 py-1.5 font-bold">{l.tranche}</td>
+                  <td className="px-2 py-1.5">
+                    <span className="block font-bold">{l.tranche}</span>
+                    <EtiquetteTranche
+                      etiquette={
+                        etiquettesParTranche?.[l.tranche] ??
+                        (etiquettesParTranche ? null : undefined)
+                      }
+                      className="mt-0.5"
+                    />
+                  </td>
                   <td className="max-w-[200px] px-2 py-1.5">
                     <span
-                      className="block truncate text-[10px]"
-                      title={l.adresse_rue ?? l.adresse ?? ""}
+                      className="flex items-center gap-1"
+                      title={
+                        l.adresse_ambigu
+                          ? `${l.adresse_rue ?? l.adresse ?? ""}\n⚠ ${l.adresse_ambigu}`
+                          : (l.adresse_rue ?? l.adresse ?? "")
+                      }
                     >
-                      {l.adresse_rue ?? l.adresse ?? "—"}
+                      <span className="block truncate text-[10px]">
+                        {l.adresse_rue ?? l.adresse ?? "—"}
+                      </span>
+                      {l.adresse_ambigu ? (
+                        <AlertTriangle className="size-3 shrink-0 text-amber-500" />
+                      ) : null}
                     </span>
                   </td>
                   <td className="px-2 py-1.5">

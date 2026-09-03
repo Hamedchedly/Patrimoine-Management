@@ -21,6 +21,7 @@ import type { DevisEdit } from "@/components/preparation-psp/PspDevisPanel";
 import PspRevueAnciennes from "@/components/preparation-psp/PspRevueAnciennes";
 import PspRevueReports from "@/components/preparation-psp/PspRevueReports";
 import PspTable from "@/components/preparation-psp/PspTable";
+import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -149,6 +150,10 @@ function PreparationPspPage() {
     Map<string, Array<Record<string, unknown>>>
   >(new Map());
   const [lotsParId, setLotsParId] = useState<Map<string, LotInfo>>(new Map());
+
+  // V8.18 — étiquettes des tranches (badges sous le TR des lignes).
+  const etiquettes = useEtiquettesTranches();
+  const etiquettesParTranche = etiquettes.etiquettesParTranche;
 
   // Source des opérations : brouillon Supabase (source de vérité — V7.10 §2).
   // Aucun mock au chargement : l'état initial est VIDE, le brouillon remplit la table.
@@ -1118,6 +1123,7 @@ function PreparationPspPage() {
                     }
                     figee={figee}
                     reference={reference}
+                    etiquettesParTranche={etiquettesParTranche}
                   />
                 )}
               </>

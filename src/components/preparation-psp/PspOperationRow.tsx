@@ -1,6 +1,7 @@
-import { Building2, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, Building2, Pencil, Trash2 } from "lucide-react";
 
 import PspSecteurBadge from "@/components/preparation-psp/PspSecteurBadge";
+import { EtiquetteTranche } from "@/components/tranches/EtiquetteTranche";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +21,7 @@ import { PSP_ANNEES, montantAnnee, totalOperation, type PspOperation } from "@/l
 import {
   PRIORITE_LABELS,
   STATUT_LABELS,
-  libelleAdressePerimetre,
+  libelleAdresseLigne,
   statutConsultationDepuisDevis,
   type LotInfo,
   type PerimetreLigne,
@@ -54,6 +55,7 @@ export default function PspOperationRow({
   onDelete,
   editionActive,
   onEditRequest,
+  etiquette,
 }: {
   op: PspOperation;
   perimetres: PerimetreLigne[];
@@ -68,14 +70,17 @@ export default function PspOperationRow({
   editionActive: boolean;
   /** V8.16y — clic simple → ouvre/ferme le formulaire d'édition complet sous la ligne. */
   onEditRequest: () => void;
+  /** V8.18 — étiquette de la tranche (VEFA, RACHAT…) affichée sous le TR. */
+  etiquette?: string | null;
 }) {
-  // V8.16y — édition : le clic simple ouvre le formulaire COMPLET étendu sous la
-  // ligne (périmètre/ER lot, montants, tranche, corps, nature, statut, priorité,
-  // notes) ; plus aucun état inline dans la ligne elle-même.
-  const adresse = libelleAdressePerimetre(perimetres, lotsParId, {
+  // V8.18 — adresse de la ligne : priorité à l'ER (lot) réel (périmètre puis texte),
+  // avec détection d'interférence (ER du texte ≠ ER du périmètre).
+  const resolue = libelleAdresseLigne(perimetres, lotsParId, op.nature_travaux, {
     adresse: op.adresse,
     ville: op.ville,
   });
+  const adresse = resolue.adresse;
+  const adresseAmbigu = resolue.ambiguite;
   const statut = op.statut ?? "a_definir";
   const priorite = op.priorite ?? "normale";
   const nbDevis = op.devis.length;
@@ -93,11 +98,23 @@ export default function PspOperationRow({
       onClick={onEditRequest}
       title="Cliquer pour modifier sur le tableau"
     >
-      <TableCell className="py-2 font-mono text-xs font-semibold">{op.tranche}</TableCell>
+      <TableCell className="py-2 font-mono text-xs font-semibold">
+        <span className="block">{op.tranche}</span>
+        <EtiquetteTranche etiquette={etiquette ?? null} className="mt-0.5" />
+      </TableCell>
       <TableCell className="py-2 text-xs font-medium">{op.charge_clientele}</TableCell>
       <TableCell className="max-w-[220px] py-2">
-        <span className="block truncate text-xs" title={adresse}>
-          {adresse}
+        <span
+          className="flex items-center gap-1"
+          title={adresseAmbigu ? `${adresse}\n⚠ ${adresseAmbigu}` : adresse}
+        >
+          <span className="block truncate text-xs">{adresse}</span>
+          {adresseAmbigu ? (
+            <AlertTriangle
+              className="size-3.5 shrink-0 text-amber-500"
+              aria-label="Interférence ER"
+            />
+          ) : null}
         </span>
       </TableCell>
       <TableCell className="max-w-[180px] py-2">

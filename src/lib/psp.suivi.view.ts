@@ -7,6 +7,7 @@
 import { statsDevis } from "./psp.prep.ts";
 import type { SuiviOperationVue } from "./psp.suivi.foundation.ts";
 import type { DevisSuivi } from "./psp.suivi.foundation.ts";
+import { extraireErTexte, normaliserCodeEr } from "./commande.rattachement.lots.ts";
 
 // ── Filtres du tableau ───────────────────────────────────────────────────────
 
@@ -717,6 +718,8 @@ export type LigneDemandeDevis = {
   adresse: string | null;
   /** V8.16n — adresse de rue (périmètre) — à afficher avec l'adresse. */
   adresse_rue?: string | null;
+  /** V8.18 — interférence ER signalée (ER affiché ≠ ER détecté) — message à afficher. */
+  adresse_ambigu?: string | null;
   /** V8.16o — ville (localité de la tranche). */
   ville?: string | null;
   /** V8.16o — entreprises auxquelles une demande de devis a été envoyée. */
@@ -770,7 +773,10 @@ export const ligneDemandeDevisDepuisOperation = (
     pspLigneId: op.identite.id,
     tranche: op.identite.tranche,
     adresse: op.programmation.adresse,
-    adresse_rue: adresseRueDepuisPerimetre(op.programmation.perimetre),
+    // V8.16z — adresse résolue depuis le périmètre (lots ER) par le serveur,
+    // sinon repli historique (périmètre rue/adresse).
+    adresse_rue:
+      op.programmation.adresse_rue ?? adresseRueDepuisPerimetre(op.programmation.perimetre),
     ville: villeDepuisAdresse(op.programmation.adresse),
     entreprises: op.consultation.entreprises.map((e) => e.entreprise).filter(Boolean),
     cc: op.programmation.cc,
@@ -785,4 +791,84 @@ export const ligneDemandeDevisDepuisOperation = (
     statut_consultation_label: op.consultation.statut_label,
     avancement: avancementDevis(op.consultation),
   };
+};
+
+// ── V8.18 — Adresse ER (lot) des lignes de devis ──────────────────────────────
+
+/** Lot résolu léger (retour du serveur `getLotsParRefsEr`). */
+export type LotErLeger = {
+  code_patrimoine: string;
+  adresse: string | null;
+  ville: string | null;
+};
+
+/** Indexe des lots par clé de code ER (insensible casse/ponctuation). */
+export const indexerLotsParCode = (lots: LotErLeger[]): Map<string, LotErLeger> => {
+  const index = new Map<string, LotErLeger>();
+  for (const l of lots) {
+    const cle = normaliserCodeEr(l.code_patrimoine);
+    if (cle && !index.has(cle)) index.set(cle, l);
+  }
+  return index;
+};
+
+const libelleAdresseLots = (lots: LotErLeger[]): string => {
+  const groupes = new Map<string, { base: string; ville: string; codes: string[] }>();
+  for (const l of lots) {
+    const base = (l.adresse ?? "").trim();
+    const ville = (l.ville ?? "").trim();
+    const cle = `${base}|${ville}`;
+    const g = groupes.get(cle) ?? { base, ville, codes: [] };
+    if (l.code_patrimoine) g.codes.push(l.code_patrimoine);
+    groupes.set(cle, g);
+  }
+  const parts: string[] = [];
+  for (const g of groupes.values()) {
+    const adr = [g.base, g.ville].filter(Boolean).join(", ");
+    parts.push(`${adr || "—"} - ${g.codes.join(" / ")}`);
+  }
+  return parts.join(" ; ");
+};
+
+/**
+ * V8.18 — applique l'adresse de l'ER (lot) réel sur une ligne de devis.
+ *  · ER détecté dans l'adresse/nature de la ligne et résolu dans `lotsParCode` → l'adresse
+ *    d'affichage (`adresse_rue`) devient celle du/des lots ;
+ *  · si l'adresse affichée référence déjà un ER différent → interférence (`adresse_ambigu`),
+ *    l'adresse structurée reste prioritaire ;
+ *  · retourne une NOUVELLE ligne (aucune mutation). Aucun ER résolu → ligne inchangée.
+ */
+export const appliquerErAdresse = (
+  ligne: LigneDemandeDevis,
+  lotsParCode: Map<string, LotErLeger>,
+): LigneDemandeDevis => {
+  const refs = new Set([...extraireErTexte(ligne.adresse), ...extraireErTexte(ligne.nature)]);
+  const lots: LotErLeger[] = [];
+  for (const ref of refs) {
+    const lot = lotsParCode.get(normaliserCodeEr(ref));
+    if (lot && !lots.includes(lot)) lots.push(lot);
+  }
+  if (lots.length === 0) return ligne;
+
+  const codes = lots.map((l) => l.code_patrimoine).filter(Boolean);
+  const courant = (ligne.adresse_rue ?? ligne.adresse ?? "").trim();
+  const refsCourantRaw = extraireErTexte(courant);
+  const refsCourant = new Set(refsCourantRaw.map((r) => normaliserCodeEr(r)).filter(Boolean));
+  const codesNorm = new Set(codes.map((c) => normaliserCodeEr(c)).filter(Boolean));
+
+  // Adresse structurée qui référence déjà un/des ER : pas de surcharge, mais on signale
+  // une interférence si elle référence un ER différent de celui détecté dans le texte.
+  if (refsCourant.size > 0) {
+    const differents = [...refsCourant].filter((c) => !codesNorm.has(c));
+    return {
+      ...ligne,
+      adresse_ambigu:
+        differents.length > 0
+          ? `ER affiché (${refsCourantRaw.join(", ")}) ≠ ER détecté (${codes.join(", ")})`
+          : null,
+    };
+  }
+
+  // Aucun ER dans l'adresse affichée → on bascule sur l'adresse du/des lots détectés.
+  return { ...ligne, adresse_rue: libelleAdresseLots(lots), adresse_ambigu: null };
 };

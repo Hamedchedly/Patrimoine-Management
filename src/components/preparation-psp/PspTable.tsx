@@ -108,6 +108,7 @@ export default function PspTable({
   quickAdd,
   figee,
   reference = null,
+  etiquettesParTranche,
 }: {
   mode: ModeAffichage;
   operations: PspOperation[];
@@ -128,6 +129,8 @@ export default function PspTable({
   } | null;
   figee: boolean;
   reference?: ReferencePatrimoine | null;
+  /** V8.18 — étiquettes des tranches (VEFA, RACHAT…) : code → etiquette. */
+  etiquettesParTranche?: Record<string, string | null>;
 }) {
   const [tri, setTri] = useState<{ cle: CleTri; asc: boolean } | null>(null);
   // V8.16y (partie 2) — ligne en cours d'édition : ses CASES sont débloquées
@@ -161,6 +164,7 @@ export default function PspTable({
         onDelete={onDelete}
         editionActive={false}
         onEditRequest={() => setEditionId(op.id)}
+        etiquette={etiquettesParTranche?.[op.tranche] ?? null}
       />
     );
 

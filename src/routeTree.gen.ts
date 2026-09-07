@@ -16,6 +16,7 @@ import { Route as FournisseursRouteImport } from './routes/fournisseurs'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as ImportPspRouteImport } from './routes/import-psp'
 import { Route as ImportTravauxRouteImport } from './routes/import-travaux'
+import { Route as PilotageRouteImport } from './routes/pilotage'
 import { Route as PreparationPspRouteImport } from './routes/preparation-psp'
 import { Route as PspValidationRouteImport } from './routes/psp-validation'
 import { Route as SuiviRouteImport } from './routes/suivi'
@@ -57,6 +58,11 @@ const ImportTravauxRoute = ImportTravauxRouteImport.update({
   path: '/import-travaux',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PilotageRoute = PilotageRouteImport.update({
+  id: '/pilotage',
+  path: '/pilotage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PreparationPspRoute = PreparationPspRouteImport.update({
   id: '/preparation-psp',
   path: '/preparation-psp',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/import': typeof ImportRoute
   '/import-psp': typeof ImportPspRoute
   '/import-travaux': typeof ImportTravauxRoute
+  '/pilotage': typeof PilotageRoute
   '/preparation-psp': typeof PreparationPspRoute
   '/psp-validation': typeof PspValidationRoute
   '/suivi': typeof SuiviRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/import': typeof ImportRoute
   '/import-psp': typeof ImportPspRoute
   '/import-travaux': typeof ImportTravauxRoute
+  '/pilotage': typeof PilotageRoute
   '/preparation-psp': typeof PreparationPspRoute
   '/psp-validation': typeof PspValidationRoute
   '/suivi': typeof SuiviRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/import': typeof ImportRoute
   '/import-psp': typeof ImportPspRoute
   '/import-travaux': typeof ImportTravauxRoute
+  '/pilotage': typeof PilotageRoute
   '/preparation-psp': typeof PreparationPspRoute
   '/psp-validation': typeof PspValidationRoute
   '/suivi': typeof SuiviRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/import'
     | '/import-psp'
     | '/import-travaux'
+    | '/pilotage'
     | '/preparation-psp'
     | '/psp-validation'
     | '/suivi'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/import'
     | '/import-psp'
     | '/import-travaux'
+    | '/pilotage'
     | '/preparation-psp'
     | '/psp-validation'
     | '/suivi'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/import'
     | '/import-psp'
     | '/import-travaux'
+    | '/pilotage'
     | '/preparation-psp'
     | '/psp-validation'
     | '/suivi'
@@ -178,6 +190,7 @@ export interface RootRouteChildren {
   ImportRoute: typeof ImportRoute
   ImportPspRoute: typeof ImportPspRoute
   ImportTravauxRoute: typeof ImportTravauxRoute
+  PilotageRoute: typeof PilotageRoute
   PreparationPspRoute: typeof PreparationPspRoute
   PspValidationRoute: typeof PspValidationRoute
   SuiviRoute: typeof SuiviRoute
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       path: '/import-travaux'
       fullPath: '/import-travaux'
       preLoaderRoute: typeof ImportTravauxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pilotage': {
+      id: '/pilotage'
+      path: '/pilotage'
+      fullPath: '/pilotage'
+      preLoaderRoute: typeof PilotageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/preparation-psp': {
@@ -294,6 +314,7 @@ const rootRouteChildren: RootRouteChildren = {
   ImportRoute: ImportRoute,
   ImportPspRoute: ImportPspRoute,
   ImportTravauxRoute: ImportTravauxRoute,
+  PilotageRoute: PilotageRoute,
   PreparationPspRoute: PreparationPspRoute,
   PspValidationRoute: PspValidationRoute,
   SuiviRoute: SuiviRoute,

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import {
   BarChart3,
   Bug,
@@ -7,6 +7,7 @@ import {
   CalendarRange,
   ChevronDown,
   ClipboardList,
+  Columns3,
   Database,
   FileSpreadsheet,
   FileText,
@@ -23,6 +24,13 @@ import { ParametresDialog } from "@/components/ParametresDialog";
 import { BugReportsDashboard } from "@/components/bugs/BugReportsDashboard";
 import { LISTE_FOURNISSEURS_SEARCH_VIDE } from "@/routes/fournisseurs.index";
 import { construireSearchAdresses } from "@/lib/adresses";
+
+// Kanban chargé à la demande (gros module : board + fiche opération/devis).
+const KanbanOverlay = lazy(() =>
+  import("@/components/kanban/KanbanDevisDialog").then((m) => ({
+    default: m.KanbanOverlay,
+  })),
+);
 
 const LIEN_CLASS =
   "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-300 transition-colors hover:bg-slate-800 hover:text-white";
@@ -129,6 +137,7 @@ function SectionMenu({ children }: { children: ReactNode }) {
 export default function AppNavigation() {
   const [parametresOuvert, setParametresOuvert] = useState(false);
   const [signalementsOuvert, setSignalementsOuvert] = useState(false);
+  const [kanbanOuvert, setKanbanOuvert] = useState(false);
   return (
     <nav className="sticky top-0 z-40 border-b border-slate-800 bg-slate-900">
       <div className="mx-auto flex max-w-[2200px] items-center gap-1 overflow-x-auto px-4 py-2 sm:px-6">
@@ -191,6 +200,16 @@ export default function AppNavigation() {
               titre="Rapports d'import et conflits à valider"
             />
             <div className="my-1 border-t border-slate-700" />
+            <SectionMenu>Pilotage</SectionMenu>
+            <button
+              type="button"
+              onClick={() => setKanbanOuvert(true)}
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-slate-100 hover:text-slate-950"
+            >
+              <Columns3 className="size-4 shrink-0 text-slate-500" />
+              <span>Kanban devis → commande → travaux</span>
+            </button>
+            <div className="my-1 border-t border-slate-700" />
             <SectionMenu>Support</SectionMenu>
             <button
               type="button"
@@ -205,6 +224,9 @@ export default function AppNavigation() {
       </div>
       <ParametresDialog open={parametresOuvert} onClose={() => setParametresOuvert(false)} />
       <BugReportsDashboard open={signalementsOuvert} onOpenChange={setSignalementsOuvert} />
+      <Suspense fallback={null}>
+        <KanbanOverlay open={kanbanOuvert} onOpenChange={setKanbanOuvert} />
+      </Suspense>
     </nav>
   );
 }

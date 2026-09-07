@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
   BarChart3,
+  Bug,
   Building2,
   CalendarRange,
   ChevronDown,
@@ -19,6 +20,7 @@ import {
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ParametresDialog } from "@/components/ParametresDialog";
+import { BugReportsDashboard } from "@/components/bugs/BugReportsDashboard";
 import { LISTE_FOURNISSEURS_SEARCH_VIDE } from "@/routes/fournisseurs.index";
 import { construireSearchAdresses } from "@/lib/adresses";
 
@@ -126,6 +128,7 @@ function SectionMenu({ children }: { children: ReactNode }) {
  */
 export default function AppNavigation() {
   const [parametresOuvert, setParametresOuvert] = useState(false);
+  const [signalementsOuvert, setSignalementsOuvert] = useState(false);
   return (
     <nav className="sticky top-0 z-40 border-b border-slate-800 bg-slate-900">
       <div className="mx-auto flex max-w-[2200px] items-center gap-1 overflow-x-auto px-4 py-2 sm:px-6">
@@ -187,10 +190,21 @@ export default function AppNavigation() {
               icon={FileText}
               titre="Rapports d'import et conflits à valider"
             />
+            <div className="my-1 border-t border-slate-700" />
+            <SectionMenu>Support</SectionMenu>
+            <button
+              type="button"
+              onClick={() => setSignalementsOuvert(true)}
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-slate-100 hover:text-slate-950"
+            >
+              <Bug className="size-4 shrink-0 text-slate-500" />
+              <span>Signalements de bugs</span>
+            </button>
           </MenuDeroulant>
         </div>
       </div>
       <ParametresDialog open={parametresOuvert} onClose={() => setParametresOuvert(false)} />
+      <BugReportsDashboard open={signalementsOuvert} onOpenChange={setSignalementsOuvert} />
     </nav>
   );
 }

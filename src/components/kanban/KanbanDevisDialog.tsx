@@ -16,6 +16,7 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  Search,
   Trash2,
 } from "lucide-react";
 
@@ -39,9 +40,10 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import SuiviOperationFiche from "@/components/suivi/SuiviOperationFiche";
+import PspDemandeDevisWorkflow from "@/components/preparation-psp/PspDemandeDevisWorkflow";
 import {
   ETAT_PILOTAGE_LABELS,
-  createPspDevis,
+  getPspSuiviAnnuel,
   getPspSuiviOperations,
   updatePspDevis,
   updatePspLigneEtatPilotage,
@@ -54,18 +56,122 @@ import {
 } from "@/lib/kanban.functions";
 import type { SuiviOperationVue } from "@/lib/psp.suivi.foundation";
 import {
+  kpiRegistreAnnuel,
+  villeDepuisAdresse,
+  type LigneRegistreAnnuel,
+} from "@/lib/psp.suivi.view";
+import {
   COLONNES_KANBAN,
   GROUPES_KANBAN,
   anneesKanban,
+  colonneKanbanSansForcage,
   construireCartesKanban,
   groupeDeColonne,
+  trierCartesKanban,
   type CarteKanban,
   type CommandePasseeKanban,
   type GroupeKanban,
+  type TriCartesKanban,
 } from "@/lib/kanban.view";
 
 const OPS_KEY = ["kanban-operations"] as const;
 const cpKey = (exercice: number) => ["kanban-commandes-passees", exercice] as const;
+/** Clé du registre annuel affiché en KPI (même source que /suivi). */
+const kpiKey = (exercice: number) => ["kanban-kpi-suivi-annuel", exercice] as const;
+
+/** Filtres du board — CC « tous », CC précis ou « sans CC ». */
+const CC_TOUS = "__tous__";
+const CC_SANS = "__sans_cc__";
+
+/** Carte « commande réelle » — ligne du registre annuel (type 'commande', non liée
+ *  à une opération de devis) : une commande importée, en cours ou terminée. */
+type CarteCommandeReelle = {
+  key: string;
+  tranche: string;
+  corps_etat: string | null;
+  nature: string | null;
+  adresse: string | null;
+  ville: string | null;
+  cc: string | null;
+  montant: number | null;
+  entreprise: string | null;
+  numeroCommande: string | null;
+  ligne_budget: string | null;
+  etatTravaux: string | null;
+  etat: LigneRegistreAnnuel["etat_annuel"];
+  dateDebut: string | null;
+  dateFin: string | null;
+  groupe: GroupeKanban;
+};
+
+/** Libellé court de l'état annuel (badge sur les commandes réelles). */
+const ETAT_REEL_LABEL: Record<string, string> = {
+  sans_commande: "Sans commande",
+  en_cours: "En cours",
+  terminee: "Terminée",
+  a_verifier: "À vérifier",
+};
+
+/** Construit la carte d'une commande réelle (ligne du registre de type 'commande'). */
+function commandeReelleDepuisLigne(l: LigneRegistreAnnuel): CarteCommandeReelle | null {
+  if (l.type !== "commande" || !l.commande) return null;
+  const cmd = l.commande;
+  return {
+    key: `cmd:${l.id}`,
+    tranche: l.tranche,
+    corps_etat: l.corps_etat,
+    nature: l.nature ?? cmd.descriptif ?? cmd.nature_analytique ?? null,
+    adresse: l.adresse_rue ?? l.adresse,
+    ville: l.ville,
+    cc: l.cc,
+    montant: cmd.budget ?? l.budget,
+    entreprise: cmd.fournisseur ?? null,
+    numeroCommande: cmd.numero_commande,
+    ligne_budget: l.ligne_budget ?? cmd.ligne_budget ?? null,
+    etatTravaux: cmd.etat_travaux ?? null,
+    etat: l.etat_annuel,
+    dateDebut: cmd.date_demarrage ?? null,
+    dateFin: cmd.date_fin_travaux ?? null,
+    groupe: l.etat_annuel === "terminee" ? "termines" : "commande_travaux",
+  };
+}
+
+const RANG_ETAT_REEL: Record<string, number> = { a_verifier: 0, en_cours: 1, terminee: 2 };
+
+/** Dernière modification d'une commande réelle (date de fin sinon de démarrage). */
+const derniereModifCommandeReelle = (c: CarteCommandeReelle): string | null =>
+  c.dateFin ?? c.dateDebut ?? null;
+
+/** Trie les commandes réelles d'un groupe (mêmes règles que les cartes opérations). */
+function trierCommandesReelles(
+  list: CarteCommandeReelle[],
+  mode: TriCartesKanban,
+): CarteCommandeReelle[] {
+  const arr = [...list];
+  const cmpTranche = (a: CarteCommandeReelle, b: CarteCommandeReelle) =>
+    a.tranche.localeCompare(b.tranche, "fr", { numeric: true });
+  if (mode === "recent") {
+    return arr.sort((a, b) => {
+      const da = derniereModifCommandeReelle(a) ?? "";
+      const db = derniereModifCommandeReelle(b) ?? "";
+      if (da !== db) return db.localeCompare(da);
+      return cmpTranche(a, b);
+    });
+  }
+  if (mode === "etat") {
+    return arr.sort((a, b) => {
+      const ra = RANG_ETAT_REEL[a.etat] ?? 0;
+      const rb = RANG_ETAT_REEL[b.etat] ?? 0;
+      if (ra !== rb) return ra - rb;
+      return cmpTranche(a, b);
+    });
+  }
+  return arr.sort((a, b) => {
+    const t = cmpTranche(a, b);
+    if (t !== 0) return t;
+    return (RANG_ETAT_REEL[a.etat] ?? 0) - (RANG_ETAT_REEL[b.etat] ?? 0);
+  });
+}
 
 const fmt = (n: number | null | undefined): string =>
   n == null
@@ -78,6 +184,55 @@ const fmt = (n: number | null | undefined): string =>
 
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
+/** Normalise pour la recherche (minuscules, sans accents). */
+const normaliserRecherche = (s: string | null | undefined): string =>
+  (s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+/** La carte opération correspond-elle au texte de recherche (tous les champs) ? */
+function carteCorrespondRecherche(carte: CarteKanban, q: string): boolean {
+  const nq = normaliserRecherche(q);
+  if (!nq) return true;
+  const entreprises = [
+    ...carte.entreprisesConsultees.map((d) => d.entreprise),
+    carte.commandePassee?.entreprise ?? "",
+    ...carte.commandesLiees.map((c) => `${c.entreprise} ${c.numero}`),
+  ].join(" ");
+  const hay = [
+    carte.tranche,
+    carte.categorie,
+    carte.adresse,
+    carte.nature,
+    carte.corps_etat,
+    carte.cc,
+    carte.ligne_budget,
+    carte.op.programmation.adresse,
+    entreprises,
+  ].join(" ");
+  return normaliserRecherche(hay).includes(nq);
+}
+
+/** La commande réelle correspond-elle au texte de recherche (tous les champs) ? */
+function commandeCorrespondRecherche(c: CarteCommandeReelle, q: string): boolean {
+  const nq = normaliserRecherche(q);
+  if (!nq) return true;
+  const hay = [
+    c.tranche,
+    c.corps_etat,
+    c.nature,
+    c.adresse,
+    c.ville,
+    c.cc,
+    c.ligne_budget,
+    c.entreprise,
+    c.numeroCommande,
+  ].join(" ");
+  return normaliserRecherche(hay).includes(nq);
+}
+
 export function KanbanPage() {
   const queryClient = useQueryClient();
   const anneeCourante = useMemo(() => new Date().getFullYear(), []);
@@ -87,12 +242,19 @@ export function KanbanPage() {
   const [ficheOp, setFicheOp] = useState<SuiviOperationVue | null>(null);
   const [vueTermines, setVueTermines] = useState(false);
   const [confrontant, setConfrontant] = useState(false);
+  // V8.24 — tri des cartes dans chaque colonne + filtre par chargé clientèle.
+  // V8.25 — tri par défaut = « dernière modification ».
+  const [tri, setTri] = useState<TriCartesKanban>("recent");
+  const [cc, setCc] = useState<string>(CC_TOUS);
+  // V8.27 — recherche libre sur tous les champs (description, ville, tranche, entreprise…).
+  const [q, setQ] = useState("");
 
   const opsFn = useServerFn(getPspSuiviOperations);
   const cpFn = useServerFn(getKanbanCommandesPassees);
   const creerCp = useServerFn(creerCommandePassee);
   const supprimerCp = useServerFn(supprimerCommandePassee);
   const confronter = useServerFn(confronterKanbanCommandesPassees);
+  const registreFn = useServerFn(getPspSuiviAnnuel);
 
   const {
     data: opsData,
@@ -118,6 +280,51 @@ export function KanbanPage() {
   });
   const commandesPassees = useMemo(() => (cpsData ?? []) as CommandePasseeKanban[], [cpsData]);
 
+  // V8.24 — registre annuel de l'exercice → mêmes KPI (3 barres) que /suivi, ET
+  // V8.26 — source des « commandes réelles » importées (type 'commande') à afficher.
+  const { data: registreData, isLoading: kpiChargement } = useQuery({
+    queryKey: kpiKey(exercice),
+    queryFn: () => registreFn({ data: { annee: exercice } }),
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const lignesRegistre = useMemo(
+    () => (registreData?.lignes ?? []) as LigneRegistreAnnuel[],
+    [registreData],
+  );
+  const kpiVue = useMemo(() => {
+    const k = kpiRegistreAnnuel(lignesRegistre);
+    const sansCommande = lignesRegistre.filter(
+      (l) => l.type === "operation" && l.etat_annuel === "sans_commande",
+    );
+    const compter = (p: (l: LigneRegistreAnnuel) => boolean) => sansCommande.filter(p).length;
+    return {
+      totalOperations: k.operations,
+      budgetProgramme: k.budgetProgramme,
+      engage: k.budgetEngage,
+      paye: k.budgetPaye,
+      travauxEnCours: k.travauxEnCours,
+      terminees: k.terminees,
+      devisSans: compter(
+        (l) => l.consultation.nb_devis_recus === 0 && l.consultation.nb_demandes === 0,
+      ),
+      devisAttente: compter(
+        (l) => l.consultation.nb_devis_recus === 0 && l.consultation.nb_demandes > 0,
+      ),
+      devisRecus: compter((l) => l.consultation.nb_devis_recus > 0),
+    };
+  }, [lignesRegistre]);
+  // V8.26 — commandes réelles importées de l'exercice non liées à une opération
+  // (lignes du registre de type 'commande') : cartes « en cours / terminées » qui
+  // reflètent le dashboard annuel. Aucune écriture.
+  const commandesReelles = useMemo<CarteCommandeReelle[]>(
+    () =>
+      lignesRegistre
+        .map((l) => commandeReelleDepuisLigne(l))
+        .filter((c): c is CarteCommandeReelle => c !== null),
+    [lignesRegistre],
+  );
+
   const migrationManquante =
     (cpsErreur as Error | null)?.message?.includes?.("kanban_commandes_passees") ?? false;
 
@@ -134,16 +341,62 @@ export function KanbanPage() {
     () => construireCartesKanban(operations, exercice, commandesPassees),
     [operations, exercice, commandesPassees],
   );
+  // CC distincts parmi les cartes (opérations) ET les commandes réelles de l'exercice.
+  const ccListe = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of cartes) {
+      const v = (c.cc ?? "").trim();
+      if (v) set.add(v);
+    }
+    for (const c of commandesReelles) {
+      const v = (c.cc ?? "").trim();
+      if (v) set.add(v);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "fr"));
+  }, [cartes, commandesReelles]);
+  // Cartes (opérations) après filtre par chargé clientèle puis recherche texte.
+  const cartesFiltrees = useMemo(() => {
+    const parCc = (list: CarteKanban[]) => {
+      if (cc === CC_TOUS) return list;
+      if (cc === CC_SANS) return list.filter((c) => !(c.cc ?? "").trim());
+      return list.filter((c) => (c.cc ?? "").trim() === cc);
+    };
+    return parCc(cartes).filter((c) => carteCorrespondRecherche(c, q));
+  }, [cartes, cc, q]);
+  // Commandes réelles après le même filtre CC + recherche.
+  const commandesReellesFiltrees = useMemo(() => {
+    const parCc = (list: CarteCommandeReelle[]) => {
+      if (cc === CC_TOUS) return list;
+      if (cc === CC_SANS) return list.filter((c) => !(c.cc ?? "").trim());
+      return list.filter((c) => (c.cc ?? "").trim() === cc);
+    };
+    return parCc(commandesReelles).filter((c) => commandeCorrespondRecherche(c, q));
+  }, [commandesReelles, cc, q]);
   const parGroupe = useMemo(() => {
     const m = new Map<GroupeKanban, CarteKanban[]>();
     for (const g of GROUPES_KANBAN) m.set(g.code, []);
-    for (const carte of cartes) m.get(groupeDeColonne(carte.colonne))?.push(carte);
+    for (const carte of cartesFiltrees) m.get(groupeDeColonne(carte.colonne))?.push(carte);
     return m;
-  }, [cartes]);
+  }, [cartesFiltrees]);
+  const parGroupeCmds = useMemo(() => {
+    const m = new Map<GroupeKanban, CarteCommandeReelle[]>();
+    for (const g of GROUPES_KANBAN) m.set(g.code, []);
+    for (const c of commandesReellesFiltrees) m.get(c.groupe)?.push(c);
+    return m;
+  }, [commandesReellesFiltrees]);
+  // V8.26 — états forcés incohérents avec les données réelles (import).
+  const cartesEnConflit = useMemo(
+    () => cartesFiltrees.filter((c) => c.conflit_pilotage),
+    [cartesFiltrees],
+  );
 
   const invalider = async () => {
     await queryClient.invalidateQueries({ queryKey: [...OPS_KEY] });
     await queryClient.invalidateQueries({ queryKey: cpKey(exercice) });
+    await queryClient.invalidateQueries({ queryKey: kpiKey(exercice) });
+    // Synchronisation avec les écrans de devis (/suivi…) : mêmes sources.
+    await queryClient.invalidateQueries({ queryKey: ["psp-suivi-annuel"] });
+    await queryClient.invalidateQueries({ queryKey: ["psp-suivi-operations"] });
   };
 
   const lancerConfrontation = async () => {
@@ -181,15 +434,17 @@ export function KanbanPage() {
     if (trouvee) setFicheOp(trouvee);
   };
 
-  const total = cartes.length;
-  const nbTermines = parGroupe.get("termines")?.length ?? 0;
+  const total = cartesFiltrees.length + commandesReellesFiltrees.length;
+  const nbTermines =
+    (parGroupe.get("termines")?.length ?? 0) + (parGroupeCmds.get("termines")?.length ?? 0);
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col bg-background">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-5 py-3">
-        <h1 className="text-base font-black uppercase tracking-wide text-foreground">
-          Pilotage — Kanban devis → commande → travaux
-        </h1>
+        <h1 className="text-base font-black uppercase tracking-wide text-foreground">Pilotage</h1>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Kanban devis → commande → travaux
+        </span>
         {annees.length > 1 ? (
           <Select value={String(exercice)} onValueChange={(v) => setExercice(Number(v))}>
             <SelectTrigger className="h-8 w-28 text-xs">
@@ -245,6 +500,62 @@ export function KanbanPage() {
           disponible depuis la fenêtre. Pastille : jaune = en attente · verte = devis reçu · ambre =
           à relancer.
         </p>
+        {/* V8.24/8.27 — filtres du board : recherche texte + chargé clientèle + tri. */}
+        <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-dashed pt-2">
+          <div className="flex min-w-56 flex-1 items-center gap-1.5">
+            <Search className="size-3.5 shrink-0 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Rechercher : TR, ville, description, entreprise, LB, corps d'état…"
+              className="h-7 text-[11px]"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Chargé clientèle
+            </span>
+            <Select value={cc} onValueChange={setCc}>
+              <SelectTrigger className="h-7 min-w-40 text-[11px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CC_TOUS}>Tous les CC</SelectItem>
+                {ccListe.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+                <SelectItem value={CC_SANS}>Sans CC</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Tri
+            </span>
+            <Select value={tri} onValueChange={(v) => setTri(v as TriCartesKanban)}>
+              <SelectTrigger className="h-7 w-44 text-[11px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recent">Dernière modification</SelectItem>
+                <SelectItem value="tranche">Numéro de tranche</SelectItem>
+                <SelectItem value="etat">État interne (attente → reçu)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {cc !== CC_TOUS ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setCc(CC_TOUS)}
+            >
+              Réinitialiser le filtre CC
+            </Button>
+          ) : null}
+        </div>
         {migrationManquante ? (
           <p className="mt-1 flex items-center gap-1.5 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
             <AlertTriangle className="size-3.5" />
@@ -265,6 +576,41 @@ export function KanbanPage() {
         ) : null}
       </header>
 
+      {/* V8.26 — états forcés incohérents avec les données réelles (import). */}
+      {cartesEnConflit.length > 0 ? (
+        <div className="border-b border-amber-300 bg-amber-50 px-5 py-1.5">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-amber-800">
+            <AlertTriangle className="size-3.5 shrink-0" />
+            <span className="font-semibold">
+              {cartesEnConflit.length} état(s) forcé(s) incohérent(s) avec l'import — ouvrez la
+              carte concernée pour « Suivre l'import » ou « Garder l'état forcé ».
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto h-6 px-2 text-[10px]"
+              onClick={() => {
+                const c = cartesEnConflit[0];
+                if (c) setEtapeCarte(c);
+              }}
+            >
+              Examiner le 1er conflit
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* V8.24 — mêmes 3 barres KPI que la page /suivi (registre de l'exercice). */}
+      <div className="border-b bg-card px-5 py-2">
+        {kpiChargement ? (
+          <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" /> Chargement des indicateurs de l'exercice…
+          </p>
+        ) : (
+          <KanbanKpi kpi={kpiVue} />
+        )}
+      </div>
+
       {opsChargement ? (
         <p className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Chargement des opérations…
@@ -281,7 +627,9 @@ export function KanbanPage() {
               ? GROUPES_KANBAN.filter((g) => g.code === "termines")
               : GROUPES_KANBAN.filter((g) => g.code !== "termines")
             ).map((g) => {
-              const liste = parGroupe.get(g.code) ?? [];
+              const listeOps = parGroupe.get(g.code) ?? [];
+              const listeCmds = parGroupeCmds.get(g.code) ?? [];
+              const nb = listeOps.length + listeCmds.length;
               return (
                 <div
                   key={g.code}
@@ -293,13 +641,13 @@ export function KanbanPage() {
                       {g.label}
                     </span>
                     <Badge variant="secondary" className="ml-auto text-[10px]">
-                      {liste.length}
+                      {nb}
                     </Badge>
                   </div>
                   <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
                     {cpsChargement
                       ? null
-                      : liste.map((carte) => (
+                      : trierCartesKanban(listeOps, tri).map((carte) => (
                           <CarteKanbanView
                             key={carte.key}
                             carte={carte}
@@ -308,7 +656,10 @@ export function KanbanPage() {
                             surSupprimer={(commandePassee) => void supprimer(commandePassee.id)}
                           />
                         ))}
-                    {!cpsChargement && liste.length === 0 ? (
+                    {trierCommandesReelles(listeCmds, tri).map((c) => (
+                      <CarteCommandeReelleView key={c.key} carte={c} />
+                    ))}
+                    {!cpsChargement && nb === 0 ? (
                       <p className="rounded border border-dashed px-2 py-3 text-center text-[11px] text-muted-foreground">
                         —
                       </p>
@@ -377,6 +728,58 @@ export function KanbanOverlay({
   );
 }
 
+/** Carte « commande réelle » importée — affichage seul (déjà commandée/terminée). */
+function CarteCommandeReelleView({ carte }: { carte: CarteCommandeReelle }) {
+  return (
+    <div className="rounded-md border border-dashed border-violet-300 bg-violet-50/40 p-2 text-slate-700">
+      <div className="flex items-center gap-1.5">
+        <span className="rounded bg-violet-900 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
+          {carte.tranche}
+        </span>
+        <Badge variant="secondary" className="px-1 text-[8px]">
+          Commande réelle
+        </Badge>
+        {carte.numeroCommande ? (
+          <span className="font-mono text-[10px] text-violet-800">n° {carte.numeroCommande}</span>
+        ) : null}
+        <span className="ml-auto text-[11px] font-bold tabular-nums text-slate-800">
+          {fmt(carte.montant)}
+        </span>
+      </div>
+      {carte.ligne_budget || carte.corps_etat ? (
+        <p className="mt-1 flex items-center gap-1.5 text-[9px] text-slate-500">
+          {carte.ligne_budget ? (
+            <span className="rounded bg-slate-200 px-1 font-mono font-bold text-slate-700">
+              LB {carte.ligne_budget}
+            </span>
+          ) : null}
+          {carte.corps_etat ? (
+            <span className="uppercase tracking-wide">{carte.corps_etat}</span>
+          ) : null}
+        </p>
+      ) : null}
+      {carte.adresse ? (
+        <p className="mt-1 truncate text-[10px] text-muted-foreground" title={carte.adresse}>
+          {[carte.adresse, carte.ville].filter(Boolean).join(", ")}
+        </p>
+      ) : null}
+      {carte.nature ? (
+        <p className="mt-0.5 line-clamp-2 text-[11px] font-medium" title={carte.nature}>
+          {carte.nature}
+        </p>
+      ) : null}
+      <div className="mt-1.5 space-y-0.5 text-[10px] text-slate-600">
+        <p className="flex items-center gap-1 rounded bg-white/60 px-1.5 py-0.5 font-semibold text-violet-900">
+          {carte.entreprise ?? "—"}
+          <span className="ml-auto font-normal text-slate-500">
+            {carte.etatTravaux ?? ETAT_REEL_LABEL[carte.etat] ?? carte.etat}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /** Carte individuelle — clic = ouvre la fiche opération (workflow complet). */
 function CarteKanbanView({
   carte,
@@ -408,6 +811,11 @@ function CarteKanbanView({
       className="cursor-pointer rounded-md border bg-white p-2 shadow-sm transition hover:ring-2 hover:ring-primary/40"
       title="Enregistrer l'étape suivante (devis, commande…) ou forcer un état"
     >
+      {carte.conflit_pilotage ? (
+        <p className="mb-1 flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
+          <AlertTriangle className="size-3 shrink-0" /> État forcé ≠ import
+        </p>
+      ) : null}
       <div className="flex items-center gap-1.5">
         <span className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
           {carte.tranche}
@@ -435,6 +843,19 @@ function CarteKanbanView({
           title={carte.nature ?? ""}
         >
           {carte.nature}
+        </p>
+      ) : null}
+
+      {carte.ligne_budget || carte.corps_etat ? (
+        <p className="mt-1 flex items-center gap-1.5 text-[9px] text-slate-500">
+          {carte.ligne_budget ? (
+            <span className="rounded bg-slate-200 px-1 font-mono font-bold text-slate-700">
+              LB {carte.ligne_budget}
+            </span>
+          ) : null}
+          {carte.corps_etat ? (
+            <span className="uppercase tracking-wide">{carte.corps_etat}</span>
+          ) : null}
         </p>
       ) : null}
 
@@ -549,7 +970,10 @@ function EtapeSuivanteDialog({
   const op = carte.op;
   const colonneLabel =
     COLONNES_KANBAN.find((c) => c.code === carte.colonne)?.label ?? carte.colonne;
-  const creerDevis = useServerFn(createPspDevis);
+  // V8.26 — colonne réelle déduite des données (sans le forçage) — pour l'alerte de conflit.
+  const colonneNaturelle = colonneKanbanSansForcage(op, carte.commandePassee);
+  const colonneNaturelleLabel =
+    COLONNES_KANBAN.find((c) => c.code === colonneNaturelle)?.label ?? colonneNaturelle;
   const majDevis = useServerFn(updatePspDevis);
   const creerCp = useServerFn(creerCommandePassee);
   const forcer = useServerFn(updatePspLigneEtatPilotage);
@@ -565,7 +989,22 @@ function EtapeSuivanteDialog({
       .filter((d) => d.statut === "recu" || d.statut === "a_analyser")
       .map((d) => ({ id: d.id, entreprise: e.entreprise })),
   );
-  const [nvEntreprise, setNvEntreprise] = useState("");
+  // V8.24 — source de la demande de devis : réutilise le workflow de /suivi
+  // (suggestions d'entreprises, recherche libre, modèles de mail, multi-envoi).
+  const operationDevis = useMemo(
+    () => ({
+      id: carte.psp_ligne_id,
+      tranche: carte.tranche,
+      nature_travaux: carte.nature,
+      corps_etat: carte.corps_etat,
+      adresse: op.programmation.adresse ?? carte.adresse,
+      ville: villeDepuisAdresse(op.programmation.adresse ?? ""),
+      lots: (op.programmation.perimetre ?? [])
+        .filter((x) => x.niveau === "lot")
+        .map((x) => ({ lot_id: x.lot_id, niveau: x.niveau })),
+    }),
+    [carte, op],
+  );
   const [choixRecu, setChoixRecu] = useState(demandes[0]?.id ?? "");
   const [montantRecu, setMontantRecu] = useState("");
   const [dateRecu, setDateRecu] = useState(aujourdhui());
@@ -592,18 +1031,6 @@ function EtapeSuivanteDialog({
       setBusy(false);
     }
   };
-
-  const actionDemande = () =>
-    terminer(async () => {
-      await creerDevis({
-        data: {
-          pspLigneId: carte.psp_ligne_id,
-          entreprise: nvEntreprise.trim(),
-          statut: "a_demander",
-          commentaire: "Demande créée depuis le Kanban (Pilotage)",
-        },
-      });
-    }, "Demande de devis enregistrée.");
 
   const actionRecu = () =>
     terminer(async () => {
@@ -650,6 +1077,12 @@ function EtapeSuivanteDialog({
         : "Forçage retiré (état automatique).",
     );
 
+  // V8.26 — résolution d'un conflit : retirer le forçage → l'opération suit les données réelles.
+  const actionSuivreImport = () =>
+    terminer(async () => {
+      await forcer({ data: { id: carte.psp_ligne_id, etatPilotage: null } });
+    }, "Forçage retiré — l'opération suit maintenant les données réelles (import).");
+
   const ouvrirFiche = () => {
     if (ouvrant) return;
     setOuvrant(true);
@@ -677,23 +1110,53 @@ function EtapeSuivanteDialog({
         </DialogHeader>
 
         <div className="space-y-3 py-1">
-          {carte.colonne === "sans_devis" ? (
-            <section className="space-y-1.5 rounded-md border p-3">
-              <h3 className="text-[11px] font-black uppercase tracking-wide text-slate-700">
-                ① Demander un devis
+          {carte.conflit_pilotage ? (
+            <section className="space-y-1.5 rounded-md border border-amber-300 bg-amber-50 p-3">
+              <h3 className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-amber-800">
+                <AlertTriangle className="size-3.5" /> État forcé incohérent avec l'import
               </h3>
-              <Input
-                value={nvEntreprise}
-                onChange={(e) => setNvEntreprise(e.target.value)}
-                placeholder="Entreprise à consulter *"
+              <p className="text-[11px] text-amber-800">
+                L'état forcé « {forceLibelle ?? "—"} » ne correspond plus aux données réelles :
+                l'import indique « {colonneNaturelleLabel} ». Choisissez la suite :
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  onClick={() => void actionSuivreImport()}
+                  disabled={busy}
+                  title="Retire le forçage : l'opération suit la colonne réelle issue de l'import"
+                >
+                  <CheckCircle2 className="size-3.5" /> Suivre l'import ({colonneNaturelleLabel})
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  onClick={onClose}
+                  disabled={busy}
+                >
+                  Garder l'état forcé
+                </Button>
+              </div>
+            </section>
+          ) : null}
+
+          {carte.colonne === "sans_devis" ? (
+            <section className="space-y-1.5 rounded-md border border-sky-200 p-3">
+              <h3 className="text-[11px] font-black uppercase tracking-wide text-sky-700">
+                ① Demander des devis (une ou plusieurs entreprises)
+              </h3>
+              <p className="text-[11px] text-muted-foreground">
+                Même procédure que la page Suivi devis : entreprises suggérées, recherche libre,
+                modèles de mail. Chaque demande enregistrée met à jour le tableau de suivi des devis
+                (la carte passe ensuite en colonne « Devis »).
+              </p>
+              <PspDemandeDevisWorkflow
+                operation={operationDevis}
+                figee={false}
+                onEnvoye={surChangement}
               />
-              <Button
-                size="sm"
-                onClick={() => void actionDemande()}
-                disabled={!nvEntreprise.trim() || busy}
-              >
-                <Plus className="size-3.5" /> Enregistrer la demande de devis
-              </Button>
             </section>
           ) : null}
 
@@ -957,5 +1420,81 @@ function CommandePasseeDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Type des indicateurs du haut (même structure que /suivi). */
+type KanbanKpiVue = {
+  totalOperations: number;
+  budgetProgramme: number;
+  engage: number;
+  paye: number;
+  travauxEnCours: number;
+  terminees: number;
+  devisSans: number;
+  devisAttente: number;
+  devisRecus: number;
+};
+
+/** V8.24 — petite barre empilée (copie de la page /suivi). */
+function MiniBarreKanban({
+  segments,
+  legende,
+}: {
+  segments: { label: string; value: number; color: string }[];
+  legende: string;
+}) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  return (
+    <div className="rounded-lg border bg-card p-2">
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+        {segments.map((s) =>
+          s.value > 0 ? (
+            <div
+              key={s.label}
+              className="h-full"
+              style={{ width: `${(s.value / total) * 100}%`, backgroundColor: s.color }}
+              title={`${s.label} : ${fmt(s.value)}`}
+            />
+          ) : null,
+        )}
+      </div>
+      <p className="mt-1.5 text-[9px] font-black uppercase tracking-wide text-slate-400">
+        {legende}
+      </p>
+    </div>
+  );
+}
+
+/** V8.24 — bloc KPI du haut du Kanban : les 3 barres de la page /suivi. */
+function KanbanKpi({ kpi }: { kpi: KanbanKpiVue }) {
+  const reste = Math.max(0, kpi.budgetProgramme - kpi.engage);
+  const autres = Math.max(0, kpi.totalOperations - kpi.travauxEnCours - kpi.terminees);
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <MiniBarreKanban
+        segments={[
+          { label: "Engagé", value: kpi.engage, color: "#2563eb" },
+          { label: "Reste", value: reste, color: "#e2e8f0" },
+        ]}
+        legende={`Engagé ${fmt(kpi.engage)} · Payé ${fmt(kpi.paye)} · Reste ${fmt(reste)}`}
+      />
+      <MiniBarreKanban
+        segments={[
+          { label: "En cours", value: kpi.travauxEnCours, color: "#2563eb" },
+          { label: "Terminées", value: kpi.terminees, color: "#16a34a" },
+          { label: "Autres", value: autres, color: "#e2e8f0" },
+        ]}
+        legende={`En cours ${kpi.travauxEnCours} · Terminées ${kpi.terminees} · Total ${kpi.totalOperations}`}
+      />
+      <MiniBarreKanban
+        segments={[
+          { label: "Sans devis", value: kpi.devisSans, color: "#f87171" },
+          { label: "Demande faite", value: kpi.devisAttente, color: "#f59e0b" },
+          { label: "Devis reçus", value: kpi.devisRecus, color: "#22c55e" },
+        ]}
+        legende={`Sans devis ${kpi.devisSans} · Demande faite ${kpi.devisAttente} · Devis reçus ${kpi.devisRecus}`}
+      />
+    </div>
   );
 }

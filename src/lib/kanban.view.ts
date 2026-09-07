@@ -39,18 +39,19 @@ export const LABEL_COLONNE: Record<ColonneKanban, string> = Object.fromEntries(
 ) as Record<ColonneKanban, string>;
 
 /** Groupes d'AFFICHAGE du board (colonnes réduites) — la dérivation fine reste
- *  `ColonneKanban` (nécessaire à l'assistant). */
+ *  `ColonneKanban` (nécessaire à l'assistant).
+ *  V8.24 — « Commande à passer » n'est plus un groupe d'affichage (inutile) :
+ *  une carte avec devis retenu reste dans « Devis » (badge « retenu ») jusqu'à
+ *  ce qu'une commande réelle/manuelle la fasse passer en « Commande / travaux ». */
 export type GroupeKanban =
   | "sans_devis"
-  | "devis" // demande + devis reçus (pastilles jaune/verte)
-  | "commande_a_passer"
+  | "devis" // demande en attente + devis reçus + retenu (pastilles jaune/verte)
   | "commande_travaux" // commande passée + travaux en cours
   | "termines";
 
 export const GROUPES_KANBAN: Array<{ code: GroupeKanban; label: string; dot: string }> = [
   { code: "sans_devis", label: "Sans devis", dot: "bg-slate-400" },
   { code: "devis", label: "Devis", dot: "bg-sky-500" },
-  { code: "commande_a_passer", label: "Commande à passer", dot: "bg-indigo-500" },
   { code: "commande_travaux", label: "Commande / travaux", dot: "bg-violet-500" },
   { code: "termines", label: "Travaux terminés", dot: "bg-teal-500" },
 ];
@@ -60,17 +61,89 @@ export const groupeDeColonne = (c: ColonneKanban): GroupeKanban => {
   switch (c) {
     case "demande_devis":
     case "devis_recus":
+    case "commande_a_passer": // devis retenu : toujours en « Devis » (badge retenu)
       return "devis";
     case "commande_passee":
     case "travaux_en_cours":
       return "commande_travaux";
     case "fin_des_travaux":
       return "termines";
-    case "commande_a_passer":
-      return "commande_a_passer";
     default:
       return "sans_devis";
   }
+};
+
+/** Rang d'une colonne fine (tri « état interne » : sans devis < demande < reçu…). */
+export const RANG_COLONNE_KANBAN: Record<ColonneKanban, number> = {
+  sans_devis: 0,
+  demande_devis: 1,
+  devis_recus: 2,
+  commande_a_passer: 3,
+  commande_passee: 4,
+  travaux_en_cours: 5,
+  fin_des_travaux: 6,
+};
+
+/** Mode de tri des cartes dans chaque colonne. */
+export type TriCartesKanban = "etat" | "recent" | "tranche";
+
+/**
+ * Dernière modification d'une carte (timestamp ISO comparable lexicographiquement,
+ * null si aucun). Meilleure source disponible : ligne (created/updated) + chaque
+ * devis (demande créée / devis reçu / relance) + dates de la commande.
+ */
+export const derniereModificationCarte = (carte: CarteKanban): string | null => {
+  const candidats: Array<string | null | undefined> = [];
+  const ligne = carte.op.programmation.ligne;
+  candidats.push(ligne.updated_at, ligne.created_at);
+  for (const e of carte.op.consultation.entreprises) {
+    for (const d of e.devis) {
+      candidats.push(d.created_at, d.date_devis, d.derniere_relance_at);
+    }
+  }
+  candidats.push(
+    carte.op.execution.date_demarrage,
+    carte.op.execution.date_fin,
+    carte.commandePassee?.date_commande ?? null,
+  );
+  let max: string | null = null;
+  for (const c of candidats) {
+    if (!c) continue;
+    if (!max || c > max) max = c;
+  }
+  return max;
+};
+
+const comparerTranche = (a: CarteKanban, b: CarteKanban): number =>
+  a.tranche.localeCompare(b.tranche, "fr", { numeric: true });
+
+/** Trie une liste de cartes (destinée à UNE colonne/groupe d'affichage). */
+export const trierCartesKanban = (cartas: CarteKanban[], mode: TriCartesKanban): CarteKanban[] => {
+  const arr = [...cartas];
+  if (mode === "recent") {
+    return arr.sort((a, b) => {
+      const da = derniereModificationCarte(a) ?? "";
+      const db = derniereModificationCarte(b) ?? "";
+      if (da !== db) return db.localeCompare(da); // plus récent d'abord
+      return comparerTranche(a, b);
+    });
+  }
+  if (mode === "etat") {
+    return arr.sort((a, b) => {
+      const ra = RANG_COLONNE_KANBAN[a.colonne] ?? 0;
+      const rb = RANG_COLONNE_KANBAN[b.colonne] ?? 0;
+      if (ra !== rb) return ra - rb;
+      return comparerTranche(a, b);
+    });
+  }
+  // mode === "tranche" : numéro de tranche (puis état interne).
+  return arr.sort((a, b) => {
+    const t = comparerTranche(a, b);
+    if (t !== 0) return t;
+    const ra = RANG_COLONNE_KANBAN[a.colonne] ?? 0;
+    const rb = RANG_COLONNE_KANBAN[b.colonne] ?? 0;
+    return ra - rb;
+  });
 };
 
 /** Ligne `kanban_commandes_passees` (commande passée à confronter à l'import). */
@@ -124,6 +197,8 @@ export interface CarteKanban {
   /** Montant programmé sur l'exercice choisi. */
   montant: number | null;
   colonne: ColonneKanban;
+  /** V8.26 — état forcé (etat_pilotage) incohérent avec la colonne réelle (import). */
+  conflit_pilotage: boolean;
   nb_demandes: number;
   nb_devis_recus: number;
   relance_necessaire: boolean;
@@ -198,18 +273,13 @@ export const COLONNE_DEPUIS_PILOTAGE: Partial<Record<string, ColonneKanban>> = {
 };
 
 /**
- * Colonne du Kanban pour une opération (+ éventuelle « commande passée » manuelle).
- * Ordre : forçage manuel (etat_pilotage) → exécution (commandes réelles) → commande
- * passée manuelle → consultation.
+ * Colonne « naturelle » dérivée des données RÉELLES (sans forçage manuel).
+ * Ordre : exécution (commandes réelles) → commande passée manuelle → consultation.
  */
-export const colonneKanban = (
+export const colonneKanbanSansForcage = (
   op: SuiviOperationVue,
   commandePassee: CommandePasseeKanban | null,
 ): ColonneKanban => {
-  // Forçage manuel : l'utilisateur a choisi une étape (etat_pilotage) → elle prime.
-  const pilotage = op.identite.etat_pilotage;
-  const colonneForcee = pilotage ? COLONNE_DEPUIS_PILOTAGE[pilotage] : undefined;
-  if (colonneForcee) return colonneForcee;
   const exec = op.execution.statut;
   if (op.commandes.nb_commandes > 0) {
     if (exec === "travaux_termines") return "fin_des_travaux";
@@ -224,6 +294,22 @@ export const colonneKanban = (
   return "sans_devis";
 };
 
+/**
+ * Colonne du Kanban pour une opération (+ éventuelle « commande passée » manuelle).
+ * Ordre : forçage manuel (etat_pilotage) → sinon colonne naturelle (voir
+ * `colonneKanbanSansForcage`).
+ */
+export const colonneKanban = (
+  op: SuiviOperationVue,
+  commandePassee: CommandePasseeKanban | null,
+): ColonneKanban => {
+  // Forçage manuel : l'utilisateur a choisi une étape (etat_pilotage) → elle prime.
+  const pilotage = op.identite.etat_pilotage;
+  const colonneForcee = pilotage ? COLONNE_DEPUIS_PILOTAGE[pilotage] : undefined;
+  if (colonneForcee) return colonneForcee;
+  return colonneKanbanSansForcage(op, commandePassee);
+};
+
 /** Construit la carte d'une opération pour l'exercice (+ commande passée associée). */
 export const construireCarteKanban = (
   op: SuiviOperationVue,
@@ -235,6 +321,8 @@ export const construireCarteKanban = (
     ? devisVersAffiche(op.consultation.devis_retenu)
     : null;
   const liee = op.commandes.liees[0];
+  const colonne = colonneKanban(op, commandePassee);
+  const colonneNaturelle = colonneKanbanSansForcage(op, commandePassee);
   return {
     key: op.identite.id,
     op,
@@ -248,7 +336,8 @@ export const construireCarteKanban = (
     ligne_budget: op.programmation.ligne.ligne_budget ?? null,
     cc: op.programmation.cc,
     montant: montantOperationExercice(op, exercice),
-    colonne: colonneKanban(op, commandePassee),
+    colonne,
+    conflit_pilotage: Boolean(op.identite.etat_pilotage) && colonneNaturelle !== colonne,
     nb_demandes: op.consultation.nb_demandes,
     nb_devis_recus: op.consultation.nb_devis_recus,
     relance_necessaire: op.consultation.relance_necessaire,

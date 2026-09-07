@@ -349,6 +349,18 @@ export default function PspDevisPanel({
         </ul>
       )}
 
+      {!figee && !ajoutOuvert ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2 h-7 gap-1 text-xs"
+          onClick={() => setAjoutOuvert(true)}
+          title="Ajouter un autre devis (entreprise/montant/date/n° — plusieurs devis possibles)"
+        >
+          <Plus className="size-3" /> Ajouter un devis
+        </Button>
+      ) : null}
+
       {!figee ? (
         <div className="mt-2">
           {ajoutOuvert ? (

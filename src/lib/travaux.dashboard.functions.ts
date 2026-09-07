@@ -737,6 +737,14 @@ export const resoudreConflitsImport = createServerFn({ method: "POST" })
         const { error: tErr } = await db.from("travaux_commandes_historique").insert(trace);
         if (tErr) throw new Error(`Trace de résolution : ${tErr.message}`);
       }
+
+      // V8.19 — supprime le détail « conflit » résolu : sans cela le dialogue re-listait
+      // indéfiniment les mêmes conflits après validation (impression « impossible à valider »).
+      const { error: delErr } = await db
+        .from("travaux_import_details")
+        .delete()
+        .eq("id", r.detailId);
+      if (delErr) throw new Error(`Nettoyage détail conflit : ${delErr.message}`);
     }
 
     return { validees, conservees };

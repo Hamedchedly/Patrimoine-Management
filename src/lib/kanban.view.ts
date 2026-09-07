@@ -38,6 +38,41 @@ export const LABEL_COLONNE: Record<ColonneKanban, string> = Object.fromEntries(
   COLONNES_KANBAN.map((c) => [c.code, c.label]),
 ) as Record<ColonneKanban, string>;
 
+/** Groupes d'AFFICHAGE du board (colonnes réduites) — la dérivation fine reste
+ *  `ColonneKanban` (nécessaire à l'assistant). */
+export type GroupeKanban =
+  | "sans_devis"
+  | "devis" // demande + devis reçus (pastilles jaune/verte)
+  | "commande_a_passer"
+  | "commande_travaux" // commande passée + travaux en cours
+  | "termines";
+
+export const GROUPES_KANBAN: Array<{ code: GroupeKanban; label: string; dot: string }> = [
+  { code: "sans_devis", label: "Sans devis", dot: "bg-slate-400" },
+  { code: "devis", label: "Devis", dot: "bg-sky-500" },
+  { code: "commande_a_passer", label: "Commande à passer", dot: "bg-indigo-500" },
+  { code: "commande_travaux", label: "Commande / travaux", dot: "bg-violet-500" },
+  { code: "termines", label: "Travaux terminés", dot: "bg-teal-500" },
+];
+
+/** Regroupe une colonne fine dans son groupe d'affichage. */
+export const groupeDeColonne = (c: ColonneKanban): GroupeKanban => {
+  switch (c) {
+    case "demande_devis":
+    case "devis_recus":
+      return "devis";
+    case "commande_passee":
+    case "travaux_en_cours":
+      return "commande_travaux";
+    case "fin_des_travaux":
+      return "termines";
+    case "commande_a_passer":
+      return "commande_a_passer";
+    default:
+      return "sans_devis";
+  }
+};
+
 /** Ligne `kanban_commandes_passees` (commande passée à confronter à l'import). */
 export interface CommandePasseeKanban {
   id: string;
@@ -152,14 +187,29 @@ export const montantOperationExercice = (
 export const operationDansExercice = (op: SuiviOperationVue, exercice: number): boolean =>
   operationSurAnnee(op, exercice) || op.commandes.nb_commandes > 0;
 
+/** Forçage manuel (`etat_pilotage`) → colonne Kanban (pas de colonne = pas de forçage). */
+export const COLONNE_DEPUIS_PILOTAGE: Partial<Record<string, ColonneKanban>> = {
+  devis_a_demander: "sans_devis",
+  devis_demande: "demande_devis",
+  devis_recu: "devis_recus",
+  commande_a_passer: "commande_a_passer",
+  en_cours: "travaux_en_cours",
+  a_cloturer: "fin_des_travaux",
+};
+
 /**
  * Colonne du Kanban pour une opération (+ éventuelle « commande passée » manuelle).
- * Ordre : exécution (commandes réelles) → commande passée manuelle → consultation.
+ * Ordre : forçage manuel (etat_pilotage) → exécution (commandes réelles) → commande
+ * passée manuelle → consultation.
  */
 export const colonneKanban = (
   op: SuiviOperationVue,
   commandePassee: CommandePasseeKanban | null,
 ): ColonneKanban => {
+  // Forçage manuel : l'utilisateur a choisi une étape (etat_pilotage) → elle prime.
+  const pilotage = op.identite.etat_pilotage;
+  const colonneForcee = pilotage ? COLONNE_DEPUIS_PILOTAGE[pilotage] : undefined;
+  if (colonneForcee) return colonneForcee;
   const exec = op.execution.statut;
   if (op.commandes.nb_commandes > 0) {
     if (exec === "travaux_termines") return "fin_des_travaux";

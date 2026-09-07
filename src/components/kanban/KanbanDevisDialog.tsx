@@ -39,7 +39,13 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import SuiviOperationFiche from "@/components/suivi/SuiviOperationFiche";
-import { getPspSuiviOperations } from "@/lib/psp.prep.supabase.functions";
+import {
+  ETAT_PILOTAGE_LABELS,
+  createPspDevis,
+  getPspSuiviOperations,
+  updatePspDevis,
+  updatePspLigneEtatPilotage,
+} from "@/lib/psp.prep.supabase.functions";
 import {
   creerCommandePassee,
   confronterKanbanCommandesPassees,
@@ -49,11 +55,13 @@ import {
 import type { SuiviOperationVue } from "@/lib/psp.suivi.foundation";
 import {
   COLONNES_KANBAN,
+  GROUPES_KANBAN,
   anneesKanban,
   construireCartesKanban,
+  groupeDeColonne,
   type CarteKanban,
-  type ColonneKanban,
   type CommandePasseeKanban,
+  type GroupeKanban,
 } from "@/lib/kanban.view";
 
 const OPS_KEY = ["kanban-operations"] as const;
@@ -75,7 +83,9 @@ export function KanbanPage() {
   const anneeCourante = useMemo(() => new Date().getFullYear(), []);
   const [exercice, setExercice] = useState<number>(anneeCourante);
   const [commandeOuverte, setCommandeOuverte] = useState<CarteKanban | null>(null);
+  const [etapeCarte, setEtapeCarte] = useState<CarteKanban | null>(null);
   const [ficheOp, setFicheOp] = useState<SuiviOperationVue | null>(null);
+  const [vueTermines, setVueTermines] = useState(false);
   const [confrontant, setConfrontant] = useState(false);
 
   const opsFn = useServerFn(getPspSuiviOperations);
@@ -124,10 +134,10 @@ export function KanbanPage() {
     () => construireCartesKanban(operations, exercice, commandesPassees),
     [operations, exercice, commandesPassees],
   );
-  const parColonne = useMemo(() => {
-    const m = new Map<ColonneKanban, CarteKanban[]>();
-    for (const c of COLONNES_KANBAN) m.set(c.code, []);
-    for (const carte of cartes) m.get(carte.colonne)?.push(carte);
+  const parGroupe = useMemo(() => {
+    const m = new Map<GroupeKanban, CarteKanban[]>();
+    for (const g of GROUPES_KANBAN) m.set(g.code, []);
+    for (const carte of cartes) m.get(groupeDeColonne(carte.colonne))?.push(carte);
     return m;
   }, [cartes]);
 
@@ -171,9 +181,8 @@ export function KanbanPage() {
     if (trouvee) setFicheOp(trouvee);
   };
 
-  const ouvrirFiche = (carte: CarteKanban) => setFicheOp(carte.op);
-
   const total = cartes.length;
+  const nbTermines = parGroupe.get("termines")?.length ?? 0;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col bg-background">
@@ -204,6 +213,17 @@ export function KanbanPage() {
         </Badge>
         <div className="ml-auto flex items-center gap-2">
           <Button
+            variant={vueTermines ? "default" : "outline"}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setVueTermines((v) => !v)}
+            title="Afficher uniquement les opérations terminées (travaux finis)"
+          >
+            {vueTermines
+              ? "‹ Revenir au tableau"
+              : `Travaux terminés${nbTermines > 0 ? ` (${nbTermines})` : ""}`}
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             className="h-8 text-xs"
@@ -220,9 +240,10 @@ export function KanbanPage() {
           </Button>
         </div>
         <p className="w-full pt-1 text-[11px] text-muted-foreground">
-          Cartes : opérations programmées + suivi sans commande de l'exercice. Cliquez sur une carte
-          pour ouvrir la fiche (demande de devis, devis reçus, retenus, commande…) et faire avancer
-          l'opération. Pastille : jaune = en attente · verte = devis reçu · ambre = à relancer.
+          Cliquez sur une carte pour enregistrer l'étape suivante (demander un devis, saisir un
+          devis reçu, le retenir, commande passée) ou forcer un état. Lien « Ouvrir la fiche »
+          disponible depuis la fenêtre. Pastille : jaune = en attente · verte = devis reçu · ambre =
+          à relancer.
         </p>
         {migrationManquante ? (
           <p className="mt-1 flex items-center gap-1.5 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
@@ -256,17 +277,20 @@ export function KanbanPage() {
             className="grid grid-flow-col grid-rows-1 gap-3"
             style={{ gridAutoColumns: "minmax(250px, 1fr)" }}
           >
-            {COLONNES_KANBAN.map((col) => {
-              const liste = parColonne.get(col.code) ?? [];
+            {(vueTermines
+              ? GROUPES_KANBAN.filter((g) => g.code === "termines")
+              : GROUPES_KANBAN.filter((g) => g.code !== "termines")
+            ).map((g) => {
+              const liste = parGroupe.get(g.code) ?? [];
               return (
                 <div
-                  key={col.code}
+                  key={g.code}
                   className="flex h-full max-h-[78vh] min-h-[200px] flex-col rounded-lg border bg-muted/30"
                 >
                   <div className="flex items-center gap-2 px-3 py-2">
-                    <span className={cn("size-2.5 rounded-full", col.dot)} />
+                    <span className={cn("size-2.5 rounded-full", g.dot)} />
                     <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
-                      {col.label}
+                      {g.label}
                     </span>
                     <Badge variant="secondary" className="ml-auto text-[10px]">
                       {liste.length}
@@ -279,7 +303,7 @@ export function KanbanPage() {
                           <CarteKanbanView
                             key={carte.key}
                             carte={carte}
-                            surOuvrir={() => ouvrirFiche(carte)}
+                            surOuvrir={() => setEtapeCarte(carte)}
                             surCommander={() => setCommandeOuverte(carte)}
                             surSupprimer={(commandePassee) => void supprimer(commandePassee.id)}
                           />
@@ -309,6 +333,19 @@ export function KanbanPage() {
           creer={async (p) => {
             await creerCp({ data: p });
           }}
+        />
+      ) : null}
+
+      {etapeCarte ? (
+        <EtapeSuivanteDialog
+          carte={etapeCarte}
+          exercice={exercice}
+          onClose={() => setEtapeCarte(null)}
+          surOuvrirFiche={() => {
+            setFicheOp(etapeCarte.op);
+            setEtapeCarte(null);
+          }}
+          surChangement={invalider}
         />
       ) : null}
 
@@ -369,7 +406,7 @@ function CarteKanbanView({
       onClick={surOuvrir}
       onKeyDown={(e) => e.key === "Enter" && surOuvrir()}
       className="cursor-pointer rounded-md border bg-white p-2 shadow-sm transition hover:ring-2 hover:ring-primary/40"
-      title="Ouvrir la fiche opération (devis, commande, travaux)"
+      title="Enregistrer l'étape suivante (devis, commande…) ou forcer un état"
     >
       <div className="flex items-center gap-1.5">
         <span className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
@@ -487,9 +524,330 @@ function CarteKanbanView({
         ) : null}
       </div>
       <p className="mt-1 flex items-center justify-end gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
-        Ouvrir la fiche <ChevronRight className="size-3" />
+        Étape suivante <ChevronRight className="size-3" />
       </p>
     </div>
+  );
+}
+
+type CandidatDevis = { id: string; entreprise: string };
+
+/** Assistant « étape suivante » — enregistre l'action qui fait avancer la carte. */
+function EtapeSuivanteDialog({
+  carte,
+  exercice,
+  onClose,
+  surOuvrirFiche,
+  surChangement,
+}: {
+  carte: CarteKanban;
+  exercice: number;
+  onClose: () => void;
+  surOuvrirFiche: () => void;
+  surChangement: () => Promise<void>;
+}) {
+  const op = carte.op;
+  const colonneLabel =
+    COLONNES_KANBAN.find((c) => c.code === carte.colonne)?.label ?? carte.colonne;
+  const creerDevis = useServerFn(createPspDevis);
+  const majDevis = useServerFn(updatePspDevis);
+  const creerCp = useServerFn(creerCommandePassee);
+  const forcer = useServerFn(updatePspLigneEtatPilotage);
+  const [busy, setBusy] = useState(false);
+
+  const demandes: CandidatDevis[] = op.consultation.entreprises.flatMap((e) =>
+    e.devis
+      .filter((d) => d.statut === "a_demander" || d.statut === "demande_envoyee")
+      .map((d) => ({ id: d.id, entreprise: e.entreprise })),
+  );
+  const recus: CandidatDevis[] = op.consultation.entreprises.flatMap((e) =>
+    e.devis
+      .filter((d) => d.statut === "recu" || d.statut === "a_analyser")
+      .map((d) => ({ id: d.id, entreprise: e.entreprise })),
+  );
+  const [nvEntreprise, setNvEntreprise] = useState("");
+  const [choixRecu, setChoixRecu] = useState(demandes[0]?.id ?? "");
+  const [montantRecu, setMontantRecu] = useState("");
+  const [dateRecu, setDateRecu] = useState(aujourdhui());
+  const [choixRetenu, setChoixRetenu] = useState(recus[0]?.id ?? "");
+  const [cpEntreprise, setCpEntreprise] = useState(
+    carte.devisRetenu?.entreprise ?? recus[0]?.entreprise ?? "",
+  );
+  const [cpNumero, setCpNumero] = useState("");
+  const [cpDate, setCpDate] = useState(aujourdhui());
+  const [pilotage, setPilotage] = useState<string>(op.identite.etat_pilotage ?? "");
+  const [ouvrant, setOuvrant] = useState(false);
+
+  const terminer = async (action: () => Promise<void>, ok: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await action();
+      toast.success(ok);
+      await surChangement();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Échec de l'action.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const actionDemande = () =>
+    terminer(async () => {
+      await creerDevis({
+        data: {
+          pspLigneId: carte.psp_ligne_id,
+          entreprise: nvEntreprise.trim(),
+          statut: "a_demander",
+          commentaire: "Demande créée depuis le Kanban (Pilotage)",
+        },
+      });
+    }, "Demande de devis enregistrée.");
+
+  const actionRecu = () =>
+    terminer(async () => {
+      const m = montantRecu.trim() === "" ? null : Number(montantRecu);
+      await majDevis({
+        data: {
+          id: choixRecu,
+          statut: "recu",
+          montant: m != null && Number.isFinite(m) ? m : null,
+          dateDevis: dateRecu,
+        },
+      });
+    }, "Devis marqué reçu.");
+
+  const actionRetenir = () =>
+    terminer(async () => {
+      await majDevis({ data: { id: choixRetenu, statut: "retenu" } });
+    }, "Devis retenu.");
+
+  const actionCommandePassee = () =>
+    terminer(async () => {
+      await creerCp({
+        data: {
+          exercice,
+          psp_ligne_id: carte.psp_ligne_id,
+          tranche_code: carte.tranche,
+          adresse: carte.adresse,
+          libelle: carte.nature,
+          montant_prevu: carte.montant,
+          entreprise: cpEntreprise.trim(),
+          numero_commande: cpNumero.trim() || null,
+          date_commande: cpDate,
+        },
+      });
+    }, "Commande passée enregistrée — à confirmer à l'import.");
+
+  const actionForcer = () =>
+    terminer(
+      async () => {
+        await forcer({ data: { id: carte.psp_ligne_id, etatPilotage: pilotage || null } });
+      },
+      pilotage
+        ? `État forcé : ${ETAT_PILOTAGE_LABELS[pilotage] ?? pilotage}.`
+        : "Forçage retiré (état automatique).",
+    );
+
+  const ouvrirFiche = () => {
+    if (ouvrant) return;
+    setOuvrant(true);
+    onClose();
+    surOuvrirFiche();
+  };
+
+  const forceLibelle = op.identite.etat_pilotage
+    ? (ETAT_PILOTAGE_LABELS[op.identite.etat_pilotage] ?? op.identite.etat_pilotage)
+    : null;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] w-[min(96vw,720px)] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            Étape suivante — TR {carte.tranche} · {carte.categorie}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {[carte.adresse, carte.nature].filter(Boolean).join(" — ") || "—"} ·{" "}
+            {fmt(carte.montant)} · colonne :{" "}
+            <span className="font-semibold text-slate-700">{colonneLabel}</span>
+            {forceLibelle ? ` · forçage : ${forceLibelle}` : ""}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          {carte.colonne === "sans_devis" ? (
+            <section className="space-y-1.5 rounded-md border p-3">
+              <h3 className="text-[11px] font-black uppercase tracking-wide text-slate-700">
+                ① Demander un devis
+              </h3>
+              <Input
+                value={nvEntreprise}
+                onChange={(e) => setNvEntreprise(e.target.value)}
+                placeholder="Entreprise à consulter *"
+              />
+              <Button
+                size="sm"
+                onClick={() => void actionDemande()}
+                disabled={!nvEntreprise.trim() || busy}
+              >
+                <Plus className="size-3.5" /> Enregistrer la demande de devis
+              </Button>
+            </section>
+          ) : null}
+
+          {carte.colonne === "demande_devis" ? (
+            <section className="space-y-1.5 rounded-md border p-3">
+              <h3 className="text-[11px] font-black uppercase tracking-wide text-slate-700">
+                ② Saisir le devis reçu
+              </h3>
+              {demandes.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Aucune demande en attente à marquer — ouvrez la fiche pour ajouter une demande.
+                </p>
+              ) : (
+                <>
+                  <Select value={choixRecu} onValueChange={setChoixRecu}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Entreprise" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {demandes.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.entreprise}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={montantRecu}
+                      onChange={(e) => setMontantRecu(e.target.value)}
+                      placeholder="Montant du devis (€)"
+                    />
+                    <Input
+                      type="date"
+                      value={dateRecu}
+                      onChange={(e) => setDateRecu(e.target.value)}
+                    />
+                  </div>
+                  <Button size="sm" onClick={() => void actionRecu()} disabled={!choixRecu || busy}>
+                    Marquer le devis reçu
+                  </Button>
+                </>
+              )}
+            </section>
+          ) : null}
+
+          {carte.colonne === "devis_recus" ? (
+            <section className="space-y-1.5 rounded-md border p-3">
+              <h3 className="text-[11px] font-black uppercase tracking-wide text-slate-700">
+                ③ Retenir un devis
+              </h3>
+              {recus.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Aucun devis reçu marqué — ouvrez la fiche pour saisir le devis reçu.
+                </p>
+              ) : (
+                <>
+                  <Select value={choixRetenu} onValueChange={setChoixRetenu}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Entreprise" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {recus.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.entreprise}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void actionRetenir()}
+                    disabled={!choixRetenu || busy}
+                  >
+                    Retenir ce devis
+                  </Button>
+                </>
+              )}
+            </section>
+          ) : null}
+
+          {carte.colonne === "commande_a_passer" ? (
+            <section className="space-y-1.5 rounded-md border p-3">
+              <h3 className="text-[11px] font-black uppercase tracking-wide text-slate-700">
+                ④ Commande passée (à confirmer à l'import)
+              </h3>
+              <Input
+                value={cpEntreprise}
+                onChange={(e) => setCpEntreprise(e.target.value)}
+                placeholder="Entreprise retenue *"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={cpNumero}
+                  onChange={(e) => setCpNumero(e.target.value)}
+                  placeholder="N° de commande (si connu)"
+                />
+                <Input type="date" value={cpDate} onChange={(e) => setCpDate(e.target.value)} />
+              </div>
+              <Button
+                size="sm"
+                onClick={() => void actionCommandePassee()}
+                disabled={!cpEntreprise.trim() || busy}
+              >
+                <Plus className="size-3.5" /> Enregistrer la commande passée
+              </Button>
+            </section>
+          ) : null}
+
+          {carte.colonne === "commande_passee" ||
+          carte.colonne === "travaux_en_cours" ||
+          carte.colonne === "fin_des_travaux" ? (
+            <section className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+              Cette étape est pilotée par les données réelles (commande importée / travaux).
+              Utilisez « Confronter à l'import » ou ouvrez la fiche complète pour les détails.
+            </section>
+          ) : null}
+
+          <section className="space-y-1.5 rounded-md border border-indigo-200 bg-indigo-50/40 p-3">
+            <h3 className="text-[11px] font-black uppercase tracking-wide text-indigo-800">
+              Validation manuelle — forcer l'état
+            </h3>
+            <Select value={pilotage} onValueChange={setPilotage}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Aucun (état automatique)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Aucun (état automatique)</SelectItem>
+                {Object.entries(ETAT_PILOTAGE_LABELS).map(([k, l]) => (
+                  <SelectItem key={k} value={k}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={() => void actionForcer()} disabled={busy}>
+              Forcer cet état
+            </Button>
+          </section>
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
+              Fermer
+            </Button>
+            <Button variant="outline" size="sm" onClick={ouvrirFiche} disabled={ouvrant}>
+              Ouvrir la fiche complète <ChevronRight className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

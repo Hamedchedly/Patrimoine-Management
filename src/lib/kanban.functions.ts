@@ -225,3 +225,236 @@ function resoudreCommandeImportee(
   if (avecMontant.length === 1 && seulM) return { id: seulM.id };
   return null; // ambigu → reste à confirmer (alerte utilisateur)
 }
+
+// ── V8.28 — « DÉCLARER TERMINÉE » (fin de travaux signalée, à confirmer à l'import) ───────
+
+/** Bucket Storage public des pièces jointes (créé automatiquement par le serveur). */
+export const BUCKET_CLOTURES = "kanban-clotures";
+
+export type FichierCloture = {
+  nom: string;
+  chemin: string;
+  taille: number;
+  type: string | null;
+};
+
+export type ClotureKanban = {
+  id: string;
+  exercice: number;
+  psp_ligne_id: string | null;
+  commande_id: string | null;
+  facture: boolean;
+  pv_reception: boolean;
+  rapport: boolean;
+  note: string | null;
+  fichiers: FichierCloture[];
+  statut: "a_confirmer" | "confirme";
+  signale_le: string | null;
+  updated_at: string | null;
+};
+
+/** Liste les clôtures (signalements de fin de travaux) d'un exercice. */
+export const getKanbanClotures = createServerFn({ method: "POST" })
+  .validator((d: unknown) => exerciceSchema.parse(d))
+  .handler(async ({ data }): Promise<ClotureKanban[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    const { data: rows, error } = await db
+      .from("kanban_clotures")
+      .select("*")
+      .eq("exercice", data.exercice)
+      .order("signale_le", { ascending: false });
+    if (error) throw new Error(`Lecture des clôtures : ${error.message}`);
+    return (rows ?? []).map((r: any) => ({
+      ...r,
+      fichiers: Array.isArray(r.fichiers) ? r.fichiers : [],
+    })) as ClotureKanban[];
+  });
+
+/** Créé le bucket Storage s'il n'existe pas encore (idempotent). */
+async function garantirBucketClotures() {
+  const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+  const st = (supabaseAdmin as any).storage;
+  const { error } = await st.createBucket(BUCKET_CLOTURES, { public: true });
+  if (error && !/already exists/i.test(error.message ?? "")) {
+    throw new Error(`Création du stockage des clôtures : ${error.message}`);
+  }
+}
+
+const clotureInput = z
+  .object({
+    exercice: z.number().int().min(2000).max(2100),
+    pspLigneId: z.string().uuid().nullish(),
+    commandeId: z.string().uuid().nullish(),
+    facture: z.boolean().optional(),
+    pvReception: z.boolean().optional(),
+    rapport: z.boolean().optional(),
+    note: z.string().max(2000).nullish(),
+  })
+  .refine((d) => Boolean(d.pspLigneId) !== Boolean(d.commandeId), {
+    message: "Préciser la ligne PSP OU la commande réelle (une seule).",
+  });
+
+/** Déclare (ou met à jour) une fin de travaux « signalée », en attente de l'import. */
+export const declarerTerminee = createServerFn({ method: "POST" })
+  .validator((d: unknown) => clotureInput.parse(d))
+  .handler(async ({ data }): Promise<ClotureKanban> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    const psp = data.pspLigneId ?? null;
+    const cmd = data.commandeId ?? null;
+
+    let requete = db.from("kanban_clotures").select("*").eq("exercice", data.exercice);
+    if (psp) requete = requete.eq("psp_ligne_id", psp);
+    else requete = requete.eq("commande_id", cmd);
+    const { data: existants } = await requete.limit(1);
+    const existant = (existants ?? [])[0] as ClotureKanban | undefined;
+
+    const patch = {
+      facture: data.facture ?? false,
+      pv_reception: data.pvReception ?? false,
+      rapport: data.rapport ?? false,
+      note: data.note ?? null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existant) {
+      const { data: row, error } = await db
+        .from("kanban_clotures")
+        .update({ ...patch, statut: "a_confirmer" })
+        .eq("id", existant.id)
+        .select("*")
+        .single();
+      if (error) throw new Error(`Mise à jour de la clôture : ${error.message}`);
+      return { ...(row as any), fichiers: row.fichiers ?? [] } as ClotureKanban;
+    }
+
+    const { data: row, error } = await db
+      .from("kanban_clotures")
+      .insert({
+        exercice: data.exercice,
+        psp_ligne_id: psp,
+        commande_id: cmd,
+        ...patch,
+        statut: "a_confirmer",
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(`Enregistrement de la clôture : ${error.message}`);
+    return { ...(row as any), fichiers: row.fichiers ?? [] } as ClotureKanban;
+  });
+
+/** Retire un signalement « terminée » (et supprime ses fichiers du stockage). */
+export const retirerCloture = createServerFn({ method: "POST" })
+  .validator((d: unknown) => idSchema.parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    const { data: rows } = await db
+      .from("kanban_clotures")
+      .select("fichiers")
+      .eq("id", data.id)
+      .limit(1);
+    const fichiers = ((rows ?? [])[0]?.fichiers ?? []) as FichierCloture[];
+    if (fichiers.length > 0) {
+      const st = (supabaseAdmin as any).storage;
+      try {
+        await st.from(BUCKET_CLOTURES).remove(fichiers.map((f) => f.chemin));
+      } catch {
+        // best-effort : le stockage est nettoyé par la suite si besoin.
+      }
+    }
+    const { error } = await db.from("kanban_clotures").delete().eq("id", data.id);
+    if (error) throw new Error(`Suppression de la clôture : ${error.message}`);
+    return { ok: true };
+  });
+
+const fichierInput = z.object({
+  id: z.string().uuid(),
+  nom: z.string().min(1).max(255),
+  type: z.string().max(120).nullish(),
+  taille: z.number().int().min(0).max(50_000_000),
+  contenuB64: z.string().min(1),
+});
+
+/** Téléverse une pièce jointe dans le bucket « kanban-clotures » et l'attache. */
+export const ajouterFichierCloture = createServerFn({ method: "POST" })
+  .validator((d: unknown) => fichierInput.parse(d))
+  .handler(async ({ data }): Promise<ClotureKanban> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    const { data: rows } = await db
+      .from("kanban_clotures")
+      .select("id, exercice, fichiers")
+      .eq("id", data.id)
+      .limit(1);
+    const ligne = (rows ?? [])[0] as
+      { id: string; exercice: number; fichiers: FichierCloture[] } | undefined;
+    if (!ligne) throw new Error("Clôture introuvable.");
+
+    await garantirBucketClotures();
+    const nomNettoye = data.nom.replace(/[\\/:*?"<>|]/g, "_").trim() || "fichier";
+    const suffixe = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const chemin = `clotures/${ligne.exercice}/${ligne.id}/${suffixe}-${nomNettoye}`;
+    const bytes = Uint8Array.from(atob(data.contenuB64), (c) => c.charCodeAt(0));
+    const st = (supabaseAdmin as any).storage;
+    const { error: upErr } = await st.from(BUCKET_CLOTURES).upload(chemin, bytes, {
+      contentType: data.type ?? "application/octet-stream",
+      upsert: true,
+    });
+    if (upErr) throw new Error(`Téléversement du fichier : ${upErr.message}`);
+
+    const nouveau = { nom: nomNettoye, chemin, taille: data.taille, type: data.type ?? null };
+    const fichiers = [...(ligne.fichiers ?? []), nouveau];
+    const { data: row, error } = await db
+      .from("kanban_clotures")
+      .update({ fichiers, updated_at: new Date().toISOString() })
+      .eq("id", data.id)
+      .select("*")
+      .single();
+    if (error) throw new Error(`Attachement du fichier : ${error.message}`);
+    return { ...(row as any), fichiers } as ClotureKanban;
+  });
+
+const supprFichierInput = z.object({
+  id: z.string().uuid(),
+  chemin: z.string().min(1),
+});
+
+/** Supprime une pièce jointe (stockage + liste). */
+export const supprimerFichierCloture = createServerFn({ method: "POST" })
+  .validator((d: unknown) => supprFichierInput.parse(d))
+  .handler(async ({ data }): Promise<ClotureKanban> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    const { data: rows } = await db
+      .from("kanban_clotures")
+      .select("fichiers")
+      .eq("id", data.id)
+      .limit(1);
+    const anciens = ((rows ?? [])[0]?.fichiers ?? []) as FichierCloture[];
+    const st = (supabaseAdmin as any).storage;
+    try {
+      await st.from(BUCKET_CLOTURES).remove([data.chemin]);
+    } catch {
+      // best-effort.
+    }
+    const fichiers = anciens.filter((f) => f.chemin !== data.chemin);
+    const { data: row, error } = await db
+      .from("kanban_clotures")
+      .update({ fichiers, updated_at: new Date().toISOString() })
+      .eq("id", data.id)
+      .select("*")
+      .single();
+    if (error) throw new Error(`Suppression du fichier : ${error.message}`);
+    return { ...(row as any), fichiers } as ClotureKanban;
+  });
+
+/** URL publique d'une pièce jointe (bucket public « kanban-clotures »). */
+const urlFichierSchema = z.object({ chemin: z.string().min(1) });
+export const getUrlFichierCloture = createServerFn({ method: "POST" })
+  .validator((d: unknown) => urlFichierSchema.parse(d))
+  .handler(async ({ data }) => {
+    const base = process.env["EXT_SUPABASE_URL"] ?? "";
+    return `${base}/storage/v1/object/public/${BUCKET_CLOTURES}/${encodeURI(data.chemin)}`;
+  });

@@ -6,18 +6,21 @@
  * passée » persiste entreprise/n°/date (table kanban_commandes_passees) à
  * confronter à l'import.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
+  FileText,
   Loader2,
+  Paperclip,
   Plus,
   RefreshCw,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -49,10 +52,18 @@ import {
   updatePspLigneEtatPilotage,
 } from "@/lib/psp.prep.supabase.functions";
 import {
-  creerCommandePassee,
+  ajouterFichierCloture,
   confronterKanbanCommandesPassees,
+  creerCommandePassee,
+  declarerTerminee,
+  getKanbanClotures,
   getKanbanCommandesPassees,
+  getUrlFichierCloture,
+  retirerCloture,
   supprimerCommandePassee,
+  supprimerFichierCloture,
+  type ClotureKanban,
+  type FichierCloture,
 } from "@/lib/kanban.functions";
 import type { SuiviOperationVue } from "@/lib/psp.suivi.foundation";
 import {
@@ -78,6 +89,8 @@ const OPS_KEY = ["kanban-operations"] as const;
 const cpKey = (exercice: number) => ["kanban-commandes-passees", exercice] as const;
 /** Clé du registre annuel affiché en KPI (même source que /suivi). */
 const kpiKey = (exercice: number) => ["kanban-kpi-suivi-annuel", exercice] as const;
+/** Clé des clôtures (« déclarer terminée »). */
+const clotKey = (exercice: number) => ["kanban-clotures", exercice] as const;
 
 /** Filtres du board — CC « tous », CC précis ou « sans CC ». */
 const CC_TOUS = "__tous__";
@@ -103,6 +116,14 @@ type CarteCommandeReelle = {
   dateFin: string | null;
   groupe: GroupeKanban;
 };
+
+/** Cible d'un signalement « terminée » : une opération (ligne PSP) ou une commande réelle. */
+type CibleCloture =
+  { kind: "op"; carte: CarteKanban } | { kind: "cmd"; carte: CarteCommandeReelle };
+
+/** Clé d'indexation d'une clôture (par psp_ligne_id ou commande_id). */
+const cleCibleCloture = (cible: CibleCloture): string =>
+  cible.kind === "op" ? `psp:${cible.carte.psp_ligne_id}` : cible.carte.key;
 
 /** Libellé court de l'état annuel (badge sur les commandes réelles). */
 const ETAT_REEL_LABEL: Record<string, string> = {
@@ -248,6 +269,8 @@ export function KanbanPage() {
   const [cc, setCc] = useState<string>(CC_TOUS);
   // V8.27 — recherche libre sur tous les champs (description, ville, tranche, entreprise…).
   const [q, setQ] = useState("");
+  // V8.28 — dialogue « Déclarer terminée » ouvert pour une carte.
+  const [clotureOuverte, setClotureOuverte] = useState<CibleCloture | null>(null);
 
   const opsFn = useServerFn(getPspSuiviOperations);
   const cpFn = useServerFn(getKanbanCommandesPassees);
@@ -255,6 +278,7 @@ export function KanbanPage() {
   const supprimerCp = useServerFn(supprimerCommandePassee);
   const confronter = useServerFn(confronterKanbanCommandesPassees);
   const registreFn = useServerFn(getPspSuiviAnnuel);
+  const retirerClotureFn = useServerFn(retirerCloture);
 
   const {
     data: opsData,
@@ -279,6 +303,31 @@ export function KanbanPage() {
     refetchOnWindowFocus: false,
   });
   const commandesPassees = useMemo(() => (cpsData ?? []) as CommandePasseeKanban[], [cpsData]);
+
+  // V8.28 — clôtures (« déclarer terminée ») de l'exercice.
+  const clotFn = useServerFn(getKanbanClotures);
+  const { data: cloturesData, error: clotureErreur } = useQuery({
+    queryKey: clotKey(exercice),
+    queryFn: () => clotFn({ data: { exercice } }),
+    staleTime: 15_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const clotures = useMemo(() => (cloturesData ?? []) as ClotureKanban[], [cloturesData]);
+  const clotureTableAbsente =
+    (clotureErreur as Error | null)?.message?.includes?.("kanban_clotures") ?? false;
+  const clotureParCle = useMemo(() => {
+    const m = new Map<string, ClotureKanban>();
+    for (const c of clotures) {
+      const cle = c.psp_ligne_id
+        ? `psp:${c.psp_ligne_id}`
+        : c.commande_id
+          ? `cmd:${c.commande_id}`
+          : "";
+      if (cle && !m.has(cle)) m.set(cle, c);
+    }
+    return m;
+  }, [clotures]);
 
   // V8.24 — registre annuel de l'exercice → mêmes KPI (3 barres) que /suivi, ET
   // V8.26 — source des « commandes réelles » importées (type 'commande') à afficher.
@@ -375,15 +424,26 @@ export function KanbanPage() {
   const parGroupe = useMemo(() => {
     const m = new Map<GroupeKanban, CarteKanban[]>();
     for (const g of GROUPES_KANBAN) m.set(g.code, []);
-    for (const carte of cartesFiltrees) m.get(groupeDeColonne(carte.colonne))?.push(carte);
+    for (const carte of cartesFiltrees) {
+      const cloture = clotureParCle.get(`psp:${carte.psp_ligne_id}`);
+      const reelleTerminee = carte.op.execution.statut === "travaux_termines";
+      // V8.28 — signalée « terminée » mais pas encore confirmée par l'import → onglet Terminés.
+      const groupe = !reelleTerminee && cloture ? "termines" : groupeDeColonne(carte.colonne);
+      m.get(groupe)?.push(carte);
+    }
     return m;
-  }, [cartesFiltrees]);
+  }, [cartesFiltrees, clotureParCle]);
   const parGroupeCmds = useMemo(() => {
     const m = new Map<GroupeKanban, CarteCommandeReelle[]>();
     for (const g of GROUPES_KANBAN) m.set(g.code, []);
-    for (const c of commandesReellesFiltrees) m.get(c.groupe)?.push(c);
+    for (const c of commandesReellesFiltrees) {
+      const cloture = clotureParCle.get(c.key);
+      const reelleTerminee = c.etat === "terminee";
+      const groupe = !reelleTerminee && cloture ? "termines" : c.groupe;
+      m.get(groupe)?.push(c);
+    }
     return m;
-  }, [commandesReellesFiltrees]);
+  }, [commandesReellesFiltrees, clotureParCle]);
   // V8.26 — états forcés incohérents avec les données réelles (import).
   const cartesEnConflit = useMemo(
     () => cartesFiltrees.filter((c) => c.conflit_pilotage),
@@ -394,6 +454,7 @@ export function KanbanPage() {
     await queryClient.invalidateQueries({ queryKey: [...OPS_KEY] });
     await queryClient.invalidateQueries({ queryKey: cpKey(exercice) });
     await queryClient.invalidateQueries({ queryKey: kpiKey(exercice) });
+    await queryClient.invalidateQueries({ queryKey: clotKey(exercice) });
     // Synchronisation avec les écrans de devis (/suivi…) : mêmes sources.
     await queryClient.invalidateQueries({ queryKey: ["psp-suivi-annuel"] });
     await queryClient.invalidateQueries({ queryKey: ["psp-suivi-operations"] });
@@ -418,6 +479,17 @@ export function KanbanPage() {
       await invalider();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Suppression impossible.");
+    }
+  };
+
+  // V8.28 — retire un signalement « déclarée terminée » (et ses fichiers).
+  const retirerClotureAction = async (id: string) => {
+    try {
+      await retirerClotureFn({ data: { id } });
+      toast.success("Signalement « terminée » retiré.");
+      await invalider();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Retrait impossible.");
     }
   };
 
@@ -574,6 +646,14 @@ export function KanbanPage() {
             </span>
           </p>
         ) : null}
+        {clotureTableAbsente ? (
+          <p className="mt-1 flex items-center gap-1.5 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+            <AlertTriangle className="size-3.5" />
+            Table « kanban_clotures » absente — appliquer la migration
+            <code className="font-mono">20260908_kanban_cloture.sql</code> dans l'éditeur SQL
+            Supabase pour activer « Déclarer terminée ».
+          </p>
+        ) : null}
       </header>
 
       {/* V8.26 — états forcés incohérents avec les données réelles (import). */}
@@ -651,13 +731,30 @@ export function KanbanPage() {
                           <CarteKanbanView
                             key={carte.key}
                             carte={carte}
+                            cloture={clotureParCle.get(`psp:${carte.psp_ligne_id}`) ?? null}
                             surOuvrir={() => setEtapeCarte(carte)}
                             surCommander={() => setCommandeOuverte(carte)}
                             surSupprimer={(commandePassee) => void supprimer(commandePassee.id)}
+                            surDeclarer={
+                              clotureTableAbsente
+                                ? undefined
+                                : () => setClotureOuverte({ kind: "op", carte })
+                            }
+                            surRetirerCloture={(id) => void retirerClotureAction(id)}
                           />
                         ))}
                     {trierCommandesReelles(listeCmds, tri).map((c) => (
-                      <CarteCommandeReelleView key={c.key} carte={c} />
+                      <CarteCommandeReelleView
+                        key={c.key}
+                        carte={c}
+                        cloture={clotureParCle.get(c.key) ?? null}
+                        surDeclarer={
+                          clotureTableAbsente
+                            ? undefined
+                            : () => setClotureOuverte({ kind: "cmd", carte: c })
+                        }
+                        surRetirerCloture={(id) => void retirerClotureAction(id)}
+                      />
                     ))}
                     {!cpsChargement && nb === 0 ? (
                       <p className="rounded border border-dashed px-2 py-3 text-center text-[11px] text-muted-foreground">
@@ -700,6 +797,20 @@ export function KanbanPage() {
         />
       ) : null}
 
+      {clotureOuverte ? (
+        <DeclarerTermineeDialog
+          cible={clotureOuverte}
+          exercice={exercice}
+          cloture={
+            clotureOuverte.kind === "op"
+              ? (clotureParCle.get(`psp:${clotureOuverte.carte.psp_ligne_id}`) ?? null)
+              : (clotureParCle.get(clotureOuverte.carte.key) ?? null)
+          }
+          onClose={() => setClotureOuverte(null)}
+          onSaved={invalider}
+        />
+      ) : null}
+
       {ficheOp ? (
         <SuiviOperationFiche
           operation={ficheOp}
@@ -729,7 +840,20 @@ export function KanbanOverlay({
 }
 
 /** Carte « commande réelle » importée — affichage seul (déjà commandée/terminée). */
-function CarteCommandeReelleView({ carte }: { carte: CarteCommandeReelle }) {
+function CarteCommandeReelleView({
+  carte,
+  cloture,
+  surDeclarer,
+  surRetirerCloture,
+}: {
+  carte: CarteCommandeReelle;
+  cloture?: ClotureKanban | null;
+  surDeclarer?: (() => void) | undefined;
+  surRetirerCloture?: (id: string) => void;
+}) {
+  // V8.28 — signalement « terminée » (réelle terminée = confirmée par l'import).
+  const reelleTerminee = carte.etat === "terminee";
+  const signalActive = Boolean(cloture && !reelleTerminee);
   return (
     <div className="rounded-md border border-dashed border-violet-300 bg-violet-50/40 p-2 text-slate-700">
       <div className="flex items-center gap-1.5">
@@ -776,6 +900,47 @@ function CarteCommandeReelleView({ carte }: { carte: CarteCommandeReelle }) {
           </span>
         </p>
       </div>
+      {/* V8.28 — déclarer / gérer un signalement « terminée ». */}
+      {surDeclarer && !reelleTerminee && !signalActive ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-1.5 h-6 w-full text-[10px] text-teal-700"
+          onClick={surDeclarer}
+          title="Signaler la fin des travaux (cases + pièces jointes), à confirmer à l'import"
+        >
+          <CheckCircle2 className="size-3" /> Déclarer terminée
+        </Button>
+      ) : null}
+      {signalActive ? (
+        <div className="mt-1.5 flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-1">
+          <span className="text-[9px] font-bold text-amber-800">
+            Signalée · à confirmer à l'import
+          </span>
+          <span className="ml-auto flex items-center gap-0.5">
+            {surDeclarer ? (
+              <button
+                type="button"
+                onClick={surDeclarer}
+                className="rounded p-0.5 text-amber-700 hover:bg-amber-100"
+                title="Compléter (cases / pièces jointes)"
+              >
+                <FileText className="size-3" />
+              </button>
+            ) : null}
+            {surRetirerCloture && cloture ? (
+              <button
+                type="button"
+                onClick={() => surRetirerCloture(cloture.id)}
+                className="rounded p-0.5 text-amber-700 hover:bg-amber-100 hover:text-destructive"
+                title="Retirer le signalement"
+              >
+                <Trash2 className="size-3" />
+              </button>
+            ) : null}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -783,14 +948,20 @@ function CarteCommandeReelleView({ carte }: { carte: CarteCommandeReelle }) {
 /** Carte individuelle — clic = ouvre la fiche opération (workflow complet). */
 function CarteKanbanView({
   carte,
+  cloture,
   surOuvrir,
   surCommander,
   surSupprimer,
+  surDeclarer,
+  surRetirerCloture,
 }: {
   carte: CarteKanban;
+  cloture?: ClotureKanban | null;
   surOuvrir: () => void;
   surCommander: () => void;
   surSupprimer: (cp: { id: string }) => void;
+  surDeclarer?: (() => void) | undefined;
+  surRetirerCloture?: (id: string) => void;
 }) {
   const cp = carte.commandePassee;
   const commandeLiee = carte.commandesLiees[0];
@@ -798,6 +969,10 @@ function CarteKanbanView({
   const actionPossible =
     (carte.colonne === "devis_recus" || carte.colonne === "commande_a_passer") && !cp;
   const consultes = carte.entreprisesConsultees;
+  // V8.28 — signalement « terminée » : réelle terminée (import) ou signalée à confirmer.
+  const reelleTerminee = carte.op.execution.statut === "travaux_termines";
+  const signalActive = Boolean(cloture && !reelleTerminee);
+  const enExecution = carte.colonne === "commande_passee" || carte.colonne === "travaux_en_cours";
 
   const pastille = (etat: string) =>
     etat === "recu" ? "bg-emerald-500" : etat === "relance" ? "bg-amber-500" : "bg-yellow-400";
@@ -944,6 +1119,58 @@ function CarteKanbanView({
           </button>
         ) : null}
       </div>
+      {/* V8.28 — déclarer / gérer un signalement « terminée ». */}
+      {surDeclarer && enExecution && !signalActive ? (
+        <div className="mt-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 w-full text-[10px] text-teal-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              surDeclarer();
+            }}
+            title="Signaler la fin des travaux (cases + pièces jointes), à confirmer à l'import"
+          >
+            <CheckCircle2 className="size-3" /> Déclarer terminée
+          </Button>
+        </div>
+      ) : null}
+      {signalActive ? (
+        <div className="mt-1.5 flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-1">
+          <span className="text-[9px] font-bold text-amber-800">
+            Signalée · à confirmer à l'import
+          </span>
+          <span className="ml-auto flex items-center gap-0.5">
+            {surDeclarer ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  surDeclarer();
+                }}
+                className="rounded p-0.5 text-amber-700 hover:bg-amber-100"
+                title="Compléter (cases / pièces jointes)"
+              >
+                <FileText className="size-3" />
+              </button>
+            ) : null}
+            {surRetirerCloture && cloture ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  surRetirerCloture(cloture.id);
+                }}
+                className="rounded p-0.5 text-amber-700 hover:bg-amber-100 hover:text-destructive"
+                title="Retirer le signalement"
+              >
+                <Trash2 className="size-3" />
+              </button>
+            ) : null}
+          </span>
+        </div>
+      ) : null}
       <p className="mt-1 flex items-center justify-end gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
         Étape suivante <ChevronRight className="size-3" />
       </p>
@@ -1496,5 +1723,306 @@ function KanbanKpi({ kpi }: { kpi: KanbanKpiVue }) {
         legende={`Sans devis ${kpi.devisSans} · Demande faite ${kpi.devisAttente} · Devis reçus ${kpi.devisRecus}`}
       />
     </div>
+  );
+}
+
+/** Lit un fichier en base64 (pour le téléversement côté serveur). */
+function lireFichierB64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(new Error("Lecture du fichier impossible."));
+    r.onload = () => {
+      const data = typeof r.result === "string" ? r.result : "";
+      resolve(data.slice(data.indexOf(",") + 1));
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+/** Taille lisible d'un fichier (Ko/Mo). */
+const tailleLisible = (n: number): string =>
+  n < 1_048_576 ? `${Math.max(1, Math.round(n / 1024))} Ko` : `${(n / 1_048_576).toFixed(1)} Mo`;
+
+/**
+ * V8.28 — « Déclarer terminée » : signalement manuel de fin de travaux, en attente
+ * de confirmation par l'import. Cases (facturé / PV de réception / rapport) +
+ * note + pièces jointes (Supabase Storage, bucket « kanban-clotures »).
+ */
+function DeclarerTermineeDialog({
+  cible,
+  exercice,
+  cloture,
+  onClose,
+  onSaved,
+}: {
+  cible: CibleCloture;
+  exercice: number;
+  cloture: ClotureKanban | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const declarer = useServerFn(declarerTerminee);
+  const ajouterFichier = useServerFn(ajouterFichierCloture);
+  const supprFichier = useServerFn(supprimerFichierCloture);
+  const urlFichier = useServerFn(getUrlFichierCloture);
+
+  const [facture, setFacture] = useState(cloture?.facture ?? false);
+  const [pvReception, setPvReception] = useState(cloture?.pv_reception ?? false);
+  const [rapport, setRapport] = useState(cloture?.rapport ?? false);
+  const [note, setNote] = useState(cloture?.note ?? "");
+  const [fichiers, setFichiers] = useState<FichierCloture[]>(cloture?.fichiers ?? []);
+  const [pending, setPending] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const titre =
+    cible.kind === "op"
+      ? `TR ${cible.carte.tranche} · ${cible.carte.categorie}`
+      : `TR ${cible.carte.tranche}${cible.carte.numeroCommande ? ` · n° ${cible.carte.numeroCommande}` : ""}`;
+  const sousTitre =
+    cible.kind === "op"
+      ? [cible.carte.adresse, cible.carte.nature].filter(Boolean).join(" — ") || "—"
+      : [cible.carte.adresse, cible.carte.ville, cible.carte.nature].filter(Boolean).join(" — ") ||
+        "—";
+
+  const commandeId =
+    cible.kind === "cmd"
+      ? cible.carte.key.startsWith("cmd:")
+        ? cible.carte.key.slice(4)
+        : undefined
+      : undefined;
+
+  const ouvrirFichier = async (f: FichierCloture) => {
+    try {
+      const u = await urlFichier({ data: { chemin: f.chemin } });
+      window.open(u, "_blank", "noopener");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ouverture du fichier impossible.");
+    }
+  };
+
+  const retirerFichierExistant = async (f: FichierCloture) => {
+    if (!cloture?.id) return;
+    try {
+      const r = await supprFichier({ data: { id: cloture.id, chemin: f.chemin } });
+      setFichiers(r.fichiers);
+      toast.success("Pièce jointe supprimée.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Suppression impossible.");
+    }
+  };
+
+  const choisirFichiers = (files: FileList | null) => {
+    if (!files) return;
+    const places = 5 - fichiers.length - pending.length;
+    if (places <= 0) return;
+    const arr = Array.from(files).slice(0, places);
+    setPending((p) => [...p, ...arr]);
+  };
+
+  const enregistrer = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const payload =
+        cible.kind === "op"
+          ? {
+              exercice,
+              pspLigneId: cible.carte.psp_ligne_id,
+              facture,
+              pvReception,
+              rapport,
+              note: note.trim() || null,
+            }
+          : { exercice, commandeId, facture, pvReception, rapport, note: note.trim() || null };
+      const row = await declarer({ data: payload });
+      for (const file of pending) {
+        const b64 = await lireFichierB64(file);
+        const r = await ajouterFichier({
+          data: {
+            id: row.id,
+            nom: file.name,
+            type: file.type || null,
+            taille: file.size,
+            contenuB64: b64,
+          },
+        });
+        setFichiers(r.fichiers);
+      }
+      toast.success(
+        cloture
+          ? "Signalement « terminée » mis à jour."
+          : "Travaux signalés terminés — à confirmer à l'import.",
+      );
+      await onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Enregistrement impossible.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const Case = ({
+    label,
+    value,
+    onChange,
+  }: {
+    label: string;
+    value: boolean;
+    onChange: (v: boolean) => void;
+  }) => (
+    <label className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1.5 text-xs">
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-3.5 accent-teal-600"
+      />
+      {label}
+    </label>
+  );
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
+      <DialogContent className="max-h-[90vh] w-[min(96vw,640px)] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <CheckCircle2 className="size-4 text-teal-600" /> Déclarer terminée — {titre}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {sousTitre} · exercice {exercice}. Signalement manuel, confirmé par le prochain import
+            (l'état réel « Terminée »).
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          <div>
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Éléments de clôture
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Case label="Facturé" value={facture} onChange={setFacture} />
+              <Case label="PV de réception" value={pvReception} onChange={setPvReception} />
+              <Case label="Rapport" value={rapport} onChange={setRapport} />
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Note (facultatif)
+            </p>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              className="w-full rounded-md border border-input bg-white px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring"
+              placeholder="Commentaire de clôture…"
+            />
+          </div>
+
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Pièces jointes ({fichiers.length + pending.length}/5)
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[10px]"
+                onClick={() => inputRef.current?.click()}
+                disabled={busy || fichiers.length + pending.length >= 5}
+              >
+                <Paperclip className="size-3" /> Ajouter des fichiers
+              </Button>
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  choisirFichiers(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            {fichiers.length + pending.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">
+                Aucune pièce jointe (facture, PV de réception, rapport…).
+              </p>
+            ) : (
+              <ul className="space-y-1">
+                {fichiers.map((f) => (
+                  <li
+                    key={f.chemin}
+                    className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 text-[11px]"
+                  >
+                    <FileText className="size-3.5 shrink-0 text-slate-400" />
+                    <span className="truncate font-medium" title={f.nom}>
+                      {f.nom}
+                    </span>
+                    <span className="shrink-0 text-[9px] text-muted-foreground">
+                      {tailleLisible(f.taille)}
+                    </span>
+                    <span className="ml-auto flex shrink-0 items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => void ouvrirFichier(f)}
+                        className="rounded px-1 py-0.5 text-teal-700 hover:bg-teal-50"
+                        title="Ouvrir"
+                      >
+                        Ouvrir
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void retirerFichierExistant(f)}
+                        className="rounded p-0.5 text-muted-foreground hover:bg-slate-100 hover:text-destructive"
+                        title="Supprimer"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </span>
+                  </li>
+                ))}
+                {pending.map((file, i) => (
+                  <li
+                    key={`${file.name}-${i}`}
+                    className="flex items-center gap-2 rounded border border-dashed border-teal-300 bg-teal-50/50 px-2 py-1 text-[11px]"
+                  >
+                    <FileText className="size-3.5 shrink-0 text-teal-500" />
+                    <span className="truncate font-medium">{file.name}</span>
+                    <span className="shrink-0 text-[9px] text-muted-foreground">
+                      {tailleLisible(file.size)} · à envoyer
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPending((p) => p.filter((_, j) => j !== i))}
+                      className="ml-auto rounded p-0.5 text-muted-foreground hover:text-destructive"
+                      title="Retirer"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
+            Annuler
+          </Button>
+          <Button size="sm" onClick={() => void enregistrer()} disabled={busy}>
+            {busy ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="size-4" />
+            )}
+            {cloture ? "Mettre à jour" : "Déclarer terminée"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

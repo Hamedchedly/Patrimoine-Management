@@ -18,17 +18,26 @@ import PspCorrespondanceCommandeDialog from "@/components/suivi/PspCorrespondanc
 import SuiviOperationFiche from "@/components/suivi/SuiviOperationFiche";
 import TableauDemandesDevis from "@/components/suivi/TableauDemandesDevis";
 import ModeleMailEditor from "@/components/preparation-psp/ModeleMailEditor";
+import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { money0 } from "@/lib/formats";
-import { getPspSuiviAnnuel, getPspSuiviOperations } from "@/lib/psp.prep.supabase.functions";
 import {
+  getLotsParRefsEr,
+  getPspSuiviAnnuel,
+  getPspSuiviOperations,
+} from "@/lib/psp.prep.supabase.functions";
+import { extraireErTexte } from "@/lib/commande.rattachement.lots";
+import {
+  appliquerErAdresse,
+  indexerLotsParCode,
   kpiRegistreAnnuel,
   ligneDemandeDevisDepuisOperation,
   ligneDemandeDevisDepuisRegistre,
   operationSurAnnee,
   type LigneDemandeDevis,
   type LigneRegistreAnnuel,
+  type LotErLeger,
 } from "@/lib/psp.suivi.view";
 import type { SuiviOperationVue } from "@/lib/psp.suivi.foundation";
 
@@ -70,6 +79,9 @@ function SuiviPage() {
   const fetchRegistre = useServerFn(getPspSuiviAnnuel);
   const fetchOperations = useServerFn(getPspSuiviOperations);
   const queryClient = useQueryClient();
+  // V8.18 — étiquettes des tranches (badges sous le TR du tableau devis).
+  const etiquettes = useEtiquettesTranches();
+  const etiquettesParTranche = etiquettes.etiquettesParTranche;
 
   const { data: registre, isLoading } = useQuery({
     queryKey: ["psp-suivi-annuel", ANNEE_SUIVI],
@@ -96,6 +108,38 @@ function SuiviPage() {
   const lignes = useMemo(() => (registre?.lignes ?? []) as LigneRegistreAnnuel[], [registre]);
   const lignesSansCommandeImport = (registre?.lignesSansCommandeImport ?? 0) as number;
   const lignesSuiviMaterialisees = (registre?.lignesSuiviMaterialisees ?? 0) as number;
+
+  // V8.18 — Adresse ER : on collecte les ER présents dans les lignes (adresse/nature), on
+  // charge les lots correspondants et on surcharge l'adresse affichée avec celle du/des lots.
+  const refsErLignes = useMemo<string[]>(() => {
+    const refs = new Set<string>();
+    const collecte = (texte?: string | null) => {
+      for (const r of extraireErTexte(texte)) refs.add(r);
+    };
+    for (const l of lignes) {
+      collecte(l.adresse);
+      collecte(l.adresse_rue);
+      collecte(l.nature);
+    }
+    for (const o of operations) {
+      collecte(o.programmation.adresse);
+      collecte(o.programmation.adresse_rue);
+      collecte(o.programmation.nature);
+    }
+    return [...refs];
+  }, [lignes, operations]);
+  const fetchLotsEr = useServerFn(getLotsParRefsEr);
+  const { data: lotsErData } = useQuery({
+    queryKey: ["psp-lots-er", refsErLignes.join("|")],
+    queryFn: () => fetchLotsEr({ data: { refs: refsErLignes } }),
+    enabled: refsErLignes.length > 0,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  const lotsParCodeEr = useMemo(
+    () => indexerLotsParCode((lotsErData as LotErLeger[] | undefined) ?? []),
+    [lotsErData],
+  );
 
   const [selection, setSelection] = useState<SuiviOperationVue | null>(null);
   const [commandeSelection, setCommandeSelection] = useState<string | null>(null);
@@ -131,16 +175,18 @@ function SuiviPage() {
     () =>
       lignes
         .filter((l) => l.type === "operation" && l.etat_annuel === "sans_commande")
-        .map(ligneDemandeDevisDepuisRegistre),
-    [lignes],
+        .map(ligneDemandeDevisDepuisRegistre)
+        .map((l) => appliquerErAdresse(l, lotsParCodeEr)),
+    [lignes, lotsParCodeEr],
   );
   //  · Onglet « PSP 2027 » : opérations programmées sur 2027 (préparation PSP).
   const lignesPsp2027 = useMemo<LigneDemandeDevis[]>(
     () =>
       operations
         .filter((o) => operationSurAnnee(o, ANNEE_PSP))
-        .map((o) => ligneDemandeDevisDepuisOperation(o, ANNEE_PSP)),
-    [operations],
+        .map((o) => ligneDemandeDevisDepuisOperation(o, ANNEE_PSP))
+        .map((l) => appliquerErAdresse(l, lotsParCodeEr)),
+    [operations, lotsParCodeEr],
   );
 
   // V8.16l — KPI du haut DYNAMIQUES selon l'onglet actif.
@@ -262,6 +308,7 @@ function SuiviPage() {
                 lignes={lignesSuiviAnnuel}
                 onOpen={ouvrirDemande}
                 onEnvoye={refresh}
+                etiquettesParTranche={etiquettesParTranche}
               />
             </TabsContent>
             <TabsContent value="psp-2027" className="pt-3">
@@ -271,6 +318,7 @@ function SuiviPage() {
                 lignes={lignesPsp2027}
                 onOpen={ouvrirDemande}
                 onEnvoye={refresh}
+                etiquettesParTranche={etiquettesParTranche}
               />
             </TabsContent>
           </Tabs>

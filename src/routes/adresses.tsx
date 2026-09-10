@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link, createFileRoute } from "@tanstack/react-router";
@@ -12,6 +12,7 @@ import {
   MapPin,
   Phone,
   Search,
+  SquarePen,
   User,
   Wrench,
   Calendar,
@@ -29,9 +30,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getAdresses,
+  getCcParTranche,
   getOccupants,
   getTravaux,
   getVilles,
@@ -47,6 +56,7 @@ import {
   libelleNbCommandesTravaux,
   nomCompletOccupant,
   normaliserRecherche,
+  pushRecent,
   rechercherPatrimoine,
   type OccupantActuel,
 } from "@/lib/adresses";
@@ -60,6 +70,8 @@ import { libelleEntreprise } from "@/lib/fournisseurs";
 import type { FicheFournisseurInfo } from "@/components/CommandeFicheDialog";
 import CommandeFicheDialog from "@/components/CommandeFicheDialog";
 import PatrimoineSearch from "@/components/PatrimoineSearch";
+import { EtiquetteTranche, EtiquetteTrancheEditeur } from "@/components/tranches/EtiquetteTranche";
+import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
 
 // `z.coerce.string()` : TanStack Router JSON-parse les query params (« 1426 », « 1234 »)
 // arrivent en number → coerce les convertit en string sans casser le rendu (erreur 500 sinon).
@@ -71,6 +83,7 @@ const searchSchema = z.object({
   tranche: z.coerce.string().optional(),
   rue: z.coerce.string().optional(),
   adresse: z.coerce.string().optional(),
+  cc: z.coerce.string().optional(),
   lot: z.coerce.string().optional(),
   retour: z.coerce.string().optional(),
 });
@@ -81,15 +94,40 @@ export const Route = createFileRoute("/adresses")({
 });
 
 function AdressesPage() {
-  const { q, ville, tranche, rue, adresse, lot, retour } = Route.useSearch();
+  const { q, ville, tranche, rue, adresse, lot, retour, cc } = Route.useSearch();
   const navigate = Route.useNavigate();
   const fetchAdresses = useServerFn(getAdresses);
   const fetchVilles = useServerFn(getVilles);
+  const fetchCc = useServerFn(getCcParTranche);
 
   const { data: villes, isLoading: isLoadingVilles } = useQuery({
     queryKey: ["villes"],
     queryFn: () => fetchVilles({}),
   });
+
+  // V8.16w — CC courant par tranche (filtre « chargé clientèle » du patrimoine).
+  const { data: ccParTrancheData } = useQuery({
+    queryKey: ["patrimoine-cc"],
+    queryFn: () => fetchCc(),
+    staleTime: 1000 * 60 * 5,
+  });
+  const ccParTranche = useMemo(
+    () =>
+      (ccParTrancheData ?? {}) as Record<string, { sousSecteur: string | null; cc: string | null }>,
+    [ccParTrancheData],
+  );
+  const ccOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasSans = false;
+    for (const v of Object.values(ccParTranche)) {
+      if (v.cc) set.add(v.cc);
+      else hasSans = true;
+    }
+    return {
+      list: [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true })),
+      hasSans,
+    };
+  }, [ccParTranche]);
 
   // Mode recherche : on charge TOUS les lots actifs une seule fois (clé constante), puis on
   // recherche en client avec normalisation (villes/adresses/locataires) — aucune requête par résultat.
@@ -106,10 +144,21 @@ function AdressesPage() {
 
   const [showGarages, setShowGarages] = useState(false);
 
-  // Lots affichés : garages et boxes masqués par défaut (codes ER.G / types PAR/GAR/BOX/MOT).
+  // Lots affichés : garages et boxes masqués par défaut (codes ER.G / types PAR/GAR/BOX/MOT)
+  // + filtre « chargé clientèle » (V8.16w) appliqué côté client via tranche → CC.
+  const SANS_CC = "__sans_cc__";
   const visibleLots = useMemo(
-    () => ((data as LotItem[]) ?? []).filter((lot) => showGarages || !estGarage(lot)),
-    [data, showGarages],
+    () =>
+      ((data as LotItem[]) ?? []).filter((lot) => {
+        if (!(showGarages || !estGarage(lot))) return false;
+        if (cc) {
+          const info = ccParTranche[lot.tranche_code];
+          if (cc === SANS_CC) return !info?.cc;
+          return info?.cc === cc;
+        }
+        return true;
+      }),
+    [data, showGarages, cc, ccParTranche],
   );
 
   const hierarchy = useMemo(() => {
@@ -144,6 +193,12 @@ function AdressesPage() {
   const [selectedLocataire, setSelectedLocataire] = useState<LotItem | null>(null);
   const [travauxScope, setTravauxScope] = useState<TravauxScope | null>(null);
   const [commandeFicheId, setCommandeFicheId] = useState<string | null>(null);
+
+  // V8.18 — étiquettes des tranches (badges + édition dans /adresses).
+  const [etiquetteEdit, setEtiquetteEdit] = useState<string | null>(null);
+  const etiquettes = useEtiquettesTranches();
+  const etiquettesParTranche = etiquettes.etiquettesParTranche;
+  const rafraichirEtiquettes = etiquettes.refetch;
 
   // Lignes de chaque niveau hiérarchique avec leurs compteurs.
   const villeRows = useMemo(() => {
@@ -190,6 +245,18 @@ function AdressesPage() {
     navigate({ search: { q: val || undefined } });
   };
 
+  // V8.16u — « Recherches récentes » de l'accueil : enregistre l'adresse consultée
+  // (ville + rue dans l'URL) dans le localStorage (pushRecent). Les 5 dernières
+  // apparaissent sur la carte d'accueil.
+  useEffect(() => {
+    if (!ville || !rue) return;
+    const lots = visibleLots.filter(
+      (l) => (l.ville ?? "") === ville && (l.adresse ?? "") === rue,
+    ).length;
+    pushRecent({ rue, ville, lots });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ville, rue]);
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b bg-card">
@@ -211,6 +278,26 @@ function AdressesPage() {
               />
               Afficher les garages
             </label>
+            {/* V8.16w — filtre « chargé clientèle » (CC courant du patrimoine). */}
+            <Select
+              value={cc || "__tous__"}
+              onValueChange={(v) =>
+                navigate({ search: (prev) => ({ ...prev, cc: v === "__tous__" ? undefined : v }) })
+              }
+            >
+              <SelectTrigger className="h-8 w-44 text-xs">
+                <SelectValue placeholder="Chargé clientèle : tous" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__tous__">Tous</SelectItem>
+                {ccOptions.list.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+                {ccOptions.hasSans ? <SelectItem value="__sans_cc__">Sans CC</SelectItem> : null}
+              </SelectContent>
+            </Select>
             <PatrimoineSearch
               q={q}
               villes={villeRows}
@@ -411,11 +498,26 @@ function AdressesPage() {
                       {resultatsRecherche.locataires.map((row) => (
                         <button
                           key={`${row.nom}|${row.ville}|${row.tranche}|${row.adresse}`}
-                          onClick={() =>
-                            navigate({
-                              search: { ville: row.ville, tranche: row.tranche, rue: row.adresse },
-                            })
-                          }
+                          onClick={() => {
+                            // V8.16x — un résultat LOCATAIRE ouvre la FICHE LOCATAIRE
+                            // (retrouve le 1er lot correspondant) ; repli = liste adresse.
+                            const lot = visibleLots.find(
+                              (l) =>
+                                (l.locataire_nom ?? "") === row.nom &&
+                                (l.adresse ?? "") === row.adresse &&
+                                (l.ville ?? "") === row.ville &&
+                                (l.tranche_code ?? "") === row.tranche,
+                            );
+                            if (lot) setSelectedLocataire(lot);
+                            else
+                              navigate({
+                                search: {
+                                  ville: row.ville,
+                                  tranche: row.tranche,
+                                  rue: row.adresse,
+                                },
+                              });
+                          }}
                           className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
                         >
                           <User className="size-4 shrink-0 text-primary" />
@@ -566,11 +668,20 @@ function AdressesPage() {
                     <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/50 px-4 py-2.5">
                       <h3 className="flex items-center gap-2 text-sm font-semibold">
                         <Building2 className="size-4 text-primary" /> Tranche {t.code}
+                        <EtiquetteTranche etiquette={etiquettesParTranche[t.code] ?? null} />
                       </h3>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-muted-foreground">
                           {t.nbLots} lots · {t.nbAdresses} adresses
                         </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Ajouter / modifier l'étiquette de la tranche"
+                          onClick={() => setEtiquetteEdit(t.code)}
+                        >
+                          <SquarePen className="size-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -616,11 +727,23 @@ function AdressesPage() {
                 <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/50 px-4 py-2.5">
                   <h2 className="flex items-center gap-2 text-sm font-semibold">
                     <MapPin className="size-4 text-primary" /> Adresses · {ville}
+                    <span className="font-normal text-muted-foreground">· Tranche {tranche}</span>
+                    <EtiquetteTranche etiquette={etiquettesParTranche[tranche] ?? null} />
                   </h2>
-                  <span className="text-xs text-muted-foreground">
-                    {rueRows.length} adresse{rueRows.length > 1 ? "s" : ""} ·{" "}
-                    {rueRows.reduce((s, r) => s + r.lots, 0)} lots
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Ajouter / modifier l'étiquette de la tranche"
+                      onClick={() => setEtiquetteEdit(tranche)}
+                    >
+                      <SquarePen className="size-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {rueRows.length} adresse{rueRows.length > 1 ? "s" : ""} ·{" "}
+                      {rueRows.reduce((s, r) => s + r.lots, 0)} lots
+                    </span>
+                  </div>
                 </header>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-sm">
@@ -747,6 +870,17 @@ function AdressesPage() {
           </div>
         )}
       </main>
+
+      {/* V8.18 — éditeur d'étiquette de tranche (VEFA, RACHAT, USUFRUIT…). */}
+      <EtiquetteTrancheEditeur
+        open={!!etiquetteEdit}
+        trancheCode={etiquetteEdit}
+        etiquette={etiquetteEdit ? etiquettesParTranche[etiquetteEdit] : undefined}
+        onOpenChange={(o) => {
+          if (!o) setEtiquetteEdit(null);
+        }}
+        onSaved={() => void rafraichirEtiquettes()}
+      />
 
       <FicheLogement
         lot={selectedLot}

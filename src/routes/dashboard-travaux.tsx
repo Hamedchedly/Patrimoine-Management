@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, lazy, Suspense } from "react";
+import { useMemo, useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link, createFileRoute } from "@tanstack/react-router";
@@ -99,6 +99,8 @@ import CommandeFicheDialog, {
   type DecideState,
   type FicheFournisseurInfo,
 } from "@/components/CommandeFicheDialog";
+import { EtiquetteTranche } from "@/components/tranches/EtiquetteTranche";
+import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
 
 export const Route = createFileRoute("/dashboard-travaux")({
   // `?commande=` porte un NUMÉRO de commande (TanStack JSON-parse → number) ;
@@ -326,6 +328,11 @@ function DashboardTravauxPage() {
   const historique = data?.historique ?? [];
   const recentImports = data?.imports ?? [];
   const tranchesDetails = data?.tranchesDetails ?? [];
+  // V8.18 — étiquettes des tranches (VEFA, RACHAT…) affichées sous le TR du journal.
+  const etiquettes = useEtiquettesTranches();
+  const etiquettesParTranche = etiquettes.etiquettesParTranche;
+  // V8.16x — rue réelle par tranche (mode des lots) pour un journal lisible.
+  const adresseRuesParTranche = data?.adresseRuesParTranche ?? {};
 
   // V8.12 — LIGNES ANNUELLES SANS COMMANDE (matérialisées origine='suivi') : exposées dans
   // le tableau du Dashboard + KPI/barres. Forme « commande-like » (sans n° de commande).
@@ -355,7 +362,9 @@ function DashboardTravauxPage() {
         lot_code: null,
         batiment: null,
         charge_clientele: null,
-        adresse: detail ? [detail.libelle, detail.localite].filter(Boolean).join(" – ") : null,
+        adresse:
+          adresseRuesParTranche[trancheCode ?? ""] ??
+          (detail ? [detail.libelle, detail.localite].filter(Boolean).join(" – ") : null),
         nature_analytique: l["categorie"] ? String(l["categorie"]) : null,
         corps_etat: l["corps_etat"] ? String(l["corps_etat"]) : null,
         charge_operation: null,
@@ -385,7 +394,7 @@ function DashboardTravauxPage() {
         updated_at: "",
       };
     });
-  }, [data?.lignesSuivi, tranchesDetails]);
+  }, [data?.lignesSuivi, tranchesDetails, adresseRuesParTranche]);
 
   // Conflits/doublons non résolus par commande (indicateur « ACT. ») — défini avant le
   // filtre `filteredJournal` afin qu'il puisse les prendre en compte.
@@ -757,8 +766,11 @@ function DashboardTravauxPage() {
     }
   }, [options.years]);
 
-  const filtered = useMemo(() => {
-    let result = visibleCommandes.filter((row) => {
+  /** V8.16x — PRÉDICAT COMMUN des filtres d'en-tête du journal (commandes ET
+   * lignes suivi). Appliqué aux deux → les lignes suivi sont filtrées comme les
+   * commandes (elles n'apparaissent plus « en trop » après une sélection). */
+  const filtreJournalBase = useCallback(
+    (row: CommandeTravauxEnrichie): boolean => {
       const isProg = !!row.ligne_budget;
       const sect = secteurDe(row);
       const ville = villeDeCommande(row, tranchesDetails, villesGeo ?? []) ?? "";
@@ -767,10 +779,10 @@ function DashboardTravauxPage() {
       const matchesSect = selectedSectors.includes(sect);
       const matchesTranche =
         selectedTranches.length === 0 ||
-        (row.tranche_code && selectedTranches.includes(row.tranche_code));
+        (!!row.tranche_code && selectedTranches.includes(row.tranche_code));
       const matchesVille = selectedVilles.length === 0 || selectedVilles.includes(ville);
       const matchesType =
-        selectedTypes.length === 0 || (row.corps_etat && selectedTypes.includes(row.corps_etat));
+        selectedTypes.length === 0 || (!!row.corps_etat && selectedTypes.includes(row.corps_etat));
       const matchesEtat =
         selectedEtats.length === 0 || selectedEtats.includes(etatMetier(row, exercice));
       const matchesSearch =
@@ -796,7 +808,25 @@ function DashboardTravauxPage() {
         matchesCharge &&
         matchesSearch
       );
-    });
+    },
+    [
+      yearRange,
+      progFilter,
+      selectedSectors,
+      selectedTranches,
+      selectedVilles,
+      selectedTypes,
+      selectedEtats,
+      selectedCharges,
+      search,
+      tranchesDetails,
+      villesGeo,
+      exercice,
+    ],
+  );
+
+  const filtered = useMemo(() => {
+    let result = visibleCommandes.filter(filtreJournalBase);
 
     Object.entries(tableFilters).forEach(([key, filter]) => {
       if (filter?.min !== undefined)
@@ -836,23 +866,7 @@ function DashboardTravauxPage() {
       });
     }
     return result;
-  }, [
-    visibleCommandes,
-    includeArchived,
-    yearRange,
-    progFilter,
-    selectedSectors,
-    selectedTranches,
-    selectedVilles,
-    selectedTypes,
-    selectedEtats,
-    selectedCharges,
-    search,
-    tableFilters,
-    sortConfig,
-    tranchesDetails,
-    villesGeo,
-  ]);
+  }, [visibleCommandes, filtreJournalBase, tableFilters, sortConfig]);
 
   // Journal : filtre « ACT. » (anomalies de données OU conflit/doublon) — en surcouche des
   // filtres existants (année, état, secteur, ville, archivage…). Les statistiques globales
@@ -861,13 +875,13 @@ function DashboardTravauxPage() {
     const base = actFilter
       ? filtered.filter((row) => getAlertesCommande(row).length > 0 || historyMap.has(row.id))
       : filtered;
-    // V8.12/V8.16 — lignes annuelles SANS commande ajoutées au tableau (année dans la
-    // plage ; les lignes suivi sans année sont exclues des vues annuelles).
+    // V8.12/V8.16 — lignes annuelles SANS commande ajoutées au tableau. V8.16x :
+    // elles sont soumises aux MÊMES filtres d'en-tête que les commandes.
     const suivi = lignesSuiviRows.filter(
-      (l) => l.annee_exercice != null && matchesAnnee(l, yearRange),
+      (l) => l.annee_exercice != null && matchesAnnee(l, yearRange) && filtreJournalBase(l),
     );
     return [...base, ...suivi];
-  }, [filtered, actFilter, historyMap, lignesSuiviRows, yearRange]);
+  }, [filtered, actFilter, historyMap, lignesSuiviRows, yearRange, filtreJournalBase]);
 
   // V8.16 — lignes suivi de l'exercice (les lignes sans année sont exclues des vues
   // annuelles), passées à la fonction pure de stats (testable).
@@ -2155,9 +2169,16 @@ function DashboardTravauxPage() {
                         >
                           {row.tranche_code || "—"}
                         </Link>
+                        {etiquettesParTranche[row.tranche_code ?? ""] ? (
+                          <span className="mt-0.5 block">
+                            <EtiquetteTranche
+                              etiquette={etiquettesParTranche[row.tranche_code ?? ""]}
+                            />
+                          </span>
+                        ) : null}
                       </td>
                       <td className="p-4 font-bold text-slate-600 truncate uppercase">
-                        {row.adresse || "—"}
+                        {adresseRuesParTranche[row.tranche_code ?? ""] || row.adresse || "—"}
                       </td>
                       <td className="p-4 font-bold text-slate-500 truncate uppercase">
                         {villeDeCommande(row, tranchesDetails, villesGeo ?? []) || "—"}
@@ -2243,31 +2264,33 @@ function DashboardTravauxPage() {
               </tbody>
             </table>
           </div>
-          <div className="p-4 bg-slate-50/50 border-t flex items-center justify-between">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-              PAGE {page} SUR {Math.ceil(filteredJournal.length / PAGE_SIZE) || 1}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 font-black text-[9px] rounded-xl uppercase tracking-widest"
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                PRÉCÉDENT
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 font-black text-[9px] rounded-xl uppercase tracking-widest"
-                disabled={page * PAGE_SIZE >= filteredJournal.length}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                SUIVANT
-              </Button>
+          {filteredJournal.length > PAGE_SIZE ? (
+            <div className="p-4 bg-slate-50/50 border-t flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                PAGE {page} SUR {Math.ceil(filteredJournal.length / PAGE_SIZE) || 1}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 font-black text-[9px] rounded-xl uppercase tracking-widest"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  PRÉCÉDENT
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 font-black text-[9px] rounded-xl uppercase tracking-widest"
+                  disabled={page * PAGE_SIZE >= filteredJournal.length}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  SUIVANT
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : null}
         </section>
       </div>
 

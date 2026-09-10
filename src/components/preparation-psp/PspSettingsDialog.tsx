@@ -6,7 +6,7 @@
  * `onChangedCC` / `onChangedCorps` invalident les caches (CC affiché partout,
  * sélecteurs corps d'état). Les enveloppes restent dans psp_enveloppes.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Coins, Layers, Settings2, Users } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -30,7 +30,7 @@ import type { EnveloppeMap } from "@/lib/psp.prep.v7";
 
 export type OngletParametres = "charges" | "corps" | "enveloppes";
 
-const CATEGORIES = ["GE", "GT", "CP"] as const;
+const CATEGORIES = ["GT", "GE", "CP"] as const;
 
 export default function PspSettingsDialog({
   open,
@@ -77,6 +77,24 @@ export default function PspSettingsDialog({
       m[`${r.annee}|${r.categorie}`] = r.montant;
       return m;
     }, {});
+
+  // V8.16x — la grille se remplit DÈS QUE les enveloppes arrivent : le dialogue
+  // peut s'ouvrir AVANT la fin du chargement, sinon la grille resterait vide.
+  // Fusion avec les valeurs déjà saisies (les cellules vidées restent vides).
+  useEffect(() => {
+    if (!open || enveloppesQuery.data === undefined) return;
+    setValeurs((prev) => ({
+      ...mapEnveloppes(
+        (enveloppesQuery.data ?? []) as Array<{
+          annee: number;
+          categorie: string;
+          montant: number;
+        }>,
+      ),
+      ...prev,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, enveloppesQuery.data]);
 
   const handleOpenChange = (o: boolean) => {
     if (o) {

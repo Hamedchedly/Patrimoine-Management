@@ -95,10 +95,17 @@ export function useRecherchePatrimoine(options: {
   const [adressePanelOuvert, setAdressePanelOuvert] = useState(false);
   // V8.6.1 §3 — rue du périmètre existant (modification) : la recherche existante
   // est visible (qRue initialisé) et la sélection est directement modifiable.
-  const rueInitiale = useMemo(
-    () => initialPerimetres.find((p) => p.rue)?.rue ?? null,
-    [initialPerimetres],
-  );
+  // V8.16z — en modification avec périmètre LOT (rue NULL dans psp_ligne_patrimoine),
+  // la rue est dérivée du 1er lot restauré (rueDe(lots.adresse)) : la puce « rue »
+  // et le résumé « adresse » s'affichent (case adresse plus jamais vide).
+  const rueInitiale = useMemo(() => {
+    const avecRue = initialPerimetres.find((p) => p.rue && p.rue !== "Adresse inconnue");
+    if (avecRue?.rue) return avecRue.rue;
+    const premierLot = initialLots[0];
+    if (!premierLot?.adresse) return null;
+    const derivee = rueDe(premierLot.adresse);
+    return derivee && derivee !== "Adresse inconnue" ? derivee : null;
+  }, [initialPerimetres, initialLots]);
   // V8.6.1 §3 — en modification, une rue existante amène directement au niveau
   // « numéros » : la sélection existante est visible et modifiable.
   const [niveauAdresse, setNiveauAdresse] = useState<"rues" | "numeros">(
@@ -112,7 +119,7 @@ export function useRecherchePatrimoine(options: {
   const [rues, setRues] = useState<Array<{ rue: string; ville: string | null; nb_lots: number }>>(
     [],
   );
-  const [rue, setRue] = useState<string | null>(initialPerimetres.find((p) => p.rue)?.rue ?? null);
+  const [rue, setRue] = useState<string | null>(rueInitiale);
   const [numeros, setNumeros] = useState<string[]>([]);
   const [adressesChoisies, setAdressesChoisies] = useState<string[]>(
     initialPerimetres
@@ -198,16 +205,25 @@ export function useRecherchePatrimoine(options: {
 
   /**
    * V7.6 §3-4 — Résumé de la sélection d'adresse (toujours visible dans la
-   * cellule « Adresse / périmètre », y compris panneau fermé) : la rue reste
-   * affichée tant qu'une sélection existe.
+   * cellule « Adresse / périmètre », y compris panneau fermé). V8.16y — quand un
+   * ER lot est sélectionné, on affiche sa VRAIE adresse (rue + numéro, ex.
+   * « 1 RUE DUPUY CROUZET ») et non plus seulement les codes ER : la rue et le
+   * numéro rattachés au lot s'actualisent automatiquement. Si aucune adresse n'est
+   * sélectionnée mais qu'une TR l'est (tranche ENTIÈRE), la rue de RÉFÉRENCE de la
+   * tranche est affichée.
    */
-  const resumeSelection = useMemo(
-    () => ({
-      rue,
-      detail: resumeSelectionAdresse({ rue, adresses: adressesChoisies, lots: lotsChoisis }),
-    }),
-    [rue, adressesChoisies, lotsChoisis],
-  );
+  const resumeSelection = useMemo(() => {
+    const lotAdresse = lotsChoisis[0]?.adresse;
+    const detail =
+      lotsChoisis.length > 0 && lotAdresse
+        ? lotAdresse
+        : rue
+          ? resumeSelectionAdresse({ rue, adresses: adressesChoisies, lots: lotsChoisis })
+          : tranche
+            ? (referenceTranche?.adresse_reference ?? null)
+            : null;
+    return { rue, detail };
+  }, [rue, adressesChoisies, lotsChoisis, tranche, referenceTranche]);
 
   /** V7.6 §9 — alerte quand le sous-secteur n'a pas de CC dans le référentiel. */
   const alerteCc = useMemo(() => libelleCcManquant(referenceTranche), [referenceTranche]);

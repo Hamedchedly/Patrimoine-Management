@@ -21,6 +21,7 @@ import type { DevisEdit } from "@/components/preparation-psp/PspDevisPanel";
 import PspRevueAnciennes from "@/components/preparation-psp/PspRevueAnciennes";
 import PspRevueReports from "@/components/preparation-psp/PspRevueReports";
 import PspTable from "@/components/preparation-psp/PspTable";
+import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -92,7 +93,6 @@ import {
   savePspEnveloppes,
   updatePspDevis,
   updatePspLigne,
-  updatePspLigneStatutPriorite,
   updatePspOperationComplete,
   type PspLignePersist,
   type PspPerimetrePersist,
@@ -150,6 +150,10 @@ function PreparationPspPage() {
     Map<string, Array<Record<string, unknown>>>
   >(new Map());
   const [lotsParId, setLotsParId] = useState<Map<string, LotInfo>>(new Map());
+
+  // V8.18 — étiquettes des tranches (badges sous le TR des lignes).
+  const etiquettes = useEtiquettesTranches();
+  const etiquettesParTranche = etiquettes.etiquettesParTranche;
 
   // Source des opérations : brouillon Supabase (source de vérité — V7.10 §2).
   // Aucun mock au chargement : l'état initial est VIDE, le brouillon remplit la table.
@@ -711,7 +715,6 @@ function PreparationPspPage() {
   const createProgFn = useServerFn(createPspProgrammation);
   const createCompleteFn = useServerFn(createPspOperationComplete);
   const updateCompleteFn = useServerFn(updatePspOperationComplete);
-  const statutPrioriteFn = useServerFn(updatePspLigneStatutPriorite);
   const createDevisFn = useServerFn(createPspDevis);
   const updateDevisFn = useServerFn(updatePspDevis);
   const deleteDevisFn = useServerFn(deletePspDevis);
@@ -724,23 +727,6 @@ function PreparationPspPage() {
       toast.success("Préparation PSP 2027-2031 créée (brouillon v1).");
     } catch (e) {
       toast.error(`Création impossible : ${(e as Error).message}`);
-    }
-  };
-
-  /** Statut / priorité : persistés dans psp_lignes (badges + sélecteurs). */
-  const handleStatutPriorite = async (
-    id: string,
-    patch: { statut?: string; priorite?: string },
-  ) => {
-    if (figee) {
-      toast.error("Programmation figée : modification impossible.");
-      return;
-    }
-    setOperations((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
-    try {
-      await statutPrioriteFn({ data: { id, ...patch } });
-    } catch (e) {
-      toast.error(`Statut / priorité non persisté : ${(e as Error).message}`);
     }
   };
 
@@ -878,7 +864,12 @@ function PreparationPspPage() {
       toast.success(`Opération persistée dans Supabase (brouillon v${programmation.version}).`);
     } catch (e) {
       setOperations((prev) => supprimerOperationListe(prev, id));
-      toast.error(`Échec de la persistance : ${(e as Error).message}`);
+      const message = (e as Error).message;
+      toast.error(
+        message === "Failed to fetch"
+          ? "Serveur injoignable : la création n'a pas été enregistrée. Vérifiez que le serveur de dev tourne, rechargez la page puis réessayez."
+          : `Échec de la persistance : ${message}`,
+      );
     }
   };
 
@@ -966,39 +957,14 @@ function PreparationPspPage() {
       );
       toast.success("Opération modifiée — totaux recalculés et persistés.");
     } catch (e) {
-      toast.error(`Échec de la persistance : ${(e as Error).message}`);
-    }
-  };
-
-  /** Notes/remarques éditables en ligne (psp_lignes.remarques). */
-  const handleNotes = async (id: string, remarques: string) => {
-    if (figee) {
-      toast.error("Programmation figée : modification impossible.");
-      return;
-    }
-    const op = operations.find((o) => o.id === id);
-    if (!op) return;
-    setOperations((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, remarques: remarques || null } : o)),
-    );
-    try {
-      await updateLigneFn({
-        data: {
-          id,
-          trancheCode: op.tranche,
-          categorie: op.categorie,
-          corpsEtatCode: op.corps_etat_code || null,
-          corpsEtat: op.corps_etat || null,
-          natureTravaux: op.nature_travaux || null,
-          programme: op.programme,
-          ligneBudget: null,
-          remarques: remarques || null,
-          statut: op.statut,
-          priorite: op.priorite,
-        },
-      });
-    } catch (e) {
-      toast.error(`Notes non persistées : ${(e as Error).message}`);
+      const message = (e as Error).message;
+      // V8.16y — « Failed to fetch » = serveur injoignable (serveur de dev arrêté /
+      // rechargé en pleine requête), pas une erreur métier : message explicite.
+      toast.error(
+        message === "Failed to fetch"
+          ? "Serveur injoignable : la modification n'a pas été enregistrée. Vérifiez que le serveur de dev tourne, rechargez la page puis réessayez."
+          : `Échec de la persistance : ${message}`,
+      );
     }
   };
 
@@ -1142,8 +1108,8 @@ function PreparationPspPage() {
                     onOpenOperation={(op) => setSelectedOpId(op.id)}
                     onModifier={ouvrirModification}
                     onDevis={ouvrirDevis}
-                    onStatutPriorite={handleStatutPriorite}
-                    onNotes={handleNotes}
+                    onEditInline={(op, saisie) => void handleModifier(saisie, op)}
+                    onDelete={(id) => void handleSupprimer(id)}
                     perimetresParLigne={perimetresParLigne}
                     lotsParId={lotsParId}
                     quickAdd={
@@ -1157,6 +1123,7 @@ function PreparationPspPage() {
                     }
                     figee={figee}
                     reference={reference}
+                    etiquettesParTranche={etiquettesParTranche}
                   />
                 )}
               </>
@@ -1299,7 +1266,7 @@ function SimulationDialog({
       (programmePar[`${a}|CP`] ?? 0),
     0,
   );
-  const categories = ["GE", "GT", "CP"] as const;
+  const categories = ["GT", "GE", "CP"] as const;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>

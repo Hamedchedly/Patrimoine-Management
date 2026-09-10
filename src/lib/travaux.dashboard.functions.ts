@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { exerciceCourant } from "@/lib/travaux";
 import { extraireChargePsp } from "./psp.validation";
+import { rattacherLotsACommandes } from "./commande.rattachement.supabase.functions";
+import type { ResolutionRattachementLot } from "./commande.rattachement.lots";
 
 // Colonnes réellement présentes dans travaux_commandes (schéma de production).
 // Les colonnes classification_* n'existent pas encore en base : on les exclut des
@@ -82,6 +84,10 @@ export type CommandeTravaux = {
 export type CommandeTravauxEnrichie = CommandeTravaux & {
   /** V8.12 — marqueur des lignes annuelles SANS commande ajoutées au tableau du Dashboard. */
   sans_commande?: boolean;
+  /** V8.17 — résolution du rattachement lot (Historique CMD puis ER de la ligne suivi). */
+  lots_resolus?: ResolutionRattachementLot | null;
+  /** V8.17 — lot d'affichage (repli lecture) quand lot_code est vide mais 1 lot résolu. */
+  lot_code_resolu?: string | null;
   commande_id?: string | null;
   psp_date_commande?: string | null;
   nature_historique?: string | null;
@@ -154,6 +160,8 @@ export type TravauxDashboardData = {
   historique: HistoriqueTravaux[];
   imports: ImportTravaux[];
   tranchesDetails: TrancheDetail[];
+  /** V8.16x — rue réelle (mode des lots actifs) par tranche, pour un journal lisible. */
+  adresseRuesParTranche: Record<string, string>;
   /** V8.12 — lignes annuelles SANS commande (psp_lignes origine='suivi'). */
   lignesSuivi: Record<string, unknown>[];
 };
@@ -163,6 +171,34 @@ export type CheckTravauxImportResult = {
   latestImport: ImportTravaux | null;
   exercice: number;
 };
+
+/**
+ * V8.17 — Rattache le lot résolu à chaque commande enrichie (Historique CMD puis ER de la
+ * ligne suivi). Lecture seule ; ne modifie que les champs d'affichage `lots_resolus` /
+ * `lot_code_resolu` (jamais `lot_code`, la source reste immuable).
+ */
+async function attacherLotsResolus(db: any, commandes: CommandeTravauxEnrichie[]): Promise<void> {
+  if (commandes.length === 0) return;
+  const resolution = await rattacherLotsACommandes(
+    db,
+    commandes.map((c) => ({
+      id: c.id,
+      numero_commande: c.numero_commande ?? null,
+      adresse: c.adresse ?? null,
+      descriptif: c.descriptif ?? null,
+    })),
+  );
+  for (const c of commandes) {
+    const r = resolution.get(c.id);
+    c.lots_resolus = r ?? null;
+    const premierLot = r?.statut === "rattache" ? r.lots[0] : undefined;
+    if (premierLot && !c.lot_code) {
+      c.lot_code_resolu = premierLot.code_patrimoine;
+    } else {
+      c.lot_code_resolu = null;
+    }
+  }
+}
 
 /**
  * Vérifie l'état réel des imports dans Supabase (lecture seule, aucune comparaison métier
@@ -271,22 +307,31 @@ export const getTravauxDashboard = createServerFn({ method: "GET", strict: false
 
     // On charge TOUTES les commandes (actives et archivées) : le Dashboard peut ainsi filtrer
     // par année d'exercice et consulter les années historiques sans dépendre de `actif = true`.
-    const [commandesResult, importsResult, tranchesResult, enrichiesResult, lignesSuiviResult] =
-      await Promise.all([
-        db
-          .from("travaux_commandes")
-          .select("*")
-          .order("engage", { ascending: false, nullsFirst: false }),
-        // Tous les imports (tous exercices) : l'en-tête affiche la date du dernier import de
-        // l'exercice courant, qui ne figurerait pas forcément dans les 5 plus récents.
-        db.from("import_travaux").select("*").order("demarre_at", { ascending: false }).limit(500),
-        db.from("tranches").select("code, libelle, localite, nb_logements").eq("actif", true),
-        // Enrichissement Historique CMD via la vue de rapprochement (lecture seule).
-        db.from("v_travaux_commandes_enrichies").select(SELECT_PASP_ENRICHIES),
-        // V8.12 — lignes annuelles SANS commande (matérialisées à l'import, origine='suivi') :
-        // exposées dans le tableau + KPI/barres du Dashboard.
-        db.from("psp_lignes").select("*").eq("origine", "suivi"),
-      ]);
+    const [
+      commandesResult,
+      importsResult,
+      tranchesResult,
+      lotsResult,
+      enrichiesResult,
+      lignesSuiviResult,
+    ] = await Promise.all([
+      db
+        .from("travaux_commandes")
+        .select("*")
+        .order("engage", { ascending: false, nullsFirst: false }),
+      // Tous les imports (tous exercices) : l'en-tête affiche la date du dernier import de
+      // l'exercice courant, qui ne figurerait pas forcément dans les 5 plus récents.
+      db.from("import_travaux").select("*").order("demarre_at", { ascending: false }).limit(500),
+      db.from("tranches").select("code, libelle, localite, nb_logements").eq("actif", true),
+      // V8.16x — rues réelles par tranche (mode des lots actifs) pour afficher une
+      // adresse lisible dans le journal (au lieu d'un « LOT … » ou d'une ville).
+      db.from("lots").select("tranche_code, adresse").eq("actif", true),
+      // Enrichissement Historique CMD via la vue de rapprochement (lecture seule).
+      db.from("v_travaux_commandes_enrichies").select(SELECT_PASP_ENRICHIES),
+      // V8.12 — lignes annuelles SANS commande (matérialisées à l'import, origine='suivi') :
+      // exposées dans le tableau + KPI/barres du Dashboard.
+      db.from("psp_lignes").select("*").eq("origine", "suivi"),
+    ]);
 
     let historiqueResult;
     try {
@@ -309,11 +354,39 @@ export const getTravauxDashboard = createServerFn({ method: "GET", strict: false
     if (tranchesResult.error)
       throw new Error(`Chargement des tranches : ${tranchesResult.error.message}`);
 
+    // V8.16x — adresse réelle (rue) par tranche : mode des lots actifs, avec le même
+    // filtre anti-bruit que /suivi (vide, « Adresse inconnue », nombre pur, sans lettre).
+    const adresseRuesParTranche: Record<string, string> = {};
+    if (!lotsResult.error) {
+      const freq = new Map<string, Map<string, number>>();
+      for (const l of (lotsResult.data ?? []) as Array<{
+        tranche_code: string | null;
+        adresse: string | null;
+      }>) {
+        const a = (l.adresse ?? "").replace(/\s+/g, " ").trim();
+        if (!l.tranche_code || !a || a === "Adresse inconnue" || /^\d+$/.test(a)) continue;
+        if (!/[A-Za-zÀ-ÿ]/.test(a)) continue;
+        // V8.16x — ignore les désignations de lot (« LOT 115 », « ER.… », garages…)
+        // au profit d'une VRAIE rue (ex. TR 2086 → « 3 AV FRANCOIS MITTERAND »).
+        if (/^(LOT|LOTS|ER\.|GAR|PAR|BOX|BAT|BÂT|BLOC|ILOT|PARC)\b/i.test(a)) continue;
+        if (!freq.has(l.tranche_code)) freq.set(l.tranche_code, new Map());
+        const m = freq.get(l.tranche_code);
+        if (!m) continue;
+        m.set(a, (m.get(a) ?? 0) + 1);
+      }
+      for (const [tr, m] of freq.entries()) {
+        const meilleur = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+        if (meilleur) adresseRuesParTranche[tr] = meilleur[0];
+      }
+    }
+
     // Fusion suivi + enrichissement Historique CMD (même modèle que la fiche Fournisseur).
     const commandes = fusionnerEnrichissement(
       (commandesResult.data ?? []) as CommandeTravaux[],
       (enrichiesResult.error ? [] : (enrichiesResult.data ?? [])) as Record<string, unknown>[],
     );
+    // V8.17 — lot résolu (Historique CMD puis ER ligne suivi) pour la fiche commande.
+    await attacherLotsResolus(db, commandes);
 
     return {
       commandes,
@@ -322,6 +395,7 @@ export const getTravauxDashboard = createServerFn({ method: "GET", strict: false
       })[],
       imports: (importsResult.data ?? []) as ImportTravaux[],
       tranchesDetails: (tranchesResult.data ?? []) as TrancheDetail[],
+      adresseRuesParTranche,
       lignesSuivi: (lignesSuiviResult.data ?? []) as Record<string, unknown>[],
     } satisfies TravauxDashboardData;
   },
@@ -354,10 +428,13 @@ export const getPspEnrichissementCommandes = createServerFn({ method: "POST", st
         .in("commande_id", data.commandeIds),
     ]);
     if (commandesResult.error) return [];
-    return fusionnerEnrichissement(
+    const commandes = fusionnerEnrichissement(
       (commandesResult.data ?? []) as CommandeTravaux[],
       (enrichiesResult.error ? [] : (enrichiesResult.data ?? [])) as Record<string, unknown>[],
     );
+    // V8.17 — lot résolu (Historique CMD puis ER de la ligne suivi) pour la fiche commande.
+    await attacherLotsResolus(db, commandes);
+    return commandes;
   });
 
 export const updateCommandeTravaux = createServerFn({ method: "POST" })
@@ -567,4 +644,108 @@ export const resolveHistoriqueTravaux = createServerFn({ method: "POST" })
     }
 
     return updated;
+  });
+
+/**
+ * V8.16t — RÉSOLUTION GROUPÉE des conflits d'import (/import-travaux « conflits à valider »).
+ * Chaque résolution cible une ligne `travaux_import_details` de type "conflit" :
+ *  · keepVersion "B" → la NOUVELLE version (fichier, `details.apres`) est appliquée sur la commande ;
+ *  · keepVersion "A" → l'ANCIENNE version est conservée (aucun UPDATE, conflit simplement résolu).
+ * Dans les deux cas le conflit `travaux_commandes_historique` est marqué résolu + trace "resolution".
+ */
+export const resoudreConflitsImport = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z
+      .object({
+        importId: z.string().uuid(),
+        resolutions: z
+          .array(
+            z.object({
+              detailId: z.string().uuid(),
+              keepVersion: z.enum(["A", "B"]),
+            }),
+          )
+          .min(1),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    let validees = 0;
+    let conservees = 0;
+
+    for (const r of data.resolutions) {
+      // 1. Détail du conflit (proposition de l'import).
+      const { data: detail, error: dErr } = await db
+        .from("travaux_import_details")
+        .select("*")
+        .eq("id", r.detailId)
+        .single();
+      if (dErr || !detail) throw new Error(`Détail conflit introuvable (${r.detailId})`);
+      const commandeId = detail["commande_id"] as string | undefined;
+      if (!commandeId) throw new Error(`Détail conflit sans commande (${r.detailId})`);
+      const apres = (detail["details"]?.apres ?? {}) as Record<string, unknown>;
+
+      // 2. Appliquer la nouvelle version (B) sur la commande, colonnes réelles uniquement.
+      if (r.keepVersion === "B") {
+        const filtered = Object.fromEntries(
+          Object.entries(apres).filter(([key]) =>
+            (COMMANDE_UPDATABLE_COLUMNS as readonly string[]).includes(key),
+          ),
+        );
+        if (Object.keys(filtered).length > 0) {
+          const { error: upErr } = await db
+            .from("travaux_commandes")
+            .update(filtered)
+            .eq("id", commandeId);
+          if (upErr) throw new Error(`Mise à jour commande : ${upErr.message}`);
+        }
+        validees += 1;
+      } else {
+        conservees += 1;
+      }
+
+      // 3. Marquer le conflit d'historique le plus récent non résolu comme résolu.
+      const { data: conflits, error: cErr } = await db
+        .from("travaux_commandes_historique")
+        .select("*")
+        .eq("commande_id", commandeId)
+        .eq("operation", "conflit")
+        .eq("resolu", false)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (cErr) throw new Error(`Lecture conflit historique : ${cErr.message}`);
+      const conflit = (conflits ?? [])[0] as Record<string, unknown> | undefined;
+
+      if (conflit) {
+        const { error: resErr } = await db
+          .from("travaux_commandes_historique")
+          .update({ resolu: true })
+          .eq("id", conflit["id"]);
+        if (resErr) throw new Error(`Résolution historique : ${resErr.message}`);
+
+        // 4. Trace de résolution (la version écartée reste consultable via `avant`).
+        const trace = {
+          import_id: data.importId,
+          commande_id: commandeId,
+          operation: "resolution",
+          avant: conflit["avant"] ?? null,
+          apres: { ...apres, version_conservee: r.keepVersion === "A" ? "ancienne" : "nouvelle" },
+          resolu: true,
+        };
+        const { error: tErr } = await db.from("travaux_commandes_historique").insert(trace);
+        if (tErr) throw new Error(`Trace de résolution : ${tErr.message}`);
+      }
+
+      // V8.19 — supprime le détail « conflit » résolu : sans cela le dialogue re-listait
+      // indéfiniment les mêmes conflits après validation (impression « impossible à valider »).
+      const { error: delErr } = await db
+        .from("travaux_import_details")
+        .delete()
+        .eq("id", r.detailId);
+      if (delErr) throw new Error(`Nettoyage détail conflit : ${delErr.message}`);
+    }
+
+    return { validees, conservees };
   });

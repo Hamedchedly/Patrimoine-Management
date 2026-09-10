@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FILTRES_VIDES, type FiltresDetail, type PspOperation } from "@/lib/psp.prep";
+import { STATUT_LABELS } from "@/lib/psp.prep.v7";
 
 /**
  * Barre de filtres du mode Détail :
@@ -35,7 +36,8 @@ export default function PspDetailFilters({
     filters.tranche ||
     filters.charge_clientele ||
     filters.corps_etat ||
-    filters.annee;
+    filters.annee ||
+    filters.statut;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -50,8 +52,8 @@ export default function PspDetailFilters({
       </div>
       <FiltreSelect
         value={filters.categorie}
-        placeholder="C — GE/GT/CP"
-        options={["GE", "GT", "CP"]}
+        placeholder="C — GT/GE/CP"
+        options={["GT", "GE", "CP"]}
         onValueChange={(v) => onChange({ ...filters, categorie: v === "tous" ? "" : v })}
       />
       <FiltreSelect
@@ -72,6 +74,23 @@ export default function PspDetailFilters({
         options={corps}
         onValueChange={(v) => onChange({ ...filters, corps_etat: v === "tous" ? "" : v })}
       />
+      {/* V8.16x — filtre par statut structuré (a_definir / attente_agence / attente_confirmation). */}
+      <Select
+        value={filters.statut || "tous"}
+        onValueChange={(v) => onChange({ ...filters, statut: v === "tous" ? "" : v })}
+      >
+        <SelectTrigger className="h-8 w-auto min-w-[150px] text-xs">
+          <SelectValue placeholder="Statut" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="tous">Tous — Statut</SelectItem>
+          {Object.entries(STATUT_LABELS).map(([v, l]) => (
+            <SelectItem key={v} value={v}>
+              {l}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Button
         variant="ghost"
         size="sm"

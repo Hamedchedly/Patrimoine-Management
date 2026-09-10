@@ -108,6 +108,29 @@ export const getPspChargesClientele = createServerFn({ method: "GET" }).handler(
 });
 
 /**
+ * V8.16w — SOUS-SECTEURS RÉELS (synchronisés base patrimoine) : distincts depuis
+ * `tranches.sous_secteur` (actives) UNIQUEMENT. Le secteur (S11) N'EST PAS un
+ * sous-secteur (il regroupe tous les sous-secteurs) et ne doit JAMAIS y figurer.
+ * Les sous-secteurs proviennent du fichier ISIS patrimoine — jamais créés/modifiés
+ * manuellement. Source de vérité pour l'onglet « Chargés clientèle » des Paramètres
+ * (aligné sur la console PSP preparation-psp.tsx) : un sous-secteur présent en base
+ * est TOUJOURS listé, même sans CC.
+ */
+export const getSousSecteursConnus = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+  const db = supabaseAdmin as any;
+  const set = new Set<string>();
+
+  const { data: tranches } = await db.from("tranches").select("sous_secteur").eq("actif", true);
+  for (const t of (tranches ?? []) as Array<{ sous_secteur: string | null }>) {
+    const v = (t.sous_secteur ?? "").trim();
+    if (v) set.add(v);
+  }
+
+  return [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
+});
+
+/**
  * V4 — Lecture des VRAIS fichiers 2026 (programmation + suivi) via le MOTEUR
  * D'IMPORT EXISTANT (aucun parseur parallèle) :
  *  - programmation : `parseProgrammationWorkbook` (feuille « Prog 2026 ») ;

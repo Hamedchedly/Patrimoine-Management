@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import AppNavigation from "@/components/AppNavigation";
+import { BugReportLauncher } from "@/components/bugs/BugReportWidget";
 
 function NotFoundComponent() {
   return (
@@ -35,7 +36,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {}, [error]);
@@ -119,6 +120,8 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Navigation globale persistante (Phase 6, P1) — pôles métier. */}
       <AppNavigation />
+      {/* Bouton flottant universel « Signaler un bug » (V8.20). */}
+      <BugReportLauncher />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />

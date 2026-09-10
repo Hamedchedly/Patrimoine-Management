@@ -1,8 +1,11 @@
 /**
- * V7.5 §8 + V7.6 §9-11 + V7.7 §8 — RÉFÉRENTIEL CHARGÉ CLIENTÈLE.
+ * V7.5 §8 + V7.6 §9-11 + V7.7 §8 + V8.16w — RÉFÉRENTIEL CHARGÉ CLIENTÈLE.
  *  · consultation / modification / ajout / désactivation (service_role) ;
  *  · un même CC peut gérer plusieurs sous-secteurs (clé = sous_secteur) ;
- *  · le code sous-secteur reste celui du fichier patrimoine (jamais modifié) ;
+ *  · V8.16w — le code SOUS-SECTEUR est VERROUILLÉ (provient du fichier ISIS
+ *    patrimoine via `tranches.sous_secteur`, jamais créé/modifié manuellement) ;
+ *    seuls le NOM du CC (`charge_clientele`) et l'ID (`identifiant_personnel`,
+ *    format « 1ʳᵉ lettre du prénom + nom ») sont modifiables ;
  *  · signale les sous-secteurs du patrimoine sans CC renseigné ;
  *  · `onChanged` permet d'invalider la référence (rafraîchissement du CC partout).
  */
@@ -38,13 +41,6 @@ type LigneEditable = {
   identifiantPersonnel: string;
   actif: boolean;
 };
-
-const LIGNE_VIDE = (): LigneEditable => ({
-  sousSecteur: "",
-  chargeClientele: "",
-  identifiantPersonnel: "",
-  actif: true,
-});
 
 /**
  * V7.7 §7 — CORPS réutilisable (table + ajout + actions) : affiché dans la
@@ -156,13 +152,16 @@ export function ReferentielChargesClienteleBody({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-24 text-[10px] font-black uppercase tracking-widest">
+              <TableHead className="w-20 text-[10px] font-black uppercase tracking-widest">
                 Sous-secteur
+              </TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest">
+                CC (nom)
               </TableHead>
               <TableHead className="text-[10px] font-black uppercase tracking-widest">
                 ID CC
               </TableHead>
-              <TableHead className="w-44 text-[10px] font-black uppercase tracking-widest">
+              <TableHead className="w-52 text-[10px] font-black uppercase tracking-widest">
                 Actions
               </TableHead>
             </TableRow>
@@ -170,26 +169,32 @@ export function ReferentielChargesClienteleBody({
           <TableBody>
             {charge ? (
               <TableRow>
-                <TableCell colSpan={3} className="py-3 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={4} className="py-3 text-center text-xs text-muted-foreground">
                   Chargement…
                 </TableCell>
               </TableRow>
             ) : null}
             {!charge && lignes.length === 0 && !edition ? (
               <TableRow>
-                <TableCell colSpan={3} className="py-3 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={4} className="py-3 text-center text-xs text-muted-foreground">
                   Aucune entrée — le référentiel n'est pas encore renseigné.
                 </TableCell>
               </TableRow>
             ) : null}
             {edition ? (
               <TableRow className="bg-primary/5">
+                <TableCell
+                  className="font-mono text-xs font-bold"
+                  title="Code sous-secteur (fichier ISIS) — non modifiable"
+                >
+                  {edition.sousSecteur}
+                </TableCell>
                 <TableCell>
                   <Input
-                    value={edition.sousSecteur}
-                    onChange={(e) => setEdition({ ...edition, sousSecteur: e.target.value })}
-                    placeholder="2"
-                    className="h-7 w-16 font-mono text-xs"
+                    value={edition.chargeClientele}
+                    onChange={(e) => setEdition({ ...edition, chargeClientele: e.target.value })}
+                    placeholder="Nom du chargé clientèle"
+                    className="h-7 text-xs"
                   />
                 </TableCell>
                 <TableCell>
@@ -199,6 +204,7 @@ export function ReferentielChargesClienteleBody({
                       setEdition({ ...edition, identifiantPersonnel: e.target.value.toUpperCase() })
                     }
                     placeholder="CMICHEL"
+                    title="ID = 1ʳᵉ lettre du prénom + nom de famille (ex. CMICHEL)"
                     className="h-7 text-xs uppercase"
                   />
                 </TableCell>
@@ -237,6 +243,9 @@ export function ReferentielChargesClienteleBody({
               lignes.map((l) => (
                 <TableRow key={l.sous_secteur}>
                   <TableCell className="font-mono text-xs font-bold">{l.sous_secteur}</TableCell>
+                  <TableCell className="text-xs font-semibold">
+                    {l.charge_clientele || "—"}
+                  </TableCell>
                   <TableCell className="font-mono text-xs font-bold uppercase">
                     {l.identifiant_personnel ?? "—"}
                   </TableCell>
@@ -270,6 +279,33 @@ export function ReferentielChargesClienteleBody({
                   </TableCell>
                 </TableRow>
               ))}
+            {/* V8.16u — sous-secteurs RÉELS (patrimoine/commandes) sans CC : visibles,
+                avec action « Ajouter un CC » (pré-remplit le sous-secteur). */}
+            {!charge &&
+              manquants.map((ss) => (
+                <TableRow key={`sans-cc:${ss}`} className="bg-amber-50/50">
+                  <TableCell className="font-mono text-xs font-bold">{ss}</TableCell>
+                  <TableCell className="text-xs italic text-muted-foreground">—</TableCell>
+                  <TableCell className="text-xs italic text-muted-foreground">—</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px]"
+                      onClick={() =>
+                        setEdition({
+                          sousSecteur: ss,
+                          chargeClientele: "",
+                          identifiantPersonnel: "",
+                          actif: true,
+                        })
+                      }
+                    >
+                      Ajouter un CC
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </div>
@@ -280,21 +316,13 @@ export function ReferentielChargesClienteleBody({
         </p>
       ) : null}
 
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setEdition(edition ? null : LIGNE_VIDE())}
-        >
-          {edition ? (
-            "Annuler l'ajout"
-          ) : (
-            <>
-              <Users className="size-3.5" /> Ajouter un sous-secteur
-            </>
-          )}
-        </Button>
-      </div>
+      {edition ? (
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={() => setEdition(null)}>
+            Annuler l'ajout
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

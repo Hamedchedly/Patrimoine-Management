@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { getMailModeles, type ModeleMail } from "@/lib/psp.mail.functions";
-import { MAIL_MODELES } from "@/lib/psp.suivi.foundation";
+import { JOURS_REPONSE_DEFAUT_MAIL, MAIL_MODELES } from "@/lib/psp.suivi.foundation";
 
 export const MAIL_MODELES_QUERY_KEY = ["mail-modeles"];
 
@@ -19,6 +19,7 @@ export const MODELES_REPLI: ModeleMail[] = MAIL_MODELES.map((m) => ({
   libelle: m.libelle,
   sujet: m.sujet,
   corps: m.corps,
+  delai_jours: m.delai_jours ?? JOURS_REPONSE_DEFAUT_MAIL,
 }));
 
 /** Modèles courants : base si présente, sinon repli constantes. */

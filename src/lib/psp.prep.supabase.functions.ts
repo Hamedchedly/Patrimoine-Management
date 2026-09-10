@@ -42,16 +42,34 @@ import {
 import {
   categorieDepuisCorpsEtat,
   detecterRecherchePatrimoine,
+  libelleAdressePerimetre,
   lotsDeAdresse,
   numerosDeRue,
   resumeSelectionAdresse,
   ruesDeTranche,
   type CorpsEtatReferentiel,
+  type LotInfo,
+  type PerimetreLigne,
 } from "./psp.prep.v7.ts";
 import { rueDe } from "./adresses.ts";
 import type { ChargesClienteleReferentiel } from "./psp.prep.data.ts";
 import { fusionnerProgramme } from "./psp.prep.ts";
 import { construireRevueAnciennesProgrammations } from "./psp.prep.suivi.ts";
+import { chargerLotsParRefs } from "./commande.rattachement.supabase.functions.ts";
+import type { LotPatrimoine } from "./commande.rattachement.lots.ts";
+
+/**
+ * V8.18 — Lots du référentiel correspondant à des codes ER (adresses des lignes devis).
+ * Lecture seule. Repli : [] si aucun code exploitable. Forme légère {code, adresse, ville}.
+ */
+export const getLotsParRefsEr = createServerFn({ method: "POST", strict: false })
+  .validator((d: unknown) => z.object({ refs: z.array(z.string()).max(400) }).parse(d))
+  .handler(async ({ data }): Promise<LotPatrimoine[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase-ext/client.server");
+    const db = supabaseAdmin as any;
+    const index = await chargerLotsParRefs(db, data.refs);
+    return [...index.values()];
+  });
 
 export type PspLignePersist = {
   id: string;
@@ -920,6 +938,44 @@ export const getCorpsEtats = createServerFn({ method: "POST" })
     const connus = new Set(resultat.map((r) => r.libelle));
     for (const l of (lignesPsp ?? []) as Array<Record<string, unknown>>) {
       const v = String(l["corps_etat"] ?? "").trim();
+      if (!v || connus.has(v)) continue;
+      connus.add(v);
+      resultat.push({
+        code: null,
+        libelle: v,
+        categorie: categorieDepuisCorpsEtat(v),
+        actif: true,
+      });
+    }
+
+    // 3. Union — V8.16u « synchronisé avec les commandes » : corps d'état réellement
+    //    utilisés dans les commandes (travaux_commandes), même hors référentiel.
+    const { data: corpsCommandes, error: errCmd } = await db
+      .from("travaux_commandes")
+      .select("corps_etat")
+      .not("corps_etat", "is", null);
+    if (errCmd) throw new Error(`Lecture des corps d'état commandes : ${errCmd.message}`);
+    for (const c of (corpsCommandes ?? []) as Array<Record<string, unknown>>) {
+      const v = String(c["corps_etat"] ?? "").trim();
+      if (!v || connus.has(v)) continue;
+      connus.add(v);
+      resultat.push({
+        code: null,
+        libelle: v,
+        categorie: categorieDepuisCorpsEtat(v),
+        actif: true,
+      });
+    }
+
+    // 4. Union — V8.16u « synchronisé avec les fournisseurs » : corps d'état des
+    //    activités fournisseurs (fournisseur_activites.corps_etat_libelle).
+    const { data: corpsFournisseurs, error: errFourn } = await db
+      .from("fournisseur_activites")
+      .select("corps_etat_libelle")
+      .not("corps_etat_libelle", "is", null);
+    if (errFourn) throw new Error(`Lecture des corps d'état fournisseurs : ${errFourn.message}`);
+    for (const a of (corpsFournisseurs ?? []) as Array<Record<string, unknown>>) {
+      const v = String(a["corps_etat_libelle"] ?? "").trim();
       if (!v || connus.has(v)) continue;
       connus.add(v);
       resultat.push({
@@ -1883,6 +1939,63 @@ export const getPspEntreprisesSuggestions = createServerFn({ method: "POST" })
 
 // ── V8.2 — SUIVI OPÉRATION : liste agrégée (batch, aucun N+1) ─────────────────
 
+/** V8.16z — charge les lots (id → code/adresse/ville) pour les lot_id des périmètres. */
+async function chargerLotsParId(
+  db: any,
+  perimetres: Array<{ lot_id?: string | null }>,
+): Promise<Map<string, LotInfo>> {
+  const lotIds = [
+    ...new Set(perimetres.map((p) => p.lot_id).filter((x): x is string => Boolean(x))),
+  ];
+  if (lotIds.length === 0) return new Map();
+  const { data, error } = await db
+    .from("lots")
+    .select("id, code_patrimoine, adresse, ville")
+    .in("id", lotIds)
+    .eq("actif", true);
+  if (error) throw new Error(`Lecture des lots : ${error.message}`);
+  return new Map(
+    (data ?? []).map((r: any) => [
+      r.id,
+      {
+        code_patrimoine: r.code_patrimoine ?? null,
+        adresse: r.adresse ?? null,
+        ville: r.ville ?? null,
+      },
+    ]),
+  );
+}
+
+/**
+ * V8.16z — adresse de rue d'une ligne depuis SON périmètre (lots ER résolus via
+ * la table `lots`, comme sur la page Préparation PSP). Pour un périmètre lot :
+ * `libelleAdressePerimetre` (ex. « 5 PSG DES ECOLES, CHESSY - ER.26141 ») ; sinon
+ * comportement historique (`adresseRueDepuisPerimetre`). Repli si aucun résultat.
+ */
+function adresseRueDepuisPerimetreLots(
+  perim: Array<{
+    niveau?: string | null;
+    rue?: string | null;
+    numero?: string | null;
+    lot_id?: string | null;
+  }>,
+  lotsParId: Map<string, LotInfo>,
+  repli: string | null,
+): string | null {
+  const aDesLots = perim.some((p) => p.niveau === "lot");
+  if (aDesLots) {
+    const libelle = libelleAdressePerimetre(perim as PerimetreLigne[], lotsParId, {
+      adresse: "",
+      ville: "",
+    });
+    return libelle || repli;
+  }
+  return (
+    adresseRueDepuisPerimetre(perim as Array<{ rue?: string | null; numero?: string | null }>) ??
+    repli
+  );
+}
+
 /**
  * getPspSuiviOperations — tableau du Suivi : toutes les opérations de la
  * dernière programmation officielle, agrégées (programmation + consultation +
@@ -2006,9 +2119,13 @@ export const getPspSuiviOperations = createServerFn({ method: "POST" })
       ccRows.map((r: any) => [r.sous_secteur, r.identifiant_personnel]),
     );
     const tranchePar: Map<string, any> = new Map(tranches.map((t: any) => [t.code, t]));
+    // V8.16z — lots du périmètre : adresse réelle des opérations (comme Préparation PSP).
+    const lotsParId = await chargerLotsParId(db, perimetres);
 
     const operations = (lignes ?? []).map((ligne: any) => {
       const tranche: any = tranchePar.get(ligne.tranche_code);
+      const perimLigne = perimetres.filter((p: any) => p.psp_ligne_id === ligne.id);
+      const adresseRue = adresseRueDepuisPerimetreLots(perimLigne, lotsParId, null);
       return construireSuiviOperation({
         ligne: {
           id: ligne.id,
@@ -2026,8 +2143,9 @@ export const getPspSuiviOperations = createServerFn({ method: "POST" })
           priorite: ligne.priorite,
           created_at: ligne.created_at,
           updated_at: ligne.updated_at,
+          etat_pilotage: ligne.etat_pilotage ?? null,
         },
-        perimetres: perimetres.filter((p: any) => p.psp_ligne_id === ligne.id),
+        perimetres: perimLigne,
         devis: devis.filter((d: any) => d.psp_ligne_id === ligne.id),
         liens: liens.filter((l: any) => l.psp_ligne_id === ligne.id),
         commandes: commandes as unknown as CommandeTravauxSuivi[],
@@ -2036,6 +2154,7 @@ export const getPspSuiviOperations = createServerFn({ method: "POST" })
           adresse: tranche
             ? [tranche.libelle, tranche.localite].filter(Boolean).join(" – ") || null
             : null,
+          adresseRue,
           cc: tranche?.sous_secteur ? (ccPar.get(tranche.sous_secteur) ?? null) : null,
           sous_secteur: tranche?.sous_secteur ?? null,
         },
@@ -2330,6 +2449,8 @@ export const getPspSuiviAnnuel = createServerFn({ method: "POST" })
     const lignesRegistre: LigneRegistreAnnuel[] = [];
     const perimPar: Record<string, unknown[]> = {};
     for (const p of perim) (perimPar[p.psp_ligne_id] ??= []).push(p);
+    // V8.16z — lots du périmètre : adresse réelle des lignes (comme Préparation PSP).
+    const lotsParId = await chargerLotsParId(db, perim);
 
     // A. Opérations PAT S11 : programmées sur l'année, hors PSP, liées à une
     //    commande de l'exercice, ou matérialisées par l'import (origine='suivi',
@@ -2385,6 +2506,7 @@ export const getPspSuiviAnnuel = createServerFn({ method: "POST" })
           priorite: ligne.priorite,
           created_at: ligne.created_at,
           updated_at: ligne.updated_at,
+          etat_pilotage: ligne.etat_pilotage ?? null,
         },
         perimetres: (perimPar[ligne.id] ?? []) as never,
         devis: devis.filter((d: any) => d.psp_ligne_id === ligne.id) as never,
@@ -2421,15 +2543,16 @@ export const getPspSuiviAnnuel = createServerFn({ method: "POST" })
           corpsEtat: ligne.corps_etat,
           nature: ligne.nature_travaux,
           adresse: vue.programmation.adresse,
-          adresseRue:
-            adresseRueDepuisPerimetre(
-              (perimPar[ligne.id] ?? []) as Array<{
-                rue?: string | null;
-                numero?: string | null;
-              }>,
-            ) ??
-            adresseParTranche.get(ligne.tranche_code) ??
-            null,
+          adresseRue: adresseRueDepuisPerimetreLots(
+            (perimPar[ligne.id] ?? []) as Array<{
+              niveau?: string | null;
+              rue?: string | null;
+              numero?: string | null;
+              lot_id?: string | null;
+            }>,
+            lotsParId,
+            adresseParTranche.get(ligne.tranche_code) ?? null,
+          ),
           ville:
             tranche?.localite ??
             villeParTranche.get(ligne.tranche_code) ??

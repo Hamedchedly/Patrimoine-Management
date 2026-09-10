@@ -10,12 +10,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckSquare, ChevronRight, Mail, RefreshCcw, Search, Send, Square, X } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckSquare,
+  ChevronRight,
+  Mail,
+  RefreshCcw,
+  Search,
+  Send,
+  Square,
+  X,
+} from "lucide-react";
 
 import PspFournisseurSearch, {
   type FournisseurSelection,
 } from "@/components/preparation-psp/PspFournisseurSearch";
-import { useMailModeles } from "@/lib/psp.mail.client";
+import { EtiquetteTranche } from "@/components/tranches/EtiquetteTranche";
+import { useMailModeles } from "@/lib/psp.mail.hooks";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,7 +53,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { money0 } from "@/lib/formats";
 import { secteurDe } from "@/lib/travaux";
-import { composerMail, construireMailto, dateRetourParDefaut } from "@/lib/psp.suivi.foundation";
+import {
+  JOURS_REPONSE_DEFAUT_MAIL,
+  codeLotDepuis,
+  composerMail,
+  construireMailto,
+  dateRetourParDefaut,
+} from "@/lib/psp.suivi.foundation";
 import { libelleEntrepriseAvecNumero } from "@/lib/psp.prep.v7";
 import { createPspDevis, getPspEntreprisesSuggestions } from "@/lib/psp.prep.supabase.functions";
 import {
@@ -165,31 +182,37 @@ function DialogueMailGroupe({
     }
   }, [ouvert]);
 
-  // V8.16o — UN seul mail : le corps réutilise le modèle « demande_devis » avec
-  // des variables MULTI-valeurs (chaque section liste toutes les opérations).
-  const modeleDemande = modeles.find((m) => m.id === "demande_devis") ??
-    modeles[0] ?? { id: "demande_devis", libelle: "Demande de devis", sujet: "", corps: "" };
-  const blocs = lignes
+  // V8.16r — UN seul mail, modèle dédié « demande_devis_groupe » (liste élaborée).
+  // Destinataires en CCI (bcc), date au format jj/mm/aaaa, délai du modèle.
+  const modeleGroupe = modeles.find((m) => m.id === "demande_devis_groupe") ??
+    modeles[0] ?? {
+      id: "demande_devis_groupe",
+      libelle: "Demande de devis groupée",
+      sujet: "Demande de devis – {N_OPERATIONS} opération(s)",
+      corps: "",
+      delai_jours: JOURS_REPONSE_DEFAUT_MAIL,
+    };
+  const delaiGroupe = modeleGroupe.delai_jours ?? JOURS_REPONSE_DEFAUT_MAIL;
+  const listeOperations = lignes
     .map((l, i) => {
-      const adresse = [l.adresse_rue ?? l.adresse, l.ville].filter(Boolean).join(", ");
-      return `${i + 1}. TR ${l.tranche} — ${adresse}\n   ${l.nature ?? "Travaux non précisés"}${
-        l.corps_etat ? ` · ${secteurDe({ corps_etat: l.corps_etat })} / ${l.corps_etat}` : ""
-      }`;
+      const adresse = [l.adresse_rue ?? l.adresse, l.ville].filter(Boolean).join(", ") || "—";
+      const codeLot = codeLotDepuis(l.nature);
+      return [
+        `${i + 1}. Référence patrimoine : ${l.tranche}`,
+        `   Adresse : ${adresse}`,
+        ...(codeLot ? [`   Code lot : ${codeLot}`] : []),
+        `   Nature des travaux : ${l.nature ?? "—"}`,
+        `   Corps d'état : ${l.corps_etat ?? "—"}`,
+      ].join("\n");
     })
     .join("\n");
-  const sujetCompose = composerMail(modeleDemande, {
-    TR: `${lignes.length} opération(s)`,
-    NATURE_TRAVAUX: lignes[0]?.tranche ?? "travaux",
+  const sujetCompose = composerMail(modeleGroupe, {
+    N_OPERATIONS: String(lignes.length),
   }).sujet;
-  const corpsCompose = composerMail(modeleDemande, {
-    TR: lignes.map((l) => l.tranche).join(", "),
-    NATURE_TRAVAUX: blocs,
-    CORPS_ETAT:
-      [...new Set(lignes.map((l) => l.corps_etat ?? "").filter(Boolean))].join(" · ") || "—",
-    ADRESSE: lignes
-      .map((l) => [l.adresse_rue ?? l.adresse, l.ville].filter(Boolean).join(", "))
-      .join("\n"),
-    DATE_RETOUR: dateRetourParDefaut(new Date()),
+  const corpsCompose = composerMail(modeleGroupe, {
+    N_OPERATIONS: String(lignes.length),
+    LISTE_OPERATIONS: listeOperations,
+    DATE_RETOUR: dateRetourParDefaut(new Date(), delaiGroupe),
   }).corps;
 
   useEffect(() => {
@@ -236,7 +259,8 @@ function DialogueMailGroupe({
     setEntrChoisies((prev) => prev.filter((e) => e.fournisseur_id !== id));
 
   const emails = entrChoisies.map((e) => e.email ?? "").filter((e) => e !== "");
-  const mailto = construireMailto({ email: emails.join(","), sujet, corps });
+  // V8.16r — envoi groupé en CCI (copie cachée) : les destinataires ne se voient pas.
+  const mailto = construireMailto({ bcc: emails.join(","), sujet, corps });
 
   // V8.16o — enregistrement psp_devis pour chaque couple (opération × entreprise),
   // même logique que l'envoi ligne par ligne (statut demande_envoyee, montant vide).
@@ -529,6 +553,7 @@ export default function TableauDemandesDevis({
   lignes,
   onOpen,
   onEnvoye,
+  etiquettesParTranche,
 }: {
   titre: string;
   sousTitre?: string;
@@ -536,6 +561,8 @@ export default function TableauDemandesDevis({
   onOpen: (l: LigneDemandeDevis) => void;
   /** V8.16o — rechargement après un envoi groupé (demandes enregistrées). */
   onEnvoye?: (() => Promise<void>) | undefined;
+  /** V8.18 — étiquettes des tranches (VEFA, RACHAT…) affichées sous le TR. */
+  etiquettesParTranche?: Record<string, string | null>;
 }) {
   // V8.10 — vue par défaut « Sans devis » (ce qui doit encore être demandé).
   const [avancement, setAvancement] = useState<AvancementDevis | "toutes">("sans_devis");
@@ -736,13 +763,31 @@ export default function TableauDemandesDevis({
                   <td className="px-2 py-1.5">
                     <span className="font-semibold">{l.ligne_budget || "—"}</span>
                   </td>
-                  <td className="px-2 py-1.5 font-bold">{l.tranche}</td>
+                  <td className="px-2 py-1.5">
+                    <span className="block font-bold">{l.tranche}</span>
+                    <EtiquetteTranche
+                      etiquette={
+                        etiquettesParTranche?.[l.tranche] ??
+                        (etiquettesParTranche ? null : undefined)
+                      }
+                      className="mt-0.5"
+                    />
+                  </td>
                   <td className="max-w-[200px] px-2 py-1.5">
                     <span
-                      className="block truncate text-[10px]"
-                      title={l.adresse_rue ?? l.adresse ?? ""}
+                      className="flex items-center gap-1"
+                      title={
+                        l.adresse_ambigu
+                          ? `${l.adresse_rue ?? l.adresse ?? ""}\n⚠ ${l.adresse_ambigu}`
+                          : (l.adresse_rue ?? l.adresse ?? "")
+                      }
                     >
-                      {l.adresse_rue ?? l.adresse ?? "—"}
+                      <span className="block truncate text-[10px]">
+                        {l.adresse_rue ?? l.adresse ?? "—"}
+                      </span>
+                      {l.adresse_ambigu ? (
+                        <AlertTriangle className="size-3 shrink-0 text-amber-500" />
+                      ) : null}
                     </span>
                   </td>
                   <td className="px-2 py-1.5">

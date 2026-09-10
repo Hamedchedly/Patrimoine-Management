@@ -9,7 +9,15 @@
  *  · le clic « Devis » ouvre la fiche sur la section Devis (focusDevis).
  */
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, FileText, History, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  History,
+  MapPin,
+  Trash2,
+} from "lucide-react";
 
 import PspDevisPanel, { type DevisEdit } from "@/components/preparation-psp/PspDevisPanel";
 import PspDemandeDevisWorkflow from "@/components/preparation-psp/PspDemandeDevisWorkflow";
@@ -38,7 +46,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { diffHistorique } from "@/lib/psp.prep.v7";
+import { diffHistorique, libelleAdresseLigne } from "@/lib/psp.prep.v7";
 import type { LotInfo, PerimetreLigne } from "@/lib/psp.prep.v7";
 import type { PspOperation, SaisieOperation } from "@/lib/psp.prep";
 import type { ReferencePatrimoine } from "@/lib/psp.prep.data";
@@ -95,6 +103,14 @@ export default function PspOperationDetail({
 
   if (!operation) return null;
 
+  // V8.18 — adresse de la ligne : ER (lot) prioritaire (périmètre puis texte) + interférence.
+  const resolueAdresse = libelleAdresseLigne(
+    perimetresLigne,
+    lotsParId ?? new Map<string, LotInfo>(),
+    operation.nature_travaux,
+    { adresse: operation.adresse ?? "", ville: operation.ville ?? "" },
+  );
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] w-[min(94vw,840px)] gap-0 p-0 sm:max-w-[840px]">
@@ -111,6 +127,26 @@ export default function PspOperationDetail({
                 priorité, notes, historique. Ch. Op. = HCHEDLY.
               </DialogDescription>
             </DialogHeader>
+
+            {/* V8.18 — adresse affichée : ER (lot) prioritaire + signal d'interférence. */}
+            <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-indigo-100 bg-indigo-50/40 px-3 py-2 text-xs">
+              <div className="flex items-start gap-2">
+                <MapPin className="mt-0.5 size-3.5 shrink-0 text-indigo-500" />
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">
+                    Adresse — ER prioritaire
+                  </p>
+                  <p className="mt-0.5 font-semibold text-slate-700" title={resolueAdresse.adresse}>
+                    {resolueAdresse.adresse}
+                  </p>
+                </div>
+              </div>
+              {resolueAdresse.ambiguite ? (
+                <span title={resolueAdresse.ambiguite} className="shrink-0">
+                  <AlertTriangle className="size-4 text-amber-500" aria-label="Interférence ER" />
+                </span>
+              ) : null}
+            </div>
 
             {/* Formulaire complet (embedded) */}
             <div className="mt-4">
@@ -145,7 +181,13 @@ export default function PspOperationDetail({
             {/* V8.2.1 — workflow demande de devis (suggestions + mailto + enregistrement) */}
             <div className="mt-3">
               <PspDemandeDevisWorkflow
-                operation={operation}
+                operation={{
+                  ...operation,
+                  // V8.16z — lots du périmètre (adresse/périmètre) de la ligne
+                  lots: perimetresLigne
+                    .filter((p) => p.niveau === "lot")
+                    .map((p) => ({ lot_id: p.lot_id, niveau: p.niveau })),
+                }}
                 figee={figee}
                 onEnvoye={onDemandeEnvoyee}
               />

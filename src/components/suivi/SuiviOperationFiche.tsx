@@ -71,6 +71,7 @@ import {
   deriverEtatSuiviAnnuel,
   etapesAvancement,
   ETAT_SUIVI_LABEL,
+  villeDepuisAdresse,
 } from "@/lib/psp.suivi.view";
 import { libelleEntreprise } from "@/lib/psp.prep.v7";
 import type { SuiviOperationVue } from "@/lib/psp.suivi.foundation";
@@ -360,6 +361,11 @@ export default function SuiviOperationFiche({
                     nature_travaux: p.nature,
                     corps_etat: p.corps_etat,
                     adresse: p.adresse,
+                    ville: villeDepuisAdresse(p.adresse),
+                    // V8.16z — lots du périmètre (adresse/périmètre) de la ligne
+                    lots: (operation.programmation.perimetre ?? [])
+                      .filter((x) => x.niveau === "lot")
+                      .map((x) => ({ lot_id: x.lot_id, niveau: x.niveau })),
                   }}
                   figee={false}
                   onEnvoye={refresh}

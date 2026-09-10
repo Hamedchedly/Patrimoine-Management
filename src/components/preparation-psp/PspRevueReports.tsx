@@ -250,7 +250,7 @@ export default function PspRevueReports({
             <FiltreSelect
               value={filtres.categorie}
               placeholder="C"
-              options={["GE", "GT", "CP"]}
+              options={["GT", "GE", "CP"]}
               onValueChange={(v) => setFiltres((p) => ({ ...p, categorie: v === "tous" ? "" : v }))}
             />
             <FiltreSelect

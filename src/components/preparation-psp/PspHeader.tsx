@@ -1,8 +1,23 @@
-import { useRef } from "react";
-import { CalendarRange, Download, FlaskConical, History, ScanSearch, Upload } from "lucide-react";
+import { useRef, useState } from "react";
+import {
+  CalendarRange,
+  Download,
+  FlaskConical,
+  HelpCircle,
+  History,
+  ScanSearch,
+  Upload,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /**
  * En-tête du module « Préparation PSP » :
@@ -29,6 +44,7 @@ export default function PspHeader({
   referenceResume: string | null;
 }) {
   const fichierRef = useRef<HTMLInputElement>(null);
+  const [esquisseAideOuverte, setEsquisseAideOuverte] = useState(false);
 
   return (
     <header className="sticky top-11 z-30 border-b bg-white/90 shadow-sm backdrop-blur-lg">
@@ -82,6 +98,15 @@ export default function PspHeader({
               <Upload className="size-3.5" />
               Esquisse 2027
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground"
+              onClick={() => setEsquisseAideOuverte(true)}
+              title="Colonnes attendues dans le fichier Esquisse 2027"
+            >
+              <HelpCircle className="size-4" />
+            </Button>
             <Button variant="outline" size="sm" onClick={onAncienneProgrammation}>
               <History className="size-3.5" />
               Ancienne programmation
@@ -101,6 +126,48 @@ export default function PspHeader({
           </div>
         </div>
       </div>
+
+      {/* V8.16x — aide : ordre des colonnes attendu par le parser Esquisse 2027. */}
+      <Dialog open={esquisseAideOuverte} onOpenChange={setEsquisseAideOuverte}>
+        <DialogContent className="w-[min(94vw,520px)] sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="size-4 text-primary" />
+              Fichier « Esquisse 2027 » — colonnes attendues
+            </DialogTitle>
+            <DialogDescription>
+              Ordre exact des colonnes du fichier Excel lu par le parser (ligne d'en-tête avec la
+              cellule « TR » ; les années sont des en-têtes numériques à 4 chiffres).
+            </DialogDescription>
+          </DialogHeader>
+          <ol className="space-y-1 text-sm">
+            {[
+              "TR (numéro de tranche)",
+              "Arl/sect (référence / secteur)",
+              "ADRESSE",
+              "Ville",
+              "C (catégorie budgétaire GT / GE / CP)",
+              "CORPS D'ÉTAT",
+              "Ch. Op. (charge d'opération)",
+              "Ligne budgétaire",
+              "NATURE TRAVAUX",
+              "Remarques",
+              "2027",
+              "2028",
+              "2029",
+              "2030",
+              "2031",
+            ].map((c, i) => (
+              <li key={c} className="flex gap-2">
+                <span className="w-6 shrink-0 text-right font-mono text-[10px] font-black text-primary">
+                  {i + 1}
+                </span>
+                <span className="font-medium">{c}</span>
+              </li>
+            ))}
+          </ol>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

@@ -1,24 +1,27 @@
-import { useState } from "react";
-import { Building2, Pencil } from "lucide-react";
+import { AlertTriangle, Building2, Pencil, Trash2 } from "lucide-react";
 
 import PspSecteurBadge from "@/components/preparation-psp/PspSecteurBadge";
+import { EtiquetteTranche } from "@/components/tranches/EtiquetteTranche";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { money0 } from "@/lib/formats";
 import { PSP_ANNEES, montantAnnee, totalOperation, type PspOperation } from "@/lib/psp.prep";
 import {
   PRIORITE_LABELS,
   STATUT_LABELS,
-  libelleAdressePerimetre,
+  libelleAdresseLigne,
   statutConsultationDepuisDevis,
   type LotInfo,
   type PerimetreLigne,
@@ -49,8 +52,10 @@ export default function PspOperationRow({
   onOpen,
   onModifier,
   onDevis,
-  onStatutPriorite,
-  onNotes,
+  onDelete,
+  editionActive,
+  onEditRequest,
+  etiquette,
 }: {
   op: PspOperation;
   perimetres: PerimetreLigne[];
@@ -59,16 +64,23 @@ export default function PspOperationRow({
   onModifier: (op: PspOperation) => void;
   /** V7.5 §10 — clic « Devis » : ouvre la fiche unique sur la section Devis. */
   onDevis: (op: PspOperation) => void;
-  onStatutPriorite: (id: string, patch: { statut?: string; priorite?: string }) => void;
-  onNotes: (id: string, remarques: string) => void;
+  /** V8.16y — suppression d'une ligne (bouton corbeille, confirmation AlertDialog). */
+  onDelete: (id: string) => void;
+  /** V8.16y — vrai si la ligne est éditée (formulaire complet étendu sous la ligne). */
+  editionActive: boolean;
+  /** V8.16y — clic simple → ouvre/ferme le formulaire d'édition complet sous la ligne. */
+  onEditRequest: () => void;
+  /** V8.18 — étiquette de la tranche (VEFA, RACHAT…) affichée sous le TR. */
+  etiquette?: string | null;
 }) {
-  const [editing, setEditing] = useState<{ statut?: boolean; priorite?: boolean }>({});
-  const [notes, setNotes] = useState(op.remarques ?? "");
-
-  const adresse = libelleAdressePerimetre(perimetres, lotsParId, {
+  // V8.18 — adresse de la ligne : priorité à l'ER (lot) réel (périmètre puis texte),
+  // avec détection d'interférence (ER du texte ≠ ER du périmètre).
+  const resolue = libelleAdresseLigne(perimetres, lotsParId, op.nature_travaux, {
     adresse: op.adresse,
     ville: op.ville,
   });
+  const adresse = resolue.adresse;
+  const adresseAmbigu = resolue.ambiguite;
   const statut = op.statut ?? "a_definir";
   const priorite = op.priorite ?? "normale";
   const nbDevis = op.devis.length;
@@ -79,18 +91,33 @@ export default function PspOperationRow({
 
   return (
     <TableRow
-      className="cursor-pointer transition-colors hover:bg-primary/5"
-      onClick={() => onOpen(op)}
-      title={`Ouvrir la fiche — ${op.nature_travaux}`}
+      className={cn(
+        "cursor-pointer transition-colors hover:bg-primary/5",
+        editionActive && "bg-primary/10",
+      )}
+      onClick={onEditRequest}
+      title="Cliquer pour modifier sur le tableau"
     >
-      <TableCell className="py-2 font-mono text-xs font-semibold">{op.tranche}</TableCell>
+      <TableCell className="py-2 font-mono text-xs font-semibold">
+        <span className="block">{op.tranche}</span>
+        <EtiquetteTranche etiquette={etiquette ?? null} className="mt-0.5" />
+      </TableCell>
       <TableCell className="py-2 text-xs font-medium">{op.charge_clientele}</TableCell>
       <TableCell className="max-w-[220px] py-2">
-        <span className="block truncate text-xs" title={adresse}>
-          {adresse}
+        <span
+          className="flex items-center gap-1"
+          title={adresseAmbigu ? `${adresse}\n⚠ ${adresseAmbigu}` : adresse}
+        >
+          <span className="block truncate text-xs">{adresse}</span>
+          {adresseAmbigu ? (
+            <AlertTriangle
+              className="size-3.5 shrink-0 text-amber-500"
+              aria-label="Interférence ER"
+            />
+          ) : null}
         </span>
       </TableCell>
-      <TableCell className="max-w-[160px] py-2">
+      <TableCell className="max-w-[180px] py-2">
         <span className="block truncate text-xs" title={op.corps_etat}>
           {op.corps_etat || "—"}
         </span>
@@ -147,99 +174,64 @@ export default function PspOperationRow({
         </button>
       </TableCell>
 
-      {/* Priorité — AVANT Statut : badge + sélecteur inline */}
+      {/* Priorité — affichage (édition via le formulaire étendu sous la ligne). */}
       <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-        {editing.priorite ? (
-          <Select
-            value={priorite}
-            onValueChange={(v) => {
-              onStatutPriorite(op.id, { priorite: v });
-              setEditing({ ...editing, priorite: false });
-            }}
-          >
-            <SelectTrigger className="h-7 w-[130px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(PRIORITE_LABELS).map(([v, l]) => (
-                <SelectItem key={v} value={v}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing({ ...editing, priorite: true })}
-            title="Cliquer pour modifier la priorité"
-          >
-            <Badge
-              className={cn("font-bold", PRIORITE_STYLES[priorite] ?? PRIORITE_STYLES["normale"])}
-            >
-              {PRIORITE_LABELS[priorite] ?? priorite}
-            </Badge>
-          </button>
-        )}
+        <Badge className={cn("font-bold", PRIORITE_STYLES[priorite] ?? PRIORITE_STYLES["normale"])}>
+          {PRIORITE_LABELS[priorite] ?? priorite}
+        </Badge>
       </TableCell>
 
-      {/* Statut / Notes — UNE seule cellule : statut structuré + texte libre */}
+      {/* Statut / Notes — affichage (édition via le formulaire étendu sous la ligne). */}
       <TableCell className="min-w-[180px] py-2" onClick={(e) => e.stopPropagation()}>
-        {editing.statut ? (
-          <Select
-            value={statut}
-            onValueChange={(v) => {
-              onStatutPriorite(op.id, { statut: v });
-              setEditing({ ...editing, statut: false });
-            }}
-          >
-            <SelectTrigger className="h-7 w-[150px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(STATUT_LABELS).map(([v, l]) => (
-                <SelectItem key={v} value={v}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing({ ...editing, statut: true })}
-            title="Cliquer pour modifier le statut"
-          >
-            <Badge className={cn("font-bold", STATUT_STYLES[statut] ?? STATUT_STYLES["a_definir"])}>
-              {STATUT_LABELS[statut] ?? statut}
-            </Badge>
-          </button>
-        )}
-        <Input
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => {
-            const value = notes.trim();
-            const actuelle = (op.remarques ?? "").trim();
-            if (value !== actuelle) onNotes(op.id, value);
-          }}
-          placeholder="Note libre…"
-          className="mt-1 h-7 text-xs"
-        />
+        <Badge className={cn("font-bold", STATUT_STYLES[statut] ?? STATUT_STYLES["a_definir"])}>
+          {STATUT_LABELS[statut] ?? statut}
+        </Badge>
+        <p
+          className="mt-1 truncate text-[11px] text-muted-foreground"
+          title={op.remarques ?? undefined}
+        >
+          {op.remarques || ""}
+        </p>
       </TableCell>
 
-      {/* Actions */}
+      {/* Actions — V8.16y : ouvrir la fiche + supprimer. L'édition se fait par un
+          clic simple → formulaire complet étendu sous la ligne (PspTable). */}
       <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"
             className="size-7 text-muted-foreground hover:text-primary"
-            title="Modifier (fiche unique : opération + devis + historique)"
+            title="Ouvrir la fiche opération (opération + devis + historique)"
             onClick={() => onModifier(op)}
           >
             <Pencil className="size-3.5" />
           </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 text-muted-foreground hover:text-destructive"
+                title="Supprimer la ligne"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer cette ligne ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {op.tranche} — {op.nature_travaux || "sans nature"}. Cette action est définitive
+                  (psp_lignes).
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(op.id)}>Supprimer</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </TableCell>
     </TableRow>

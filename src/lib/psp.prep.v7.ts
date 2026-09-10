@@ -21,6 +21,7 @@ import {
   type PspOperation,
 } from "./psp.prep.ts";
 import { entreeDe, rueDe } from "./adresses.ts";
+import { extraireErTexte, normaliserCodeEr } from "./commande.rattachement.lots.ts";
 // ── 1. Corps d'état → catégorie (mapping centralisé, réutilisable) ──────────────
 // Source : fichier de programmation 2026 réel (code lettre entre parenthèses).
 /** V7.5 §5 — types « garage » identifiés par le champ métier `lots.type_lot`. */
@@ -48,6 +49,7 @@ export const CORPS_ETAT_CATEGORIE: Record<string, PspCategorie> = {
   f: "GE",
   g: "GE",
   h: "GE",
+  i: "GE",
   j: "GE",
   // CP
   m: "CP",
@@ -75,7 +77,7 @@ export function corpsEtatsGroupes(
     const cat = categorieDepuisCorpsEtat(c);
     groupes.set(cat, [...(groupes.get(cat) ?? []), c]);
   }
-  return (["GE", "GT", "CP"] as PspCategorie[])
+  return (["GT", "GE", "CP"] as PspCategorie[])
     .map((categorie) => ({
       categorie,
       items: [...(groupes.get(categorie) ?? [])].sort((a, b) => a.localeCompare(b, "fr")),
@@ -417,6 +419,102 @@ export function libelleAdressePerimetre(
   return parts.join(" ; ");
 }
 
+// ── 8bis. Adresse d'une ligne PSP : ER (lot) prioritaire + détection texte ──────
+
+/** Index code patrimoine → LotInfo (depuis lotsParId, valeurs). */
+const indexLotsParCode = (lotsParId: Map<string, LotInfo>): Map<string, LotInfo> => {
+  const index = new Map<string, LotInfo>();
+  for (const l of lotsParId.values()) {
+    if (!l.code_patrimoine) continue;
+    const cle = normaliserCodeEr(l.code_patrimoine);
+    if (cle && !index.has(cle)) index.set(cle, l);
+  }
+  return index;
+};
+
+export type AdresseLigneResolue = {
+  adresse: string;
+  /** Interférence : ER du texte ≠ ER du périmètre (null sinon). */
+  ambiguite: string | null;
+};
+
+/**
+ * V8.18 — ADRESSE d'une ligne PSP / demande de devis : privilégie l'ER (lot) réel.
+ *  1. lots du PÉRIMÈTRE (niveau lot) → adresse du/des lots (format « adresse - ER.xxx ») ;
+ *  2. sinon, ER détecté dans le texte (nature/descriptif) et résolu dans `lots` ;
+ *  3. interférence : ER du texte ≠ ER du périmètre → `ambiguite` renseignée (l'adresse
+ *     affichée reste celle du périmètre, source structurée prioritaire) ;
+ *  4. repli : adresse/ville de la tranche (contexte).
+ * Pure — ne modifie aucune donnée.
+ */
+export function libelleAdresseLigne(
+  perimetres: PerimetreLigne[],
+  lotsParId: Map<string, LotInfo>,
+  texte: string | null | undefined,
+  contexte: { adresse: string; ville: string },
+): AdresseLigneResolue {
+  const lotsPerimetre: LotInfo[] = [];
+  for (const p of perimetres) {
+    if (p.niveau !== "lot" || !p.lot_id) continue;
+    const lot = lotsParId.get(p.lot_id);
+    if (lot) lotsPerimetre.push(lot);
+  }
+
+  const indexParCode = indexLotsParCode(lotsParId);
+  const lotsTexte: LotInfo[] = [];
+  for (const ref of extraireErTexte(texte)) {
+    const lot = indexParCode.get(normaliserCodeEr(ref));
+    if (lot && !lotsTexte.includes(lot)) lotsTexte.push(lot);
+  }
+
+  const adresseTranche = [contexte.adresse, contexte.ville].filter(Boolean).join(", ") || "—";
+
+  // 1) Périmètre avec des lots → adresse du/des lots + détection d'interférence texte.
+  if (lotsPerimetre.length > 0) {
+    const libelle = libelleAdressePerimetre(perimetres, lotsParId, contexte);
+    const codesPerim = new Set(lotsPerimetre.map((l) => l.code_patrimoine));
+    const codesTexte = lotsTexte.filter(
+      (l) => l.code_patrimoine && !codesPerim.has(l.code_patrimoine),
+    );
+    const ambiguite =
+      codesTexte.length > 0
+        ? `ER du texte (${codesTexte
+            .map((l) => l.code_patrimoine)
+            .filter(Boolean)
+            .join(", ")}) ≠ ER du périmètre (${[...codesPerim].filter(Boolean).join(", ")})`
+        : null;
+    return { adresse: libelle, ambiguite };
+  }
+
+  // 2) Aucun lot au périmètre mais un ER résolu dans le texte → adresse de ces lots.
+  if (lotsTexte.length > 0) {
+    const groupes = new Map<string, { base: string; ville: string; codes: string[] }>();
+    for (const lot of lotsTexte) {
+      const base = lot.adresse ?? contexte.adresse;
+      const ville = lot.ville ?? contexte.ville;
+      const cle = `${base}|${ville}`;
+      const g = groupes.get(cle) ?? { base, ville, codes: [] };
+      if (lot.code_patrimoine) g.codes.push(lot.code_patrimoine);
+      groupes.set(cle, g);
+    }
+    const parts: string[] = [];
+    for (const g of groupes.values()) {
+      parts.push(
+        adresseExportPatrimoine({
+          niveau: "lot",
+          adresseReference: g.base,
+          ville: g.ville,
+          lots: g.codes.map((c) => ({ code_patrimoine: c })),
+        }),
+      );
+    }
+    return { adresse: parts.join(" ; "), ambiguite: null };
+  }
+
+  // 3) Repli : adresse de la tranche (aucun ER exploitable).
+  return { adresse: adresseTranche, ambiguite: null };
+}
+
 // ── 9. Construction du périmètre patrimonial depuis la sélection UI (pure) ─────
 /** Extrait le numéro d'une entrée : « 25-27 RUE DE RUZE » → « 25-27 ». */
 export function numeroDeEntree(entree: string): string {
@@ -586,7 +684,7 @@ export function corpsEtatsGroupesReferentiel(
     .filter((r) => r.actif)
     .filter((r) => !filtre || r.libelle.toLowerCase().includes(filtre))
     .map((r) => r.libelle);
-  return (["GE", "GT", "CP"] as PspCategorie[])
+  return (["GT", "GE", "CP"] as PspCategorie[])
     .map((categorie) => ({
       categorie,
       items: actifs

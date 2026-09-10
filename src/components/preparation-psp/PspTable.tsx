@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 
 import PspDetailFilters from "@/components/preparation-psp/PspDetailFilters";
 import PspOperationRow from "@/components/preparation-psp/PspOperationRow";
+import PspOperationRowEdit from "@/components/preparation-psp/PspOperationRowEdit";
 import PspQuickAddRow from "@/components/preparation-psp/PspQuickAddRow";
 import type { ModeAffichage } from "@/components/preparation-psp/PspGroupingSelector";
 import {
@@ -24,6 +25,7 @@ import {
   type CleTri,
   type FiltresDetail,
   type PspOperation,
+  type SaisieOperation,
 } from "@/lib/psp.prep";
 import type { LotInfo, PerimetreLigne } from "@/lib/psp.prep.v7";
 import type { ReferencePatrimoine } from "@/lib/psp.prep.data";
@@ -36,10 +38,13 @@ const FILTRES_VIDES: FiltresDetail = {
   charge_clientele: "",
   corps_etat: "",
   annee: "",
+  statut: "",
 };
 
 const filtersActive = (f: FiltresDetail): boolean =>
-  Boolean(f.q || f.categorie || f.tranche || f.charge_clientele || f.corps_etat || f.annee);
+  Boolean(
+    f.q || f.categorie || f.tranche || f.charge_clientele || f.corps_etat || f.annee || f.statut,
+  );
 
 /** Colonnes descriptives (avant les années) : TR CC Adresse Corps C Nature. */
 const NB_COLS_DESCRIPTIVES = 6;
@@ -96,13 +101,14 @@ export default function PspTable({
   onOpenOperation,
   onModifier,
   onDevis,
-  onStatutPriorite,
-  onNotes,
+  onEditInline,
+  onDelete,
   perimetresParLigne,
   lotsParId,
   quickAdd,
   figee,
   reference = null,
+  etiquettesParTranche,
 }: {
   mode: ModeAffichage;
   operations: PspOperation[];
@@ -111,8 +117,9 @@ export default function PspTable({
   onOpenOperation: (op: PspOperation) => void;
   onModifier: (op: PspOperation) => void;
   onDevis: (op: PspOperation) => void;
-  onStatutPriorite: (id: string, patch: { statut?: string; priorite?: string }) => void;
-  onNotes: (id: string, remarques: string) => void;
+  /** V8.16y — enregistrement du formulaire complet étendu (périmètre, montants, tranche…). */
+  onEditInline: (op: PspOperation, saisie: SaisieOperation) => void;
+  onDelete: (id: string) => void;
   perimetresParLigne: Map<string, PerimetreLigne[]>;
   lotsParId: Map<string, LotInfo>;
   quickAdd: {
@@ -122,8 +129,44 @@ export default function PspTable({
   } | null;
   figee: boolean;
   reference?: ReferencePatrimoine | null;
+  /** V8.18 — étiquettes des tranches (VEFA, RACHAT…) : code → etiquette. */
+  etiquettesParTranche?: Record<string, string | null>;
 }) {
   const [tri, setTri] = useState<{ cle: CleTri; asc: boolean } | null>(null);
+  // V8.16y (partie 2) — ligne en cours d'édition : ses CASES sont débloquées
+  // (comme la ligne d'ajout), pas de gros formulaire étendu.
+  const [editionId, setEditionId] = useState<string | null>(null);
+
+  /** Rend la ligne d'une opération : la ligne ÉDITABLE si elle est en cours
+   *  d'édition (cases débloquées, type saisie directe), sinon la ligne affichage. */
+  const renderLigne = (op: PspOperation) =>
+    op.id === editionId ? (
+      <PspOperationRowEdit
+        op={op}
+        reference={reference}
+        perimetres={perimetresParLigne.get(op.id) ?? []}
+        lotsParId={lotsParId}
+        figee={figee}
+        onSave={(saisie) => {
+          onEditInline(op, saisie);
+          setEditionId(null);
+        }}
+        onCancel={() => setEditionId(null)}
+      />
+    ) : (
+      <PspOperationRow
+        op={op}
+        perimetres={perimetresParLigne.get(op.id) ?? []}
+        lotsParId={lotsParId}
+        onOpen={onOpenOperation}
+        onModifier={onModifier}
+        onDevis={onDevis}
+        onDelete={onDelete}
+        editionActive={false}
+        onEditRequest={() => setEditionId(op.id)}
+        etiquette={etiquettesParTranche?.[op.tranche] ?? null}
+      />
+    );
 
   const filtrees = useMemo(() => filtrerOperations(operations, filters), [operations, filters]);
   const triees = useMemo(
@@ -214,19 +257,7 @@ export default function PspTable({
             ) : null}
 
             {mode === "detail"
-              ? triees.map((op) => (
-                  <PspOperationRow
-                    key={op.id}
-                    op={op}
-                    perimetres={perimetresParLigne.get(op.id) ?? []}
-                    lotsParId={lotsParId}
-                    onOpen={onOpenOperation}
-                    onModifier={onModifier}
-                    onDevis={onDevis}
-                    onStatutPriorite={onStatutPriorite}
-                    onNotes={onNotes}
-                  />
-                ))
+              ? triees.map((op) => <Fragment key={op.id}>{renderLigne(op)}</Fragment>)
               : null}
 
             {mode === "tranche"
@@ -242,16 +273,7 @@ export default function PspTable({
                             .join(" — ")}
                         />
                       ) : null}
-                      <PspOperationRow
-                        op={op}
-                        perimetres={perimetresParLigne.get(op.id) ?? []}
-                        lotsParId={lotsParId}
-                        onOpen={onOpenOperation}
-                        onModifier={onModifier}
-                        onDevis={onDevis}
-                        onStatutPriorite={onStatutPriorite}
-                        onNotes={onNotes}
-                      />
+                      {renderLigne(op)}
                     </Fragment>
                   );
                 })
@@ -270,16 +292,7 @@ export default function PspTable({
                           label={op.charge_clientele || "Sans chargé de clientèle"}
                         />
                       ) : null}
-                      <PspOperationRow
-                        op={op}
-                        perimetres={perimetresParLigne.get(op.id) ?? []}
-                        lotsParId={lotsParId}
-                        onOpen={onOpenOperation}
-                        onModifier={onModifier}
-                        onDevis={onDevis}
-                        onStatutPriorite={onStatutPriorite}
-                        onNotes={onNotes}
-                      />
+                      {renderLigne(op)}
                     </Fragment>
                   );
                 })

@@ -284,7 +284,7 @@ export const importTravauxBatch = createServerFn({ method: "POST" })
       ...new Set(data.commandes.map((row) => row.tranche_code).filter(Boolean)),
     ];
     const { data: tranches, error: trancheError } = trancheCodes.length
-      ? await db.from("tranches").select("code").in("code", trancheCodes)
+      ? await db.from("tranches").select("code, sous_secteur").in("code", trancheCodes)
       : { data: [], error: null };
     if (trancheError) throw new Error(`Validation des tranches : ${trancheError.message}`);
     const validTranches = new Set((tranches ?? []).map((row: { code: string }) => row.code));
@@ -468,7 +468,75 @@ export const importTravauxBatch = createServerFn({ method: "POST" })
           `Détail conflit ${source.numero_commande} : ${conflitDetail.error.message}`,
         );
     }
-    return { creees, modifiees: 0, conflits, reports, inchangees, ignorees };
+    // ── V8.16w — SYNC RÉFÉRENTIEL CC (état COURANT = dernière année de suivi) ──
+    // Les CC en cours se basent sur la DERNIÈRE année de suivi annuel : un réimport
+    // d'un vieux fichier (ex. 2023) ne doit PAS toucher le référentiel. Le fichier
+    // ANM ne contient que l'ID CC (colonne G) + le n° de tranche → le sous-secteur
+    // est dérivé via `tranches`. Les commandes historiques ne sont jamais modifiées.
+    let ccChanges: Array<{ sousSecteur: string; ancien: string | null; nouveau: string }> = [];
+    {
+      const { data: maxRow } = await db
+        .from("travaux_commandes")
+        .select("annee_exercice")
+        .order("annee_exercice", { ascending: false })
+        .limit(1);
+      const maxAnnee = maxRow?.[0]?.annee_exercice ?? 0;
+      const anneeImport = data.annee_exercice ?? 0;
+      if (anneeImport >= maxAnnee) {
+        const ssParTranche = new Map<string, string>();
+        for (const t of (tranches ?? []) as Array<{ code: string; sous_secteur: string | null }>) {
+          if (t.sous_secteur) ssParTranche.set(t.code, t.sous_secteur);
+        }
+        // Fréquence (tranche → CC) puis mode (ID le plus fréquent) par sous-secteur.
+        const freq = new Map<string, Map<string, number>>();
+        for (const source of data.commandes) {
+          const cc = String(source["charge_clientele"] ?? "")
+            .trim()
+            .toUpperCase();
+          const tranche = String(source["tranche_code"] ?? "");
+          const ss = ssParTranche.get(tranche);
+          if (!cc || !ss) continue;
+          if (!freq.has(ss)) freq.set(ss, new Map());
+          const m = freq.get(ss);
+          if (!m) continue;
+          m.set(cc, (m.get(cc) ?? 0) + 1);
+        }
+        if (freq.size > 0) {
+          const { data: existants } = await db
+            .from("psp_charges_clientele")
+            .select("sous_secteur, charge_clientele, identifiant_personnel, actif");
+          const parSs = new Map(
+            ((existants ?? []) as Array<Record<string, unknown>>).map((r) => [
+              String(r["sous_secteur"] ?? ""),
+              r,
+            ]),
+          );
+          ccChanges = [];
+          for (const [ss, m] of [...freq.entries()]) {
+            const meilleur = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+            if (!meilleur) continue;
+            const nouveau = meilleur[0];
+            const existant = parSs.get(ss) as Record<string, unknown> | undefined;
+            const ancien =
+              (existant && String(existant["identifiant_personnel"] ?? "").trim()) || null;
+            if (ancien !== nouveau) {
+              ccChanges.push({ sousSecteur: ss, ancien, nouveau });
+            }
+            const nom = (existant && String(existant["charge_clientele"] ?? "").trim()) || nouveau;
+            await db.from("psp_charges_clientele").upsert(
+              {
+                sous_secteur: ss,
+                charge_clientele: nom,
+                identifiant_personnel: nouveau,
+                actif: true,
+              },
+              { onConflict: "sous_secteur" },
+            );
+          }
+        }
+      }
+    }
+    return { creees, modifiees: 0, conflits, reports, inchangees, ignorees, ccChanges };
   });
 
 export const failTravauxImport = createServerFn({ method: "POST" })

@@ -67,9 +67,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   getFournisseurDetail,
   saveActivitesManuelles,
-  toggleFournisseurFavori,
   updateFournisseur,
 } from "@/lib/fournisseurs.functions";
+import { useFavorisLocal } from "@/lib/fournisseurs.favoris.hooks";
 import {
   ORDRE_NIVEAU,
   PROFIL_BADGE,
@@ -170,25 +170,18 @@ function FournisseurFiche() {
   const changerAnnee = (a: number | null) =>
     navigate({ search: (prev) => ({ ...prev, annee: a ?? undefined }) });
   const fetchDetail = useServerFn(getFournisseurDetail);
-  const toggleFavori = useServerFn(toggleFournisseurFavori);
   const update = useServerFn(updateFournisseur);
   const queryClient = useQueryClient();
+  // V8.16s — favoris locaux (localStorage, aucune authentification requise).
+  const { estFavori, basculer: basculerFavori } = useFavorisLocal();
 
   const { data, isLoading } = useQuery({
     queryKey: ["fournisseur", fournisseurId, annee],
     queryFn: () => fetchDetail({ data: { id: fournisseurId, annee: annee ?? undefined } }),
   });
 
-  const onToggleFavori = async () => {
-    if (!data?.fournisseur?.id) return;
-    const res = (await toggleFavori({
-      data: { fournisseurId: data.fournisseur.id, favori: !data.favori },
-    })) as { ok: boolean; error?: string };
-    if (res.ok) {
-      queryClient.invalidateQueries({ queryKey: ["fournisseur", fournisseurId] });
-    } else {
-      toast.error(res.error ?? "Favori indisponible.");
-    }
+  const onToggleFavori = () => {
+    if (data?.fournisseur?.id) basculerFavori(data.fournisseur.id);
   };
 
   const updateMutation = useMutation({
@@ -438,7 +431,7 @@ function FournisseurFiche() {
     part_marche: number | null;
     part_marche_moyenne: number | null;
   } | null;
-  const favori = data?.favori === true;
+  const favori = estFavori(data?.fournisseur?.id);
   const anneeMax = (data?.annee_max as number | null) ?? null;
   const anneeSelect = annee ?? anneeMax;
   // Années disponibles pour le stepper KPI (historique déjà trié décroissant côté serveur).
@@ -470,9 +463,12 @@ function FournisseurFiche() {
         retour: fournisseurId,
       });
     }
-    if (c.patrimoine)
-      return construireSearchAdresses({ q: c.patrimoine, retour: fournisseurId });
-    return construireSearchAdresses({ ville: c.ville, tranche: c.tranche_code, retour: fournisseurId });
+    if (c.patrimoine) return construireSearchAdresses({ q: c.patrimoine, retour: fournisseurId });
+    return construireSearchAdresses({
+      ville: c.ville,
+      tranche: c.tranche_code,
+      retour: fournisseurId,
+    });
   };
 
   return (
@@ -1183,7 +1179,9 @@ function FournisseurFiche() {
                                   // Ouvre via l'URL (`?cmd=`) en FUSIONNANT avec les autres
                                   // paramètres (annee) — back-aware, la fermeture retire cmd.
                                   if (c.id)
-                                    navigate({ search: (prev) => ({ ...prev, cmd: c.id ?? undefined }) });
+                                    navigate({
+                                      search: (prev) => ({ ...prev, cmd: c.id ?? undefined }),
+                                    });
                                 }}
                                 className="font-semibold text-primary hover:underline"
                                 title="Ouvrir la fiche commande (sans quitter cette page)"

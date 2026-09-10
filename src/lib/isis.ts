@@ -129,11 +129,43 @@ export function parseIsisWorkbook(data: ArrayBuffer): ParsedIsis {
   const tranches = new Map<string, TrancheRow>();
   const lots = new Map<string, LotRow>();
   const occupants = new Map<string, OccupantRow>();
+  // V8.19 — `lots.locataire_*` = OCCUPANT ACTUEL : ligne du foyer avec la date d'entrée la plus
+  // récente (et un locataire renseigné). L'export contient une ligne par membre/bail successif :
+  // l'ancien code prenait la PREMIÈRE ligne du lot (locataire obsolète, ex. ER.26603).
+  const locataireBest = new Map<
+    string,
+    {
+      date: string | null;
+      nom: string | null;
+      tel: string | null;
+      email: string | null;
+      hasLoc: boolean;
+    }
+  >();
 
   for (const r of clean) {
     const trancheCode = txt(r[COL.tranche]);
     const code = txt(r[COL.code]);
     if (!trancheCode || !code) continue;
+
+    // Meilleure ligne « locataire » de ce lot (occupant actuel = date d'entrée max).
+    const dateEntree = iso(r[COL.dateEntree]);
+    const nomLoc = txt(r[COL.locataire]);
+    const hasLoc = Boolean(nomLoc);
+    const prevBest = locataireBest.get(code);
+    const meilleur =
+      !prevBest ||
+      (dateEntree ?? "") > (prevBest.date ?? "") ||
+      ((dateEntree ?? "") === (prevBest.date ?? "") && hasLoc && !prevBest.hasLoc);
+    if (meilleur) {
+      locataireBest.set(code, {
+        date: dateEntree,
+        nom: nomLoc,
+        tel: txt(r[COL.tel]),
+        email: txt(r[COL.email]),
+        hasLoc,
+      });
+    }
 
     if (!tranches.has(trancheCode)) {
       tranches.set(trancheCode, {
@@ -168,10 +200,11 @@ export function parseIsisWorkbook(data: ArrayBuffer): ParsedIsis {
         adresse: txt(r[COL.adresse]),
         code_postal: txt(r[COL.cp]),
         ville: txt(r[COL.ville]),
-        locataire_nom: txt(r[COL.locataire]),
-        locataire_telephone: txt(r[COL.tel]),
-        locataire_email: txt(r[COL.email]),
-        date_entree: iso(r[COL.dateEntree]),
+        // V8.19 — locataire renseigné après la boucle (occupant actuel du lot).
+        locataire_nom: null,
+        locataire_telephone: null,
+        locataire_email: null,
+        date_entree: null,
       });
       if (typeLot && /^\d+$/.test(typeLot)) {
         tranches.get(trancheCode)!.nb_logements += 1;
@@ -191,6 +224,15 @@ export function parseIsisWorkbook(data: ArrayBuffer): ParsedIsis {
         date_entree: iso(r[COL.dateEntree]),
       });
     }
+  }
+
+  // V8.19 — applique l'occupant ACTUEL (date d'entrée max) sur chaque lot.
+  for (const lot of lots.values()) {
+    const b = locataireBest.get(lot.code_patrimoine);
+    lot.locataire_nom = b?.nom ?? null;
+    lot.locataire_telephone = b?.tel ?? null;
+    lot.locataire_email = b?.email ?? null;
+    lot.date_entree = b?.date ?? null;
   }
 
   return {

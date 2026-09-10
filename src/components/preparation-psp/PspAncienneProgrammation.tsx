@@ -18,7 +18,7 @@ import {
   comparerProgrammation,
   type PspOperation,
   type StatutComparaison,
-} from "@/lib/psp.prep";
+} from "@/lib/psp/prep";
 import { cn } from "@/lib/utils";
 
 const simulé = (action: string) =>

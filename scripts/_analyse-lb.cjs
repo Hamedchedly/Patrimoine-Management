@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseTravauxWorkbook } from "../src/lib/travaux.ts";
+import { parseTravauxWorkbook } from "../src/lib/travaux/index.ts";
 
 const downloads = process.env.USERPROFILE + "\\Downloads";
 

@@ -16,7 +16,7 @@ import {
   grouperConsultationParEntreprise,
   relanceNecessairePourDevis,
   statutConsultationGlobal,
-} from "../src/lib/psp.suivi.foundation.ts";
+} from "../src/lib/psp/suivi.foundation.ts";
 
 let passed = 0;
 let failed = 0;

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * V8.9.1 â€” REVUE DES ANCIENNES PROGRAMMATIONS (lecture seule).
  *
  * Source de vÃ©ritÃ© : `psp_lignes.programme` (multi-annÃ©es) â€” une entrÃ©e par
@@ -29,8 +29,8 @@ import {
   ETAT_REVUE_ANCIENNE_LABEL,
   type EtatRevueAncienne,
   type RevueAncienneProgrammation,
-} from "@/lib/psp.prep.suivi";
-import { STATUT_CONSULTATION_PREP_LABELS, statutConsultationDepuisDevis } from "@/lib/psp.prep.v7";
+} from "@/lib/psp/prep.suivi";
+import { STATUT_CONSULTATION_PREP_LABELS, statutConsultationDepuisDevis } from "@/lib/psp/prep.v7";
 import { cn } from "@/lib/utils";
 
 const ETAT_BADGE: Record<EtatRevueAncienne, string> = {

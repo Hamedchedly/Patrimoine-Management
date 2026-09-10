@@ -9,7 +9,7 @@ import {
   refsErSuivi,
   resoudreRattachement,
   type LotPatrimoine,
-} from "../src/lib/commande.rattachement.lots.ts";
+} from "../src/lib/commande/rattachement.lots.ts";
 
 let ok = 0;
 let ko = 0;

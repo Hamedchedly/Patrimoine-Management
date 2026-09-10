@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { parseTravauxWorkbook } from "../src/lib/travaux.ts";
+import { parseTravauxWorkbook } from "../src/lib/travaux/index.ts";
 
 const dir = fileURLToPath(new URL("../data/2026/", import.meta.url));
 const FICHIER = "Suivi_Travaux_Secteur_2026.xlsx";

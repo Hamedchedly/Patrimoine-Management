@@ -6,7 +6,7 @@
 //  · le moteur ne rattache jamais automatiquement.
 // Exécution : node scripts/test-psp-v853.mjs
 // ═══════════════════════════════════════════════════════════════════════════════
-import { evaluerCorrespondance } from "../src/lib/psp.suivi.rapprochement.ts";
+import { evaluerCorrespondance } from "../src/lib/psp/suivi.rapprochement.ts";
 
 let passed = 0;
 let failed = 0;

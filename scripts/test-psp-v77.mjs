@@ -16,11 +16,11 @@ import {
   ENTETES_EXPORT_XLSX,
   creerOperation,
   PSP_ANNEES,
-} from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.ts";
 import {
   construireReferencePatrimoine,
   enrichirOperationsAvecReference,
-} from "../src/lib/psp.prep.data.ts";
+} from "../src/lib/psp/prep.data.ts";
 import {
   calculEnveloppe,
   libelleAdressePerimetre,
@@ -28,7 +28,7 @@ import {
   resumeSelectionAdresse,
   sansGarages,
   estLotGarage,
-} from "../src/lib/psp.prep.v7.ts";
+} from "../src/lib/psp/prep.v7.ts";
 
 let passed = 0;
 let failed = 0;

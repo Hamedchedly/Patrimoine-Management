@@ -28,9 +28,9 @@ import {
   libelleCcManquant,
   resumeSelectionAdresse,
   sansGarages,
-} from "../src/lib/psp.prep.v7.ts";
-import { construireReferencePatrimoine } from "../src/lib/psp.prep.data.ts";
-import { creerOperation } from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.v7.ts";
+import { construireReferencePatrimoine } from "../src/lib/psp/prep.data.ts";
+import { creerOperation } from "../src/lib/psp/prep.ts";
 
 let passed = 0;
 let failed = 0;

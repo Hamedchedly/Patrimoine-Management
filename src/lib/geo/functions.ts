@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { geocode, type GeoPoint } from "./geo";
+import { geocode, type GeoPoint } from "./index";
 
 /** Coordinates already cached in the database. */
 export const getAdressesGeo = createServerFn({ method: "GET" }).handler(async () => {

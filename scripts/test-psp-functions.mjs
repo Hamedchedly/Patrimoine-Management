@@ -16,7 +16,7 @@ import {
   savePspFeedbackSchema,
   resoudreContexteHerite,
   buildPspImportRowInsert,
-} from "../src/lib/psp.functions.ts";
+} from "../src/lib/psp/functions.ts";
 
 let passed = 0;
 let failed = 0;

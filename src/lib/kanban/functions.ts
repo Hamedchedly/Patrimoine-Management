@@ -9,8 +9,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { normaliserTexteKanban } from "./kanban.view";
-import type { CommandePasseeKanban } from "./kanban.view";
+import { normaliserTexteKanban } from "./view";
+import type { CommandePasseeKanban } from "./view";
 
 const exerciceSchema = z.object({
   exercice: z.number().int().min(2000).max(2100),

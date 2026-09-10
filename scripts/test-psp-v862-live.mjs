@@ -12,8 +12,8 @@
 //   · PURGE COMPLÈTE + intégrité stricte des tables d'import avant/après.
 import { createClient } from "@supabase/supabase-js";
 
-import { deriverEtatSuiviAnnuel } from "../src/lib/psp.suivi.view.ts";
-import { suggererOperationsPourCommande } from "../src/lib/psp.suivi.rapprochement.ts";
+import { deriverEtatSuiviAnnuel } from "../src/lib/psp/suivi.view.ts";
+import { suggererOperationsPourCommande } from "../src/lib/psp/suivi.rapprochement.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];

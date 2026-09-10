@@ -19,7 +19,7 @@ import {
   fusionnerProgramme,
   normaliserProgrammePersist,
   programmerAnnee,
-} from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = (p) => join(__dirname, "..", "src", p);

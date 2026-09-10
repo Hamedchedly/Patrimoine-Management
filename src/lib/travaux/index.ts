@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 
-import type { ImportTravaux } from "@/lib/travaux.dashboard.functions";
+import type { ImportTravaux } from "@/lib/travaux/dashboard.functions";
 
 export type CommandeTravaux = {
   numero_commande: string;

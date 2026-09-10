@@ -17,7 +17,7 @@ import {
   resoudreRattachement,
   type LotPatrimoine,
   type ResolutionRattachementLot,
-} from "./commande.rattachement.lots.ts";
+} from "./rattachement.lots.ts";
 
 /** Colonnes `lots` utilisées par le rattachement. */
 const SELECT_LOTS = "code_patrimoine, tranche_code, adresse, ville, actif";

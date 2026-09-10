@@ -11,8 +11,8 @@ import { createClient } from "@supabase/supabase-js";
 import {
   construireReferencePatrimoine,
   enrichirOperationsAvecReference,
-} from "../src/lib/psp.prep.data.ts";
-import { creerOperation } from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.data.ts";
+import { creerOperation } from "../src/lib/psp/prep.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];

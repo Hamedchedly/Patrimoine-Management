@@ -3,7 +3,7 @@ import { CircleMarker, Popup } from "react-leaflet";
 
 import { moneyCents } from "@/lib/formats";
 import LeafletMapShell from "@/components/map/LeafletMapShell";
-import type { VilleFournisseur } from "@/lib/fournisseurs.analyse";
+import type { VilleFournisseur } from "@/lib/fournisseurs/analyse";
 
 /**
  * Carte des villes d'un fournisseur — inspirée de la carte du Dashboard Travaux

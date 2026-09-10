@@ -18,7 +18,7 @@ import {
   proposerRapprochements,
   similariteDescriptif,
   tokensSignificatifs,
-} from "../src/lib/psp.suivi.rapprochement.ts";
+} from "../src/lib/psp/suivi.rapprochement.ts";
 
 let passed = 0;
 let failed = 0;

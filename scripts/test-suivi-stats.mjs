@@ -9,7 +9,7 @@ import {
   calculerStatsSuiviAnnuel,
   detecterLBIncoherentes,
   enveloppeBudgetaireSuivi,
-} from "../src/lib/travaux.suivi.stats.ts";
+} from "../src/lib/travaux/suivi.stats.ts";
 
 let passed = 0;
 let failed = 0;

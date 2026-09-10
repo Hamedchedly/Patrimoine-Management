@@ -6,8 +6,8 @@
 //  3. recherche ER → rue / numéro remplis (données déjà retournées, sans re-requête).
 // Exécution : node scripts/test-psp-v75.mjs
 // ═══════════════════════════════════════════════════════════════════════════════
-import { construireReferencePatrimoine } from "../src/lib/psp.prep.data.ts";
-import { estLotGarage, sansGarages } from "../src/lib/psp.prep.v7.ts";
+import { construireReferencePatrimoine } from "../src/lib/psp/prep.data.ts";
+import { estLotGarage, sansGarages } from "../src/lib/psp/prep.v7.ts";
 
 let passed = 0;
 let failed = 0;

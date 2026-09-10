@@ -22,7 +22,7 @@ import {
   totalOperation,
   totauxParCategorie,
   trierOperationsDetail,
-} from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.ts";
 
 let passed = 0;
 let failed = 0;

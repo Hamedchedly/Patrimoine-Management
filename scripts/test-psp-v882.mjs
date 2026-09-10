@@ -14,8 +14,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { libelleEntreprise } from "../src/lib/psp.prep.v7.ts";
-import { deriverEtatSuiviAnnuel } from "../src/lib/psp.suivi.view.ts";
+import { libelleEntreprise } from "../src/lib/psp/prep.v7.ts";
+import { deriverEtatSuiviAnnuel } from "../src/lib/psp/suivi.view.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = (p) => join(__dirname, "..", "src", p);

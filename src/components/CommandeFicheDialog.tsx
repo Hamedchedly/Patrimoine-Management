@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { libelleEntreprise } from "@/lib/fournisseurs";
 import { construireSearchAdresses } from "@/lib/adresses";
 import { money2 } from "@/lib/formats";
-import { getFournisseursPourCommandes } from "@/lib/fournisseurs.functions";
+import { getFournisseursPourCommandes } from "@/lib/fournisseurs/functions";
 import {
   construireCleMetierCommande,
   detecterIncoherenceNature,
@@ -30,12 +30,12 @@ import {
   formatDateCommandeFr,
   patrimoineAmbigue,
   type TypeDecisionPsp,
-} from "@/lib/psp.validation";
-import { secteurDe } from "@/lib/travaux.ts";
+} from "@/lib/psp/validation";
+import { secteurDe } from "@/lib/travaux";
 import {
   getPspEnrichissementCommandes,
   type CommandeTravauxEnrichie,
-} from "@/lib/travaux.dashboard.functions";
+} from "@/lib/travaux/dashboard.functions";
 
 /** Confiance (ratio → %) et statut du lien — affichage uniquement. */
 const confianceLabel = (v: number | null | undefined): string =>

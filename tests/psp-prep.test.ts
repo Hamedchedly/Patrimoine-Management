@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { construireProgrammeDepuisMontants } from "../src/lib/psp.prep.ts";
-import { categorieDepuisCorpsEtat, extraireCodeCorpsEtat } from "../src/lib/psp.prep.v7.ts";
+import { construireProgrammeDepuisMontants } from "../src/lib/psp/prep.ts";
+import { categorieDepuisCorpsEtat, extraireCodeCorpsEtat } from "../src/lib/psp/prep.v7.ts";
 
 test("extraireCodeCorpsEtat valide et catégorise correctement", () => {
   assert.equal(extraireCodeCorpsEtat("(u) Étanchéité"), "u");

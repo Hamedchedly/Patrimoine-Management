@@ -46,7 +46,7 @@ import {
   getVilles,
   type LotItem,
   type TravauxScope,
-} from "@/lib/isis.functions";
+} from "@/lib/isis/functions";
 import {
   adressesParTranche as adressesParTrancheLib,
   determinerLocataireActuel,
@@ -60,18 +60,18 @@ import {
   rechercherPatrimoine,
   type OccupantActuel,
 } from "@/lib/adresses";
-import { formatDateCommandeFr, extraireWNotes } from "@/lib/psp.validation";
+import { formatDateCommandeFr, extraireWNotes } from "@/lib/psp/validation";
 import {
   getPspEnrichissementCommandes,
   type CommandeTravauxEnrichie,
-} from "@/lib/travaux.dashboard.functions";
-import { getFournisseursPourCommandes } from "@/lib/fournisseurs.functions";
+} from "@/lib/travaux/dashboard.functions";
+import { getFournisseursPourCommandes } from "@/lib/fournisseurs/functions";
 import { libelleEntreprise } from "@/lib/fournisseurs";
 import type { FicheFournisseurInfo } from "@/components/CommandeFicheDialog";
 import CommandeFicheDialog from "@/components/CommandeFicheDialog";
 import PatrimoineSearch from "@/components/PatrimoineSearch";
 import { EtiquetteTranche, EtiquetteTrancheEditeur } from "@/components/tranches/EtiquetteTranche";
-import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
+import { useEtiquettesTranches } from "@/lib/tranches/etiquettes.hooks";
 
 // `z.coerce.string()` : TanStack Router JSON-parse les query params (« 1426 », « 1234 »)
 // arrivent en number → coerce les convertit en string sans casser le rendu (erreur 500 sinon).

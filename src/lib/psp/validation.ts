@@ -11,7 +11,7 @@
  *
  * Aucune écriture ici.
  */
-import type { PspClassificationResult } from "./psp.classification.ts";
+import type { PspClassificationResult } from "./classification.ts";
 
 // ── Priorité ────────────────────────────────────────────────────────────────
 

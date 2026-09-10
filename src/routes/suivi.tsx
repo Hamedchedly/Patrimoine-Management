@@ -18,7 +18,7 @@ import PspCorrespondanceCommandeDialog from "@/components/suivi/PspCorrespondanc
 import SuiviOperationFiche from "@/components/suivi/SuiviOperationFiche";
 import TableauDemandesDevis from "@/components/suivi/TableauDemandesDevis";
 import ModeleMailEditor from "@/components/preparation-psp/ModeleMailEditor";
-import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
+import { useEtiquettesTranches } from "@/lib/tranches/etiquettes.hooks";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { money0 } from "@/lib/formats";
@@ -26,8 +26,8 @@ import {
   getLotsParRefsEr,
   getPspSuiviAnnuel,
   getPspSuiviOperations,
-} from "@/lib/psp.prep.supabase.functions";
-import { extraireErTexte } from "@/lib/commande.rattachement.lots";
+} from "@/lib/psp/prep.supabase.functions";
+import { extraireErTexte } from "@/lib/commande/rattachement.lots";
 import {
   appliquerErAdresse,
   indexerLotsParCode,
@@ -38,8 +38,8 @@ import {
   type LigneDemandeDevis,
   type LigneRegistreAnnuel,
   type LotErLeger,
-} from "@/lib/psp.suivi.view";
-import type { SuiviOperationVue } from "@/lib/psp.suivi.foundation";
+} from "@/lib/psp/suivi.view";
+import type { SuiviOperationVue } from "@/lib/psp/suivi.foundation";
 
 export const Route = createFileRoute("/suivi")({
   head: () => ({

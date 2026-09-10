@@ -25,8 +25,8 @@ import {
   numerosDeRue,
   operationConcerneAnnee,
   ruesDeTranche,
-} from "../src/lib/psp.prep.v7.ts";
-import { trierOperationsDetail, valeurTriOperation } from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.v7.ts";
+import { trierOperationsDetail, valeurTriOperation } from "../src/lib/psp/prep.ts";
 
 const PASS = [];
 const FAIL = [];

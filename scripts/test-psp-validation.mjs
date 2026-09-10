@@ -15,8 +15,8 @@ import {
   detecterCorrectionsRecurrentes,
   detecterPmr,
   resoudrePerimetrePsp,
-} from "../src/lib/psp.validation.ts";
-import { classifierCommande, construireGroupesValidation } from "../src/lib/psp.classification.ts";
+} from "../src/lib/psp/validation.ts";
+import { classifierCommande, construireGroupesValidation } from "../src/lib/psp/classification.ts";
 
 let passed = 0;
 let failed = 0;

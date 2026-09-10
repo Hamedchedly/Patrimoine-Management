@@ -27,7 +27,7 @@ import {
   type PspAnnee,
   type PspCategorie,
   type PspOperation,
-} from "./psp.prep.ts";
+} from "./prep.ts";
 
 // ── Types des sources réelles ───────────────────────────────────────────────
 

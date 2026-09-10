@@ -32,14 +32,14 @@ import {
   type PspCategorie,
   type PspOperation,
   type SaisieOperation,
-} from "@/lib/psp.prep";
-import type { ReferencePatrimoine } from "@/lib/psp.prep.data";
+} from "@/lib/psp/prep";
+import type { ReferencePatrimoine } from "@/lib/psp/prep.data";
 import {
   PRIORITE_LABELS,
   STATUT_LABELS,
   type LotInfo,
   type PerimetreLigne,
-} from "@/lib/psp.prep.v7";
+} from "@/lib/psp/prep.v7";
 
 /** Chargé d'opération FIXE pour la programmation — jamais saisi. */
 const CHARGE_OPERATION = "HCHEDLY";

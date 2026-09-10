@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 import { createClient } from "@supabase/supabase-js";
 
-import { proposerRapprochements } from "../src/lib/psp.suivi.rapprochement.ts";
+import { proposerRapprochements } from "../src/lib/psp/suivi.rapprochement.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];

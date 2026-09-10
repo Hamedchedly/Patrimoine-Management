@@ -10,8 +10,8 @@ import {
   enrichirOperationsAvecReference,
   parseEsquisse2027Workbook,
   resoudreTranche,
-} from "../src/lib/psp.prep.data.ts";
-import { PSP_OPERATIONS, totalOperation } from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.data.ts";
+import { PSP_OPERATIONS, totalOperation } from "../src/lib/psp/prep.ts";
 
 let passed = 0;
 let failed = 0;
@@ -230,7 +230,7 @@ assert(
 
 // ── 4. Absence de mutation Supabase (lecture seule) ────────────────────────
 try {
-  const chemin = fileURLToPath(new URL("../src/lib/psp.prep.data.functions.ts", import.meta.url));
+  const chemin = fileURLToPath(new URL("../src/lib/psp/prep.data.functions.ts", import.meta.url));
   const source = readFileSync(chemin, "utf8");
   const interdits = [".insert(", ".update(", ".delete(", ".upsert(", ".rpc("];
   const trouves = interdits.filter((motif) => source.includes(motif));

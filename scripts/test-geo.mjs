@@ -1,6 +1,6 @@
 // V8.16h — Tests PURS de la validation de géocodage (normaliserVille / villeCorrespond).
 // Exécution : node scripts/test-geo.mjs
-import { normaliserVille, villeCorrespond } from "../src/lib/geo.ts";
+import { normaliserVille, villeCorrespond } from "../src/lib/geo/index.ts";
 
 let passed = 0;
 let failed = 0;

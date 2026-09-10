@@ -25,8 +25,8 @@ import {
   construireMailto,
   remplacerVariablesMail,
   recommanderEntreprises,
-} from "../src/lib/psp.suivi.foundation.ts";
-import { etatMetier } from "../src/lib/travaux.ts";
+} from "../src/lib/psp/suivi.foundation.ts";
+import { etatMetier } from "../src/lib/travaux/index.ts";
 
 let passed = 0;
 let failed = 0;

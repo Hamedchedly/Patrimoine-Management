@@ -7,7 +7,7 @@ import {
   rechercherNumerosRue,
   rechercherPatrimoineGlobal,
   rechercherRuesTranche,
-} from "@/lib/psp.prep.supabase.functions";
+} from "@/lib/psp/prep.supabase.functions";
 import {
   construirePerimetres,
   estLotGarage,
@@ -17,9 +17,9 @@ import {
   suggestionsLotsDepuisPerimetres,
   type LotInfo,
   type PerimetreLigne,
-} from "@/lib/psp.prep.v7";
+} from "@/lib/psp/prep.v7";
 import { entreeDe, rueDe } from "@/lib/adresses";
-import type { ReferencePatrimoine } from "@/lib/psp.prep.data";
+import type { ReferencePatrimoine } from "@/lib/psp/prep.data";
 
 export type SuggestionTranche = { code: string; libelle: string | null; localite: string | null };
 export type SuggestionLot = {

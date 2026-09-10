@@ -19,9 +19,9 @@ import {
   type PspAnnee,
   type PspCategorie,
   type PspOperation,
-} from "./psp.prep.ts";
-import { entreeDe, rueDe } from "./adresses.ts";
-import { extraireErTexte, normaliserCodeEr } from "./commande.rattachement.lots.ts";
+} from "./prep.ts";
+import { entreeDe, rueDe } from "../adresses.ts";
+import { extraireErTexte, normaliserCodeEr } from "../commande/rattachement.lots.ts";
 // ── 1. Corps d'état → catégorie (mapping centralisé, réutilisable) ──────────────
 // Source : fichier de programmation 2026 réel (code lettre entre parenthèses).
 /** V7.5 §5 — types « garage » identifiés par le champ métier `lots.type_lot`. */

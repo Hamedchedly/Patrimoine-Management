@@ -37,13 +37,13 @@ import {
   construirePerimetresDepuisSaisie,
   type PspAnnee,
   type PspCategorie,
-} from "@/lib/psp.prep";
+} from "@/lib/psp/prep";
 import {
   createPspOperationComplete,
   rechercherFournisseursDevis,
-} from "@/lib/psp.prep.supabase.functions";
-import { PRIORITE_LABELS, STATUT_LABELS, extraireCodeCorpsEtat } from "@/lib/psp.prep.v7";
-import type { ReferencePatrimoine } from "@/lib/psp.prep.data";
+} from "@/lib/psp/prep.supabase.functions";
+import { PRIORITE_LABELS, STATUT_LABELS, extraireCodeCorpsEtat } from "@/lib/psp/prep.v7";
+import type { ReferencePatrimoine } from "@/lib/psp/prep.data";
 
 const CHARGE_OPERATION = "HCHEDLY";
 

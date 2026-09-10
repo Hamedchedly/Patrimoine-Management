@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 import { createClient } from "@supabase/supabase-js";
 
-import { construireRevueAnciennesProgrammations } from "../src/lib/psp.prep.suivi.ts";
+import { construireRevueAnciennesProgrammations } from "../src/lib/psp/prep.suivi.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"] ?? process.env["EXT_SUPABASE_ANON_KEY"];

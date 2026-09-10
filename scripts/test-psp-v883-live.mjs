@@ -9,7 +9,7 @@
 //  · aucune écriture (lecture seule) ; tables d'import identiques avant/après.
 import { createClient } from "@supabase/supabase-js";
 
-import { exerciceLigneSuivi } from "../src/lib/psp.prep.supabase.functions.ts";
+import { exerciceLigneSuivi } from "../src/lib/psp/prep.supabase.functions.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"] ?? process.env["EXT_SUPABASE_ANON_KEY"];

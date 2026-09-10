@@ -10,8 +10,8 @@ import { Search, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 
 import { Input } from "@/components/ui/input";
-import { rechercherFournisseursDevis } from "@/lib/psp.prep.supabase.functions";
-import { libelleEntreprise } from "@/lib/psp.prep.v7";
+import { rechercherFournisseursDevis } from "@/lib/psp/prep.supabase.functions";
+import { libelleEntreprise } from "@/lib/psp/prep.v7";
 
 export type FournisseurSelection = {
   id?: string | null;

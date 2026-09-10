@@ -41,12 +41,12 @@ import {
   createFournisseur,
   getFournisseursList,
   type LigneFournisseurListe,
-} from "@/lib/fournisseurs.functions";
-import { useFavorisLocal } from "@/lib/fournisseurs.favoris.hooks";
+} from "@/lib/fournisseurs/functions";
+import { useFavorisLocal } from "@/lib/fournisseurs/favoris.hooks";
 import { libelleEntreprise, premierePropositionCorpsEtat } from "@/lib/fournisseurs";
-import { ORDRE_NIVEAU, PROFIL_BADGE, trierLignes } from "@/lib/fournisseurs.analyse";
+import { ORDRE_NIVEAU, PROFIL_BADGE, trierLignes } from "@/lib/fournisseurs/analyse";
 import { money2, pct } from "@/lib/formats";
-import { formatDateCommandeFr } from "@/lib/psp.validation";
+import { formatDateCommandeFr } from "@/lib/psp/validation";
 import EvoCell from "@/components/EvoCell";
 import Labeled from "@/components/Labeled";
 

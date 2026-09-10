@@ -7,7 +7,7 @@
 // (blocage IP après ~700 requêtes) au profit de la Base Adresse Nationale, autorité française.
 // Exécution : node --env-file=.env scripts/regeocode-adresses.mjs
 import { createClient } from "@supabase/supabase-js";
-import { geocodeDataGouv } from "../src/lib/geo.ts";
+import { geocodeDataGouv } from "../src/lib/geo/index.ts";
 
 const url = process.env.EXT_SUPABASE_URL;
 const key = process.env.EXT_SUPABASE_SERVICE_ROLE_KEY;

@@ -2,7 +2,7 @@
  * PSP — Socle logique (types + parsing / normalisation).
  *
  * Module ISOLÉ du module PSP Analytics : il ne dépend d'aucun autre fichier de
- * l'application PAT S11 (pas de `@/lib/travaux.ts`, pas d'alias `@/`) afin de
+ * l'application PAT S11 (pas de `@/lib/travaux`, pas d'alias `@/`) afin de
  * pouvoir être testé directement par Node (type stripping) et réutilisé par le
  * futur moteur d'analyse PSP.
  *

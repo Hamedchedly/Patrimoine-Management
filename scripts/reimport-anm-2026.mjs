@@ -23,7 +23,7 @@ import {
   detailCreee,
   snapshotCommande,
   TRAVAUX_FIELDS,
-} from "../src/lib/travaux.ts";
+} from "../src/lib/travaux/index.ts";
 
 const url = process.env.EXT_SUPABASE_URL;
 const key = process.env.EXT_SUPABASE_SERVICE_ROLE_KEY;

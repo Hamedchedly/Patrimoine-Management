@@ -6,7 +6,7 @@
  * ces fonctions pour construire l'écran d'analyse et la validation d'import.
  * Aucune écriture Supabase ici — uniquement de la logique pure.
  */
-import type { PspParsedTravaux, PspParsedRow } from "./psp";
+import type { PspParsedTravaux, PspParsedRow } from "./index";
 
 /** Catégories du tableau de synthèse (lignes + anomalies du fichier). */
 export type PspStatutSynthese = "valide" | "a_controler" | "erreur" | "doublon" | "conflit";

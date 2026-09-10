@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { libelleEntreprise } from "../src/lib/psp.prep.v7.ts";
+import { libelleEntreprise } from "../src/lib/psp/prep.v7.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

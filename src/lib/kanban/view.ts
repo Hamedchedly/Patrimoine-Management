@@ -12,8 +12,8 @@ import type {
   ConsultationEntreprise,
   DevisSuivi,
   SuiviOperationVue,
-} from "./psp.suivi.foundation.ts";
-import { operationSurAnnee } from "./psp.suivi.view.ts";
+} from "../psp/suivi.foundation.ts";
+import { operationSurAnnee } from "../psp/suivi.view.ts";
 
 export type ColonneKanban =
   | "sans_devis"

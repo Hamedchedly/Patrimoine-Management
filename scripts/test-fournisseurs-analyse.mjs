@@ -29,8 +29,8 @@ import {
   trancheDepuisPatrimoine,
   trierHistoriqueAnnuelDesc,
   trierLignes,
-} from "../src/lib/fournisseurs.analyse.ts";
-import { rechercherFournisseurs } from "../src/lib/fournisseurs.ts";
+} from "../src/lib/fournisseurs/analyse.ts";
+import { rechercherFournisseurs } from "../src/lib/fournisseurs/index.ts";
 
 let passed = 0;
 let failed = 0;

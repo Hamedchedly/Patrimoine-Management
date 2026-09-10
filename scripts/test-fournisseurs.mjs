@@ -15,7 +15,7 @@ import {
   montantReference,
   calculerKpisFournisseur,
   resoudreFournisseursParCommande,
-} from "../src/lib/fournisseurs.ts";
+} from "../src/lib/fournisseurs/index.ts";
 
 let passed = 0;
 let failed = 0;

@@ -11,7 +11,7 @@
 // Aucune ville n'est supprimée : on ajoute/rafraîchit seulement.
 // Exécution : node --env-file=.env scripts/peupler-villes-geo.mjs
 import { createClient } from "@supabase/supabase-js";
-import { geocodeVilleDataGouv } from "../src/lib/geo.ts";
+import { geocodeVilleDataGouv } from "../src/lib/geo/index.ts";
 
 const url = process.env.EXT_SUPABASE_URL;
 const key = process.env.EXT_SUPABASE_SERVICE_ROLE_KEY;

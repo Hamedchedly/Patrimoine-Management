@@ -6,7 +6,7 @@ import {
   FILTRES_SUIVI_VIDES,
   filtrerOperationsSuivi,
   trierOperationsSuivi,
-} from "../src/lib/psp.suivi.view.ts";
+} from "../src/lib/psp/suivi.view.ts";
 
 let passed = 0;
 let failed = 0;

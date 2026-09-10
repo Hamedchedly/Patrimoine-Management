@@ -4,7 +4,7 @@
 // Exécution : node --env-file=.env scripts/seed-mail-modeles.mjs
 import { createClient } from "@supabase/supabase-js";
 
-import { MAIL_MODELES } from "../src/lib/psp.suivi.foundation.ts";
+import { MAIL_MODELES } from "../src/lib/psp/suivi.foundation.ts";
 
 const url = process.env.EXT_SUPABASE_URL;
 const key = process.env.EXT_SUPABASE_SERVICE_ROLE_KEY;

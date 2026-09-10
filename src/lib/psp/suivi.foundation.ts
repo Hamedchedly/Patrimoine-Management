@@ -22,7 +22,7 @@
  *  · aucun texte « Meilleure entreprise » : « Correspondance forte » /
  *    « Entreprise compatible » uniquement.
  */
-import { etatMetier } from "./travaux.ts";
+import { etatMetier } from "../travaux/index.ts";
 import {
   classerCorpsEtatDansFamille,
   type ProfilActivite,
@@ -30,8 +30,8 @@ import {
   calculerProfilActivite,
   extraireCorpsEtatCode,
   meilleurNiveauCorps,
-} from "./fournisseurs.analyse.ts";
-import type { PspCategorie } from "./psp.prep.ts";
+} from "../fournisseurs/analyse.ts";
+import type { PspCategorie } from "./prep.ts";
 
 // ── Types d'entrée (formes réelles des tables Supabase) ─────────────────────
 

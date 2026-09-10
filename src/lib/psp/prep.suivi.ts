@@ -13,8 +13,8 @@
  *
  * Ce module est PUR (testable en Node). Aucune écriture Supabase.
  */
-import { champsDifferents, etatMetier, travauxComparable } from "./travaux.ts";
-import { extraireProgrammationsHistoriques } from "./psp.prep.ts";
+import { champsDifferents, etatMetier, travauxComparable } from "../travaux/index.ts";
+import { extraireProgrammationsHistoriques } from "./prep.ts";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

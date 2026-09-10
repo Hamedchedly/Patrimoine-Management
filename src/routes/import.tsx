@@ -7,7 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { parseIsisWorkbook } from "@/lib/isis";
-import { finalizeIsisImport, importIsisBatch } from "@/lib/isis.functions";
+import { finalizeIsisImport, importIsisBatch } from "@/lib/isis/functions";
 
 export const Route = createFileRoute("/import")({
   head: () => ({

@@ -56,7 +56,7 @@ import {
   getPspEntreprisesSuggestions,
   getPspLignesHistorique,
   updatePspLigneEtatPilotage,
-} from "@/lib/psp.prep.supabase.functions";
+} from "@/lib/psp/prep.supabase.functions";
 import {
   MAIL_MODELES,
   chronologieConsultationEntreprise,
@@ -65,16 +65,16 @@ import {
   dateLimiteReponse,
   dateRetourParDefaut,
   type ConsultationEntreprise,
-} from "@/lib/psp.suivi.foundation";
+} from "@/lib/psp/suivi.foundation";
 import {
   comparatifDevis,
   deriverEtatSuiviAnnuel,
   etapesAvancement,
   ETAT_SUIVI_LABEL,
   villeDepuisAdresse,
-} from "@/lib/psp.suivi.view";
-import { libelleEntreprise } from "@/lib/psp.prep.v7";
-import type { SuiviOperationVue } from "@/lib/psp.suivi.foundation";
+} from "@/lib/psp/suivi.view";
+import { libelleEntreprise } from "@/lib/psp/prep.v7";
+import type { SuiviOperationVue } from "@/lib/psp/suivi.foundation";
 
 const fmtDate = (v: string | null | undefined): string =>
   v ? new Date(v).toLocaleDateString("fr-FR") : "—";

@@ -10,12 +10,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { construireSuiviOperation } from "../src/lib/psp.suivi.foundation.ts";
+import { construireSuiviOperation } from "../src/lib/psp/suivi.foundation.ts";
 import {
   FILTRES_SUIVI_VIDES,
   filtrerOperationsSuivi,
   kpiSuivi,
-} from "../src/lib/psp.suivi.view.ts";
+} from "../src/lib/psp/suivi.view.ts";
 
 let passed = 0;
 let failed = 0;

@@ -12,7 +12,7 @@ import {
   formatMontantTravaux,
   libelleNbCommandesTravaux,
 } from "../src/lib/adresses.ts";
-import { villeDeCommande } from "../src/lib/travaux.ts";
+import { villeDeCommande } from "../src/lib/travaux/index.ts";
 
 let passed = 0;
 let failed = 0;

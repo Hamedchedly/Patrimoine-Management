@@ -26,8 +26,8 @@ import {
   filtrerParAnneesCumulatif,
   numeroDeEntree,
   programmeParAnneeCategorie,
-} from "../src/lib/psp.prep.v7.ts";
-import { trierOperationsDetail } from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.v7.ts";
+import { trierOperationsDetail } from "../src/lib/psp/prep.ts";
 
 const PASS = [];
 const FAIL = [];

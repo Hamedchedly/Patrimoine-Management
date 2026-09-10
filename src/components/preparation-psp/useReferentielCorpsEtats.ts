@@ -2,9 +2,9 @@ import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
-import { getCorpsEtats } from "@/lib/psp.prep.supabase.functions";
-import { categorieCorpsEtatReferentiel, type CorpsEtatReferentiel } from "@/lib/psp.prep.v7";
-import type { PspCategorie } from "@/lib/psp.prep";
+import { getCorpsEtats } from "@/lib/psp/prep.supabase.functions";
+import { categorieCorpsEtatReferentiel, type CorpsEtatReferentiel } from "@/lib/psp/prep.v7";
+import type { PspCategorie } from "@/lib/psp/prep";
 
 /**
  * V7.6 §13 — Référentiel corps d'état PARTAGÉ (une seule source, mise en cache) :

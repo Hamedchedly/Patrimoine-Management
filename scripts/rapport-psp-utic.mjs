@@ -4,7 +4,7 @@
 // Usage : node scripts/rapport-psp-utic.mjs [chemin du fichier]
 import * as XLSX from "xlsx";
 import { readFileSync, existsSync } from "node:fs";
-import { parsePspWorkbook } from "../src/lib/psp.ts";
+import { parsePspWorkbook } from "../src/lib/psp/index.ts";
 
 const chemin =
   process.argv[2] ??

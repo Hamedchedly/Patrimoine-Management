@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   construireSuiviOperation,
   recommanderEntreprises,
-} from "../src/lib/psp.suivi.foundation.ts";
+} from "../src/lib/psp/suivi.foundation.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];

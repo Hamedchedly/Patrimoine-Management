@@ -15,7 +15,7 @@ import {
   formaterSurface,
   statutOccupationDefaut,
   type LotDevisInfos,
-} from "../src/lib/psp.devis.lots.view";
+} from "../src/lib/psp/devis.lots.view";
 
 const lot = (over: Partial<LotDevisInfos> = {}): LotDevisInfos => ({
   id: "00000000-0000-0000-0000-000000000001",

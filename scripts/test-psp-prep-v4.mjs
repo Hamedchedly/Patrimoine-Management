@@ -4,8 +4,8 @@
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { parseProgrammationWorkbook } from "../src/lib/psp.prep.data.ts";
-import { parseTravauxWorkbook } from "../src/lib/travaux.ts";
+import { parseProgrammationWorkbook } from "../src/lib/psp/prep.data.ts";
+import { parseTravauxWorkbook } from "../src/lib/travaux/index.ts";
 import {
   analyserLignesReport,
   cleIdentitePsp,
@@ -14,8 +14,8 @@ import {
   memesCle,
   rapprocherLignes,
   resumeArbitrage,
-} from "../src/lib/psp.prep.suivi.ts";
-import { PSP_ANNEES, ajouterOperationListe } from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.suivi.ts";
+import { PSP_ANNEES, ajouterOperationListe } from "../src/lib/psp/prep.ts";
 
 let passed = 0;
 let failed = 0;

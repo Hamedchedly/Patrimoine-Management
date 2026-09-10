@@ -13,14 +13,14 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 
-import { parseProgrammationWorkbook } from "./psp.prep.data.ts";
-import { parseTravauxWorkbook } from "./travaux.ts";
+import { parseProgrammationWorkbook } from "./prep.data.ts";
+import { parseTravauxWorkbook } from "../travaux/index.ts";
 import type {
   ChargesClienteleReferentiel,
   CommandeRaw,
   LotRaw,
   TrancheRaw,
-} from "./psp.prep.data.ts";
+} from "./prep.data.ts";
 
 export type DonneesReferenceBrutes = {
   tranches: TrancheRaw[];

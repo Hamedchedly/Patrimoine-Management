@@ -6,7 +6,7 @@
 // logique pure (résumé, statut final, lots). Le comportement « import annulé »
 // relève de l'UI (reset d'état) et est documenté.
 import * as XLSX from "xlsx";
-import { parsePspWorkbook } from "../src/lib/psp.ts";
+import { parsePspWorkbook } from "../src/lib/psp/index.ts";
 import {
   TAILLE_LOT_PSP,
   construireAnalyse,
@@ -15,7 +15,7 @@ import {
   estFichierExcel,
   filtrerLignesPsp,
   statutFinalImport,
-} from "../src/lib/psp.preview.ts";
+} from "../src/lib/psp/preview.ts";
 
 let passed = 0;
 let failed = 0;

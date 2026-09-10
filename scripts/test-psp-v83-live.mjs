@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 import { createClient } from "@supabase/supabase-js";
 
-import { construireSuiviOperation } from "../src/lib/psp.suivi.foundation.ts";
+import { construireSuiviOperation } from "../src/lib/psp/suivi.foundation.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];

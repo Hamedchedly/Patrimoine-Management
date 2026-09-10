@@ -14,7 +14,7 @@ import { Building2, KeyRound, MapPin, Search, User } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { estGarage, rechercherPatrimoine } from "@/lib/adresses";
-import { getAdresses, type LotItem } from "@/lib/isis.functions";
+import { getAdresses, type LotItem } from "@/lib/isis/functions";
 
 const SEUIL = 2; // minimum de caractères pour afficher les suggestions
 const LIMITE = 5; // résultats par catégorie dans la liste déroulante

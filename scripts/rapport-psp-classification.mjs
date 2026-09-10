@@ -3,7 +3,7 @@
 // Applique classifierCommande aux 407 lignes du dernier import, en mémoire,
 // puis affiche le rapport A-K. Aucune écriture.
 import "dotenv/config";
-import { classifierCommande, construireGroupesValidation } from "../src/lib/psp.classification.ts";
+import { classifierCommande, construireGroupesValidation } from "../src/lib/psp/classification.ts";
 
 const { supabaseAdmin } = await import("../src/integrations/supabase-ext/client.server.ts");
 const db = supabaseAdmin;

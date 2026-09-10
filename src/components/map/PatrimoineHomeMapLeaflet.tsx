@@ -7,8 +7,8 @@ import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaf
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-import { getAdressesGeo, geocodeAdresses } from "@/lib/geo.functions";
-import { getPatrimoine } from "@/lib/isis.functions";
+import { getAdressesGeo, geocodeAdresses } from "@/lib/geo/functions";
+import { getPatrimoine } from "@/lib/isis/functions";
 import { cleAdresse, entreeDe, type LotItem } from "@/lib/adresses";
 import {
   agregerPatrimoineHome,

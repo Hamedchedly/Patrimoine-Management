@@ -11,7 +11,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { classifierCommande, construireGroupesValidation } from "./psp.classification.ts";
+import { classifierCommande, construireGroupesValidation } from "./classification.ts";
 import {
   CHARGES_OPERATION_EXCLUS_PAR_DEFAUT,
   calculerScorePriorite,
@@ -20,7 +20,7 @@ import {
   resoudrePerimetrePsp,
   type PspCommandeValidation,
   type PspGroupeApercu,
-} from "./psp.validation.ts";
+} from "./validation.ts";
 
 const detailSchema = z.object({ comn: z.string().min(1) });
 
@@ -41,7 +41,7 @@ const apercuSchema = z
 export const getPspValidationApercu = createServerFn({ method: "POST" })
   .validator((d: unknown) => apercuSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
 
     const chargesExclus = data.charges_operation_exclus ?? CHARGES_OPERATION_EXCLUS_PAR_DEFAUT;
@@ -220,7 +220,7 @@ export const getPspValidationApercu = createServerFn({ method: "POST" })
 export const getPspValidationDetail = createServerFn({ method: "POST" })
   .validator((d: unknown) => detailSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const { data: row, error } = await db
       .from("psp_import_rows")
@@ -282,7 +282,7 @@ const saveDecisionSchema = z.object({
 export const getPspDecision = createServerFn({ method: "POST" })
   .validator((d: unknown) => decisionKeySchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const { data: rows, error } = await db
       .from("psp_decisions")
@@ -300,7 +300,7 @@ export const getPspDecision = createServerFn({ method: "POST" })
 export const savePspDecision = createServerFn({ method: "POST" })
   .validator((d: unknown) => saveDecisionSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const now = new Date().toISOString();
     const payload = {
@@ -357,7 +357,7 @@ export const resoudreDecisionPsp = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
 
     // 1. Décision humaine validée (réutilisée automatiquement aux prochains imports).

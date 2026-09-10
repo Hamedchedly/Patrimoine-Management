@@ -6,8 +6,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { anneesProgrammees, extraireProgrammationsHistoriques } from "../src/lib/psp.prep.ts";
-import { construireRevueAnciennesProgrammations } from "../src/lib/psp.prep.suivi.ts";
+import { anneesProgrammees, extraireProgrammationsHistoriques } from "../src/lib/psp/prep.ts";
+import { construireRevueAnciennesProgrammations } from "../src/lib/psp/prep.suivi.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = (p) => join(__dirname, "..", "src", p);

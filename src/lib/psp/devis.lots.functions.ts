@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import type { LotDevisInfos } from "@/lib/psp.devis.lots.view";
+import type { LotDevisInfos } from "@/lib/psp/devis.lots.view";
 
 /**
  * V8.16z — Récupération LECTURE SEULE des informations complètes de lots pour

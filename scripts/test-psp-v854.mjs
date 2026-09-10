@@ -16,12 +16,12 @@ import {
   normaliserTranche,
   proposerRapprochements,
   suggererOperationsPourCommande,
-} from "../src/lib/psp.suivi.rapprochement.ts";
+} from "../src/lib/psp/suivi.rapprochement.ts";
 import {
   normaliserTexte,
   rattacherCommandes,
   statutRapprochementDepuisLien,
-} from "../src/lib/psp.suivi.foundation.ts";
+} from "../src/lib/psp/suivi.foundation.ts";
 
 let passed = 0;
 let failed = 0;
@@ -295,7 +295,7 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
 // ════════════ V–X. AUCUNE ÉCRITURE / AUCUN MOCK ══════════════════════════════
 {
   const src = (await import("fs")).readFileSync(
-    new URL("../src/lib/psp.suivi.rapprochement.ts", import.meta.url),
+    new URL("../src/lib/psp/suivi.rapprochement.ts", import.meta.url),
     "utf8",
   );
   check(
@@ -312,7 +312,7 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
 // ════════════ Y. MOTEUR UNIQUE V8.5.1 ════════════════════════════════════════
 {
   const src = (await import("fs")).readFileSync(
-    new URL("../src/lib/psp.suivi.rapprochement.ts", import.meta.url),
+    new URL("../src/lib/psp/suivi.rapprochement.ts", import.meta.url),
     "utf8",
   );
   check(
@@ -344,7 +344,7 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
   // rafraîchissement. V8.5.4 réutilise EXACTEMENT createPspCommandLink /
   // deletePspCommandLink (vérifié via la recherche de symboles dans le code).
   const src = (await import("fs")).readFileSync(
-    new URL("../src/lib/psp.prep.supabase.functions.ts", import.meta.url),
+    new URL("../src/lib/psp/prep.supabase.functions.ts", import.meta.url),
     "utf8",
   );
   check(

@@ -16,8 +16,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import * as XLSX from "xlsx";
 
-import { parseTravauxWorkbook } from "../src/lib/travaux.ts";
-import { enveloppeBudgetaire } from "../src/lib/psp.suivi.view.ts";
+import { parseTravauxWorkbook } from "../src/lib/travaux/index.ts";
+import { enveloppeBudgetaire } from "../src/lib/psp/suivi.view.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = (p) => join(__dirname, "..", "src", p);

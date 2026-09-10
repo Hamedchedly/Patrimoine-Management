@@ -13,7 +13,7 @@ import {
   construireMailto,
   composerMail,
   MAIL_MODELES,
-} from "../src/lib/psp.suivi.foundation.ts";
+} from "../src/lib/psp/suivi.foundation.ts";
 import {
   FILTRES_SUIVI_VIDES,
   comparatifDevis,
@@ -21,9 +21,9 @@ import {
   kpiSuivi,
   operationSurAnnee,
   trierOperationsSuivi,
-} from "../src/lib/psp.suivi.view.ts";
-import { statsDevis } from "../src/lib/psp.prep.ts";
-import { etatMetier } from "../src/lib/travaux.ts";
+} from "../src/lib/psp/suivi.view.ts";
+import { statsDevis } from "../src/lib/psp/prep.ts";
+import { etatMetier } from "../src/lib/travaux/index.ts";
 
 let passed = 0;
 let failed = 0;

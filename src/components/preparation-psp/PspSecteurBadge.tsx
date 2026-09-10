@@ -1,4 +1,4 @@
-import type { PspCategorie } from "@/lib/psp.prep";
+import type { PspCategorie } from "@/lib/psp/prep";
 import { cn } from "@/lib/utils";
 
 /**

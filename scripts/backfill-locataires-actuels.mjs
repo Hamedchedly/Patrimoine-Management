@@ -8,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { parseIsisWorkbook } from "../src/lib/isis.ts";
+import { parseIsisWorkbook } from "../src/lib/isis/index.ts";
 
 const DRY = process.argv.includes("--dry-run");
 const fichier =

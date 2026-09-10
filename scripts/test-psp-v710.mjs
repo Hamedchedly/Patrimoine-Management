@@ -16,9 +16,9 @@ import {
   construireDonneesExportXlsx,
   ENTETES_EXPORT_XLSX,
   creerOperation,
-} from "../src/lib/psp.prep.ts";
-import { construireReferencePatrimoine } from "../src/lib/psp.prep.data.ts";
-import { budgetDisponibleParAnnee, budgetDisponibleTotalReel } from "../src/lib/psp.prep.v7.ts";
+} from "../src/lib/psp/prep.ts";
+import { construireReferencePatrimoine } from "../src/lib/psp/prep.data.ts";
+import { budgetDisponibleParAnnee, budgetDisponibleTotalReel } from "../src/lib/psp/prep.v7.ts";
 
 let passed = 0;
 let failed = 0;

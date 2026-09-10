@@ -16,8 +16,8 @@
  * psp_ligne_patrimoine) Ã‚Â· consultation (psp_devis) Ã‚Â· commandes/exÃƒÂ©cution
  * (travaux_commandes + imports) Ã‚Â· rapprochement (psp_command_links).
  */
-import { normaliserTexte } from "./psp.suivi.foundation.ts";
-import { rueDe } from "./adresses.ts";
+import { normaliserTexte } from "./suivi.foundation.ts";
+import { rueDe } from "../adresses.ts";
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Types d'entrÃƒÂ©e (structures STRUCTURELLES Ã¢â‚¬â€ alignÃƒÂ©es sur le schÃƒÂ©ma rÃƒÂ©el) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 

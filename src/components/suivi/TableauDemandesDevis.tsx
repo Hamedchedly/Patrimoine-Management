@@ -26,7 +26,7 @@ import PspFournisseurSearch, {
   type FournisseurSelection,
 } from "@/components/preparation-psp/PspFournisseurSearch";
 import { EtiquetteTranche } from "@/components/tranches/EtiquetteTranche";
-import { useMailModeles } from "@/lib/psp.mail.hooks";
+import { useMailModeles } from "@/lib/psp/mail.hooks";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,16 +59,16 @@ import {
   composerMail,
   construireMailto,
   dateRetourParDefaut,
-} from "@/lib/psp.suivi.foundation";
-import { libelleEntrepriseAvecNumero } from "@/lib/psp.prep.v7";
-import { createPspDevis, getPspEntreprisesSuggestions } from "@/lib/psp.prep.supabase.functions";
+} from "@/lib/psp/suivi.foundation";
+import { libelleEntrepriseAvecNumero } from "@/lib/psp/prep.v7";
+import { createPspDevis, getPspEntreprisesSuggestions } from "@/lib/psp/prep.supabase.functions";
 import {
   AVANCEMENT_DEVIS_LABELS,
   AVANCEMENT_DEVIS_OPTIONS,
   filtrerAvancementDevis,
   type AvancementDevis,
   type LigneDemandeDevis,
-} from "@/lib/psp.suivi.view";
+} from "@/lib/psp/suivi.view";
 
 const AVANCEMENT_BADGE: Record<AvancementDevis, string> = {
   sans_devis: "bg-slate-100 text-slate-600",

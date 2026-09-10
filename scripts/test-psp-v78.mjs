@@ -16,7 +16,7 @@ import {
   FILTRES_VIDES,
   PSP_ANNEES,
   creerOperation,
-} from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.ts";
 import {
   analyserCompletudeExport,
   brouillonEnregistrable,
@@ -24,7 +24,7 @@ import {
   budgetDisponibleTotalReel,
   calculEnveloppe,
   programmeParAnneeCategorie,
-} from "../src/lib/psp.prep.v7.ts";
+} from "../src/lib/psp/prep.v7.ts";
 
 let passed = 0;
 let failed = 0;

@@ -23,7 +23,7 @@ import {
   ligneDemandeDevisDepuisOperation,
   ligneDemandeDevisDepuisRegistre,
   operationSurAnnee,
-} from "../src/lib/psp.suivi.view.ts";
+} from "../src/lib/psp/suivi.view.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = (p) => join(__dirname, "..", "src", p);

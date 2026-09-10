@@ -13,8 +13,8 @@ import {
   ligneMatchKpi,
   resumeArbitrage,
   trierLignesRevue,
-} from "../src/lib/psp.prep.suivi.ts";
-import { corpsEtatsGroupes, categorieDepuisCorpsEtat } from "../src/lib/psp.prep.v7.ts";
+} from "../src/lib/psp/prep.suivi.ts";
+import { corpsEtatsGroupes, categorieDepuisCorpsEtat } from "../src/lib/psp/prep.v7.ts";
 
 let passed = 0;
 let failed = 0;

@@ -2,8 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { villeDeCommande, type TrancheGeo, type VilleGeoPure } from "@/lib/travaux";
-import { rattacherLotsACommandes } from "@/lib/commande.rattachement.supabase.functions";
-import type { ResolutionRattachementLot } from "@/lib/commande.rattachement.lots";
+import { rattacherLotsACommandes } from "@/lib/commande/rattachement.supabase.functions";
+import type { ResolutionRattachementLot } from "@/lib/commande/rattachement.lots";
 
 const trancheSchema = z.object({
   code: z.string(),

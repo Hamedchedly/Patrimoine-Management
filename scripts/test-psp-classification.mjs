@@ -11,7 +11,7 @@ import {
   classifierCommande,
   construireGroupesValidation,
   normaliserTexte,
-} from "../src/lib/psp.classification.ts";
+} from "../src/lib/psp/classification.ts";
 
 let passed = 0;
 let failed = 0;

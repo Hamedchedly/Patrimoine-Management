@@ -1,4 +1,4 @@
-﻿// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // V8.4 â€” RELANCES DEVIS + SUIVI CONSULTATION : tests LIVE Supabase (rÃ©els).
 //  Â· sonde : date_limite_reponse / derniere_relance_at existent-ils en live ?
 //    (sinon â†’ migration 20260820_psp_v84_relance_consultation.sql NON appliquÃ©e) ;
@@ -13,7 +13,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   chronologieConsultationDevis,
   dateLimiteReponse,
-} from "../src/lib/psp.suivi.foundation.ts";
+} from "../src/lib/psp/suivi.foundation.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];

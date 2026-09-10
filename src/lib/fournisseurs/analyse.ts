@@ -8,7 +8,7 @@
  * Le corps d'état réel reste conservé et affichable (code en préfixe).
  */
 
-import { matchVille, villeDeCommande, type TrancheGeo, type VilleGeoPure } from "./travaux.ts";
+import { matchVille, villeDeCommande, type TrancheGeo, type VilleGeoPure } from "../travaux/index.ts";
 
 export type FamilleMetier = "CEA" | "CVC-P" | "TCE" | "AUTRE";
 export type ProfilNiveau = "principal" | "secondaire" | "occasionnel";

@@ -6,8 +6,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getTranchesEtiquettes } from "@/lib/isis.functions";
-import type { TrancheEtiquette } from "@/lib/isis.functions";
+import { getTranchesEtiquettes } from "@/lib/isis/functions";
+import type { TrancheEtiquette } from "@/lib/isis/functions";
 
 export const TRANCHES_ETIQUETTES_KEY = ["tranches-etiquettes"] as const;
 

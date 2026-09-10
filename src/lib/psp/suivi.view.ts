@@ -4,10 +4,10 @@
  * Consomme `SuiviOperationVue` (socle V8.1) et `statsDevis` (V7.10) sans
  * aucune écriture ni aucun MOCK. Filtres, tri et KPI sont purs et testables.
  */
-import { statsDevis } from "./psp.prep.ts";
-import type { SuiviOperationVue } from "./psp.suivi.foundation.ts";
-import type { DevisSuivi } from "./psp.suivi.foundation.ts";
-import { extraireErTexte, normaliserCodeEr } from "./commande.rattachement.lots.ts";
+import { statsDevis } from "./prep.ts";
+import type { SuiviOperationVue } from "./suivi.foundation.ts";
+import type { DevisSuivi } from "./suivi.foundation.ts";
+import { extraireErTexte, normaliserCodeEr } from "../commande/rattachement.lots.ts";
 
 // ── Filtres du tableau ───────────────────────────────────────────────────────
 

@@ -18,7 +18,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { getCategorieBudget } from "./psp.ts";
+import { getCategorieBudget } from "./index.ts";
 
 // ── Schémas Zod (exportés pour tests de validation pure) ────────────────────
 
@@ -259,7 +259,7 @@ export const buildPspImportRowInsert = (
 export const createPspImport = createServerFn({ method: "POST" })
   .validator((d: unknown) => createPspImportSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const { data: execution, error } = await db
       .from("psp_imports")
@@ -288,7 +288,7 @@ export const createPspImport = createServerFn({ method: "POST" })
 export const importPspBatch = createServerFn({ method: "POST" })
   .validator((d: unknown) => pspBatchSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const inserts = data.rows.map((row) =>
       buildPspImportRowInsert(data.import_id, data.annee_exercice, row),
@@ -304,7 +304,7 @@ export const importPspBatch = createServerFn({ method: "POST" })
 export const failPspImport = createServerFn({ method: "POST" })
   .validator((d: unknown) => failPspImportSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
 
     // La colonne erreur_message n'existe pas : on complète erreurs_detail (JSONB)
@@ -349,7 +349,7 @@ export const failPspImport = createServerFn({ method: "POST" })
 export const finalizePspImport = createServerFn({ method: "POST" })
   .validator((d: unknown) => finalizePspImportSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const { data: execution, error } = await db
       .from("psp_imports")
@@ -374,7 +374,7 @@ export const finalizePspImport = createServerFn({ method: "POST" })
 export const savePspCommandAnalysis = createServerFn({ method: "POST" })
   .validator((d: unknown) => savePspCommandAnalysisSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
 
     // Source de vérité : NAAC_CODE. Statut dérivé si non fourni.
@@ -431,7 +431,7 @@ export const savePspCommandAnalysis = createServerFn({ method: "POST" })
 export const savePspPatrimoineContext = createServerFn({ method: "POST" })
   .validator((d: unknown) => savePspPatrimoineContextSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
 
     // Héritage par défaut depuis le parent (sauf exception explicite).
@@ -489,7 +489,7 @@ export const savePspPatrimoineContext = createServerFn({ method: "POST" })
 export const savePspFeedback = createServerFn({ method: "POST" })
   .validator((d: unknown) => savePspFeedbackSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const { data: saved, error } = await db
       .from("psp_feedback")

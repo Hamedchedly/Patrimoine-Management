@@ -82,17 +82,17 @@ import {
   type HistoriqueTravaux,
   type TravauxDashboardData,
   type ImportTravaux,
-} from "@/lib/travaux.dashboard.functions";
-import { getVillesGeo, type VilleGeo } from "@/lib/geo.functions";
-import { calculerStatsSuiviAnnuel, detecterLBIncoherentes } from "@/lib/travaux.suivi.stats";
+} from "@/lib/travaux/dashboard.functions";
+import { getVillesGeo, type VilleGeo } from "@/lib/geo/functions";
+import { calculerStatsSuiviAnnuel, detecterLBIncoherentes } from "@/lib/travaux/suivi.stats";
 import { normaliserVille } from "@/lib/geo";
 import {
   construireCleMetierCommande,
   extraireChargePsp,
   type TypeDecisionPsp,
-} from "@/lib/psp.validation";
-import { getPspDecision, savePspDecision } from "@/lib/psp.validation.functions";
-import { getFournisseursPourCommandes } from "@/lib/fournisseurs.functions";
+} from "@/lib/psp/validation";
+import { getPspDecision, savePspDecision } from "@/lib/psp/validation.functions";
+import { getFournisseursPourCommandes } from "@/lib/fournisseurs/functions";
 import { money0 } from "@/lib/formats";
 import { construireSearchAdresses } from "@/lib/adresses";
 import CommandeFicheDialog, {
@@ -100,7 +100,7 @@ import CommandeFicheDialog, {
   type FicheFournisseurInfo,
 } from "@/components/CommandeFicheDialog";
 import { EtiquetteTranche } from "@/components/tranches/EtiquetteTranche";
-import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
+import { useEtiquettesTranches } from "@/lib/tranches/etiquettes.hooks";
 
 export const Route = createFileRoute("/dashboard-travaux")({
   // `?commande=` porte un NUMÉRO de commande (TanStack JSON-parse → number) ;

@@ -32,8 +32,8 @@ import {
   type BlocLotsMailOptions,
   type FicheLotDevis,
   type StatutOccupation,
-} from "@/lib/psp.devis.lots.view";
-import { getLotsPourDevis } from "@/lib/psp.devis.lots.functions";
+} from "@/lib/psp/devis.lots.view";
+import { getLotsPourDevis } from "@/lib/psp/devis.lots.functions";
 import { cn } from "@/lib/utils";
 
 type LotContexte = { lot_id: string | null; niveau?: string | null };

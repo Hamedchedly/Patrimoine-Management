@@ -14,9 +14,9 @@ import {
   modificationDejaConfirmee,
   rapprocherLignes,
   resumeArbitrage,
-} from "../src/lib/psp.prep.suivi.ts";
-import { PSP_ANNEES, ajouterOperationListe } from "../src/lib/psp.prep.ts";
-import { etatMetier } from "../src/lib/travaux.ts";
+} from "../src/lib/psp/prep.suivi.ts";
+import { PSP_ANNEES, ajouterOperationListe } from "../src/lib/psp/prep.ts";
+import { etatMetier } from "../src/lib/travaux/index.ts";
 
 let passed = 0;
 let failed = 0;

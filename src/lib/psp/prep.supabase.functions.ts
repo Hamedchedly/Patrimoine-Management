@@ -24,21 +24,21 @@ import {
   type SuggestionEntreprise,
   type CommandeTravauxSuivi,
   construireSuiviOperation,
-} from "./psp.suivi.foundation.ts";
+} from "./suivi.foundation.ts";
 import {
   adresseRueDepuisPerimetre,
   villeDepuisAdresse,
   construireLigneRegistreAnnuel,
   type CommandeAnnuelle,
   type LigneRegistreAnnuel,
-} from "./psp.suivi.view.ts";
+} from "./suivi.view.ts";
 import {
   proposerRapprochements,
   type OperationRapprochement,
   type LienRapprochement,
   type CommandeRapprochement,
   type FournisseurRapprochement,
-} from "./psp.suivi.rapprochement.ts";
+} from "./suivi.rapprochement.ts";
 import {
   categorieDepuisCorpsEtat,
   detecterRecherchePatrimoine,
@@ -50,13 +50,13 @@ import {
   type CorpsEtatReferentiel,
   type LotInfo,
   type PerimetreLigne,
-} from "./psp.prep.v7.ts";
-import { rueDe } from "./adresses.ts";
-import type { ChargesClienteleReferentiel } from "./psp.prep.data.ts";
-import { fusionnerProgramme } from "./psp.prep.ts";
-import { construireRevueAnciennesProgrammations } from "./psp.prep.suivi.ts";
-import { chargerLotsParRefs } from "./commande.rattachement.supabase.functions.ts";
-import type { LotPatrimoine } from "./commande.rattachement.lots.ts";
+} from "./prep.v7.ts";
+import { rueDe } from "../adresses.ts";
+import type { ChargesClienteleReferentiel } from "./prep.data.ts";
+import { fusionnerProgramme } from "./prep.ts";
+import { construireRevueAnciennesProgrammations } from "./prep.suivi.ts";
+import { chargerLotsParRefs } from "../commande/rattachement.supabase.functions.ts";
+import type { LotPatrimoine } from "../commande/rattachement.lots.ts";
 
 /**
  * V8.18 — Lots du référentiel correspondant à des codes ER (adresses des lignes devis).
@@ -2969,7 +2969,7 @@ export const rechercherOperationsPourCommande = createServerFn({ method: "POST" 
       entreprises_consultees: entrPar[l.id] ?? [],
     }));
 
-    const { suggererOperationsPourCommande } = await import("@/lib/psp.suivi.rapprochement");
+    const { suggererOperationsPourCommande } = await import("@/lib/psp/suivi.rapprochement");
     const propositions = suggererOperationsPourCommande(
       commande as never,
       operations as never,
@@ -3108,7 +3108,7 @@ export const getPspCommandesARapprocher = createServerFn({ method: "POST" })
     }));
 
     const { suggererOperationsPourCommande, determinerRelationPeriode } =
-      await import("@/lib/psp.suivi.rapprochement");
+      await import("@/lib/psp/suivi.rapprochement");
     const ligneParId = new Map(lignes.map((l: any) => [l.id, l]));
     const anneesPar = new Map(
       lignes.map((l: any) => [

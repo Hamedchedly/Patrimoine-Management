@@ -27,8 +27,8 @@ import {
   createPspCommandLink,
   deletePspCommandLink,
   getPspCorrespondances,
-} from "@/lib/psp.prep.supabase.functions";
-import { deriverExerciceCorrespondance } from "@/lib/psp.suivi.rapprochement";
+} from "@/lib/psp/prep.supabase.functions";
+import { deriverExerciceCorrespondance } from "@/lib/psp/suivi.rapprochement";
 
 const fmtMontant = (v: number | null | undefined): string => {
   if (v == null) return "â€”";

@@ -13,7 +13,7 @@ import {
   categorieDepuisCorpsEtat,
   filtrerParAnneesCumulatif,
   operationConcerneAnnee,
-} from "../src/lib/psp.prep.v7.ts";
+} from "../src/lib/psp/prep.v7.ts";
 const PASS = [];
 const FAIL = [];
 function check(label, cond, detail = "") {

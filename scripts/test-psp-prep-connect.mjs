@@ -5,8 +5,8 @@ import {
   construireReferencePatrimoine,
   enrichirOperationsAvecReference,
   resoudreTranche,
-} from "../src/lib/psp.prep.data.ts";
-import { PSP_OPERATIONS } from "../src/lib/psp.prep.ts";
+} from "../src/lib/psp/prep.data.ts";
+import { PSP_OPERATIONS } from "../src/lib/psp/prep.ts";
 
 const db = supabaseAdmin;
 const PAGE = 1000;

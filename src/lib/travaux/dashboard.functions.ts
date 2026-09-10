@@ -2,9 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { exerciceCourant } from "@/lib/travaux";
-import { extraireChargePsp } from "./psp.validation";
-import { rattacherLotsACommandes } from "./commande.rattachement.supabase.functions";
-import type { ResolutionRattachementLot } from "./commande.rattachement.lots";
+import { extraireChargePsp } from "../psp/validation";
+import { rattacherLotsACommandes } from "../commande/rattachement.supabase.functions";
+import type { ResolutionRattachementLot } from "../commande/rattachement.lots";
 
 // Colonnes réellement présentes dans travaux_commandes (schéma de production).
 // Les colonnes classification_* n'existent pas encore en base : on les exclut des

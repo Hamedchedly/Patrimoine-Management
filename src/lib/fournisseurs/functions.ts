@@ -29,7 +29,7 @@ import {
   planifierMajContacts,
   refIsisDepuisAliases,
   resoudreFournisseursParCommande,
-} from "./fournisseurs.ts";
+} from "./index.ts";
 import {
   agregerParAnnee,
   calculerActivitesEffectives,
@@ -50,9 +50,9 @@ import {
   type FamilleMetier,
   type ProfilActivite,
   type ProfilNiveau,
-} from "./fournisseurs.analyse.ts";
-import { villeDeCommande, type TrancheGeo, type VilleGeoPure } from "./travaux.ts";
-import { extraireWNotes } from "./psp.validation";
+} from "./analyse.ts";
+import { villeDeCommande, type TrancheGeo, type VilleGeoPure } from "../travaux/index.ts";
+import { extraireWNotes } from "../psp/validation";
 
 /** Colonnes lues sur la vue de rapprochement pour les commandes d'un fournisseur. */
 const SELECT_FOURNISSEUR_VIEW =
@@ -172,7 +172,7 @@ export const getFournisseursList = createServerFn({ method: "POST", strict: fals
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const vide = {
       disponibles: false,
@@ -549,7 +549,7 @@ export const getFournisseurDetail = createServerFn({ method: "POST", strict: fal
     z.object({ id: z.string().uuid(), annee: z.number().int().optional() }).parse(d),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const vide = {
       disponibles: false,
@@ -857,7 +857,7 @@ export const getFournisseursPourCommandes = createServerFn({ method: "POST", str
     z.object({ commandeIds: z.array(z.string().uuid()).max(1000) }).parse(d),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     try {
       if (data.commandeIds.length === 0) return {};
@@ -946,7 +946,7 @@ export const createFournisseur = createServerFn({ method: "POST", strict: false 
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const now = new Date().toISOString();
     try {
@@ -1012,7 +1012,7 @@ export const creerFournisseurDepuisRef = createServerFn({ method: "POST", strict
   .handler(async ({ data }) => {
     const ref = normaliserCodeFournisseur(data.ref);
     if (!ref) return { ok: false, error: "Référence invalide." };
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const now = new Date().toISOString();
     try {
@@ -1088,7 +1088,7 @@ export const updateFournisseur = createServerFn({ method: "POST", strict: false 
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const now = new Date().toISOString();
     try {
@@ -1175,7 +1175,7 @@ export const saveActivitesManuelles = createServerFn({ method: "POST", strict: f
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     const now = new Date().toISOString();
     let existantes: ActiviteManuelle[];
@@ -1248,7 +1248,7 @@ export const getFournisseurFavoris = createServerFn({ method: "POST", strict: fa
   .handler(async () => {
     const userId = userIdDepuisRequete();
     if (!userId) return { disponibles: false, favoris: [] };
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     try {
       const { data, error } = await db
@@ -1273,7 +1273,7 @@ export const toggleFournisseurFavori = createServerFn({ method: "POST", strict: 
   .handler(async ({ data }) => {
     const userId = userIdDepuisRequete();
     if (!userId) return { ok: false, error: "Authentification requise" };
-    const { supabaseAdmin } = await import("../integrations/supabase-ext/client.server");
+    const { supabaseAdmin } = await import("../../integrations/supabase-ext/client.server");
     const db = supabaseAdmin as any;
     try {
       if (data.favori) {

@@ -3,7 +3,7 @@
 // Affiche : mapping des colonnes + statistiques réelles + exemples de lignes.
 import * as XLSX from "xlsx";
 import { readFile } from "node:fs/promises";
-import { parsePspWorkbook } from "../src/lib/psp.ts";
+import { parsePspWorkbook } from "../src/lib/psp/index.ts";
 
 const FILE =
   process.argv[2] ??

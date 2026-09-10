@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { NIVEAU_COULEUR, NIVEAU_LABEL, type ProfilNiveau } from "@/lib/fournisseurs.analyse";
+import { NIVEAU_COULEUR, NIVEAU_LABEL, type ProfilNiveau } from "@/lib/fournisseurs/analyse";
 
 /**
  * Badge de niveau d'activité (principal / secondaire / occasionnel) — couleur et

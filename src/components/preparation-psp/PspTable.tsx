@@ -26,9 +26,9 @@ import {
   type FiltresDetail,
   type PspOperation,
   type SaisieOperation,
-} from "@/lib/psp.prep";
-import type { LotInfo, PerimetreLigne } from "@/lib/psp.prep.v7";
-import type { ReferencePatrimoine } from "@/lib/psp.prep.data";
+} from "@/lib/psp/prep";
+import type { LotInfo, PerimetreLigne } from "@/lib/psp/prep.v7";
+import type { ReferencePatrimoine } from "@/lib/psp/prep.data";
 import { cn } from "@/lib/utils";
 
 const FILTRES_VIDES: FiltresDetail = {

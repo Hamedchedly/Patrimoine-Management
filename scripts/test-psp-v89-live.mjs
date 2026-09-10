@@ -11,7 +11,7 @@
 //   · purge complète + snapshot avant/après strictement identique (zéro résidu).
 import { createClient } from "@supabase/supabase-js";
 
-import { fusionnerProgramme } from "../src/lib/psp.prep.ts";
+import { fusionnerProgramme } from "../src/lib/psp/prep.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"] ?? process.env["EXT_SUPABASE_ANON_KEY"];

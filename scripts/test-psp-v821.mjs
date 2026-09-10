@@ -18,17 +18,17 @@ import {
   grouperConsultationParEntreprise,
   rattacherCommandes,
   remplacerVariablesMail,
-} from "../src/lib/psp.suivi.foundation.ts";
+} from "../src/lib/psp/suivi.foundation.ts";
 import {
   comparatifDevis,
   etapesAvancement,
   filtrerOperationsSuivi,
   FILTRES_SUIVI_VIDES,
-} from "../src/lib/psp.suivi.view.ts";
+} from "../src/lib/psp/suivi.view.ts";
 import {
   detecterRecherchePatrimoine,
   suggestionsLotsDepuisPerimetres,
-} from "../src/lib/psp.prep.v7.ts";
+} from "../src/lib/psp/prep.v7.ts";
 
 let passed = 0;
 let failed = 0;

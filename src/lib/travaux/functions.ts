@@ -13,7 +13,7 @@ import {
   detailReport,
   travauxComparable,
   travauxIdentiques,
-} from "./travaux";
+} from "./index";
 
 const nullableText = z.string().nullable().optional();
 const nullableNumber = z.number().nullable().optional();

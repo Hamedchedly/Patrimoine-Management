@@ -44,7 +44,7 @@ import {
   finalizePspImport,
   failPspImport,
   importPspBatch,
-} from "@/lib/psp.functions";
+} from "@/lib/psp/functions";
 import {
   TAILLE_LOT_PSP,
   construireAnalyse,
@@ -56,7 +56,7 @@ import {
   statutFinalImport,
   type PspAnalyse,
   type PspFiltre,
-} from "@/lib/psp.preview";
+} from "@/lib/psp/preview";
 
 export const Route = createFileRoute("/import-psp")({
   head: () => ({

@@ -12,7 +12,7 @@ import {
   resolveHeaderAlias,
   getCategorieBudget,
   parsePspWorkbook,
-} from "../src/lib/psp.ts";
+} from "../src/lib/psp/index.ts";
 
 let passed = 0;
 let failed = 0;

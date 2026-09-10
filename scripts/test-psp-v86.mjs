@@ -20,7 +20,7 @@ import {
   evaluerCorrespondance,
   proposerRapprochements,
   suggererOperationsPourCommande,
-} from "../src/lib/psp.suivi.rapprochement.ts";
+} from "../src/lib/psp/suivi.rapprochement.ts";
 import {
   operationSurAnnee,
   kpiSuivi,
@@ -28,7 +28,7 @@ import {
   etapesAvancement,
   comparatifDevis,
   FILTRES_SUIVI_VIDES,
-} from "../src/lib/psp.suivi.view.ts";
+} from "../src/lib/psp/suivi.view.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = (p) => join(__dirname, "..", "src", p);

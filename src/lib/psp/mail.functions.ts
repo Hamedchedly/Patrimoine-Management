@@ -8,7 +8,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { JOURS_REPONSE_DEFAUT_MAIL, MAIL_MODELES } from "./psp.suivi.foundation";
+import { JOURS_REPONSE_DEFAUT_MAIL, MAIL_MODELES } from "./suivi.foundation";
 
 export type ModeleMail = {
   id: string;

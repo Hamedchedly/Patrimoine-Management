@@ -14,11 +14,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { statutConsultationDepuisDevis } from "../src/lib/psp.prep.v7.ts";
+import { statutConsultationDepuisDevis } from "../src/lib/psp/prep.v7.ts";
 import {
   deriverEtatSuiviAnnuel,
   construireLigneRegistreAnnuel,
-} from "../src/lib/psp.suivi.view.ts";
+} from "../src/lib/psp/suivi.view.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = (p) => join(__dirname, "..", "src", p);

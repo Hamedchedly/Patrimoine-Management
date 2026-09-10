@@ -7,7 +7,7 @@
 //   node --env-file=.env scripts/backfill-rattachement-lot.mjs          (écriture)
 //   node --env-file=.env scripts/backfill-rattachement-lot.mjs --dry-run (prévisualisation)
 import { createClient } from "@supabase/supabase-js";
-import { rattacherLotsACommandes } from "../src/lib/commande.rattachement.supabase.functions.ts";
+import { rattacherLotsACommandes } from "../src/lib/commande/rattachement.supabase.functions.ts";
 
 const url = process.env.EXT_SUPABASE_URL;
 const key = process.env.EXT_SUPABASE_SERVICE_ROLE_KEY;

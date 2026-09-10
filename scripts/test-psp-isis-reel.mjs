@@ -5,8 +5,8 @@
 // Aucune écriture Supabase.
 import * as XLSX from "xlsx";
 import { readFile } from "node:fs/promises";
-import { getCategorieBudget, parsePspWorkbook } from "../src/lib/psp.ts";
-import { buildPspImportRowInsert } from "../src/lib/psp.functions.ts";
+import { getCategorieBudget, parsePspWorkbook } from "../src/lib/psp/index.ts";
+import { buildPspImportRowInsert } from "../src/lib/psp/functions.ts";
 
 const FILE =
   process.argv[2] ??

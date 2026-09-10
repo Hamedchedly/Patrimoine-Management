@@ -2,7 +2,7 @@
 // V8.5.2 — REVUE DES CORRESPONDANCES : tests PURS (dérivation d'affichage).
 // Exécution : node scripts/test-psp-v852.mjs
 // ═══════════════════════════════════════════════════════════════════════════════
-import { deriverExerciceCorrespondance } from "../src/lib/psp.suivi.rapprochement.ts";
+import { deriverExerciceCorrespondance } from "../src/lib/psp/suivi.rapprochement.ts";
 
 let passed = 0;
 let failed = 0;

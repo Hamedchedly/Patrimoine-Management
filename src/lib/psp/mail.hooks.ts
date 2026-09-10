@@ -8,8 +8,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
-import { getMailModeles, type ModeleMail } from "@/lib/psp.mail.functions";
-import { JOURS_REPONSE_DEFAUT_MAIL, MAIL_MODELES } from "@/lib/psp.suivi.foundation";
+import { getMailModeles, type ModeleMail } from "@/lib/psp/mail.functions";
+import { JOURS_REPONSE_DEFAUT_MAIL, MAIL_MODELES } from "@/lib/psp/suivi.foundation";
 
 export const MAIL_MODELES_QUERY_KEY = ["mail-modeles"];
 

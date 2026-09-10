@@ -25,9 +25,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { JOURS_REPONSE_DEFAUT_MAIL, VARIABLES_MAIL } from "@/lib/psp.suivi.foundation";
-import { saveMailModele, type ModeleMail } from "@/lib/psp.mail.functions";
-import { MAIL_MODELES_QUERY_KEY, MODELES_REPLI, useMailModeles } from "@/lib/psp.mail.hooks";
+import { JOURS_REPONSE_DEFAUT_MAIL, VARIABLES_MAIL } from "@/lib/psp/suivi.foundation";
+import { saveMailModele, type ModeleMail } from "@/lib/psp/mail.functions";
+import { MAIL_MODELES_QUERY_KEY, MODELES_REPLI, useMailModeles } from "@/lib/psp/mail.hooks";
 
 export default function ModeleMailEditor({
   ouvert,

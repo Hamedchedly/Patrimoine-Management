@@ -9,8 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FILTRES_VIDES, type FiltresDetail, type PspOperation } from "@/lib/psp.prep";
-import { STATUT_LABELS } from "@/lib/psp.prep.v7";
+import { FILTRES_VIDES, type FiltresDetail, type PspOperation } from "@/lib/psp/prep";
+import { STATUT_LABELS } from "@/lib/psp/prep.v7";
 
 /**
  * Barre de filtres du mode Détail :

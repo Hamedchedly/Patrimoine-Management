@@ -39,14 +39,14 @@
 
 ### 1.1 Modules et routes existants
 
-| Route | Rôle | État |
-|---|---|---|
-| `/preparation-psp` | Préparation de la programmation pluriannuelle 2027–2031 (brouillon Supabase, lignes, périmètres, devis, enveloppes, revue des reports V3/V4, export XLSX) | V7.10 opérationnel |
-| `/psp-validation` | Classification PSP des commandes importées (périmètre PMR / hors PSP, catégorie, priorité, décisions humaines) | Opérationnel |
-| `/dashboard-travaux` | Dashboard des commandes (import Excel annuel) : KPI, carte, historique, décisions | Opérationnel (175 tests) |
-| `/import-travaux` | Moteur d'import Excel du suivi annuel | Opérationnel |
-| `/import-psp`, `/import` | Import ISIS / classification PSP | Opérationnel |
-| `/fournisseurs*`, `/adresses` | Référentiels fournisseurs et patrimoine | Opérationnel |
+| Route                         | Rôle                                                                                                                                                      | État                     |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `/preparation-psp`            | Préparation de la programmation pluriannuelle 2027–2031 (brouillon Supabase, lignes, périmètres, devis, enveloppes, revue des reports V3/V4, export XLSX) | V7.10 opérationnel       |
+| `/psp-validation`             | Classification PSP des commandes importées (périmètre PMR / hors PSP, catégorie, priorité, décisions humaines)                                            | Opérationnel             |
+| `/dashboard-travaux`          | Dashboard des commandes (import Excel annuel) : KPI, carte, historique, décisions                                                                         | Opérationnel (175 tests) |
+| `/import-travaux`             | Moteur d'import Excel du suivi annuel                                                                                                                     | Opérationnel             |
+| `/import-psp`, `/import`      | Import ISIS / classification PSP                                                                                                                          | Opérationnel             |
+| `/fournisseurs*`, `/adresses` | Référentiels fournisseurs et patrimoine                                                                                                                   | Opérationnel             |
 
 ### 1.2 Composants UI du module Préparation (`src/components/preparation-psp/`)
 
@@ -77,12 +77,12 @@ diff) · `psp.prep.suivi.ts` (revue des reports V3/V4 — **TR+C, à refactorer*
 
 ### A. PATRIMOINE (règle §1A — source du « où »)
 
-| Donnée | Table source | Notes |
-|---|---|---|
-| TR / tranche | `tranches` | `tranches.code` est la FK de `psp_lignes.tranche_code` |
-| Sous-secteur | `tranches.sous_secteur` | vérité unique pour le CC |
-| ID CC | `psp_charges_clientele` | correspondance `sous_secteur → identifiant_personnel` (uppercase) |
-| Lot / adresse / rue / numéro / ER / bâtiment | `lots`, `tranches`, adresses | enrichies à l'affichage, **jamais recopiées** dans PSP |
+| Donnée                                       | Table source                 | Notes                                                             |
+| -------------------------------------------- | ---------------------------- | ----------------------------------------------------------------- |
+| TR / tranche                                 | `tranches`                   | `tranches.code` est la FK de `psp_lignes.tranche_code`            |
+| Sous-secteur                                 | `tranches.sous_secteur`      | vérité unique pour le CC                                          |
+| ID CC                                        | `psp_charges_clientele`      | correspondance `sous_secteur → identifiant_personnel` (uppercase) |
+| Lot / adresse / rue / numéro / ER / bâtiment | `lots`, `tranches`, adresses | enrichies à l'affichage, **jamais recopiées** dans PSP            |
 
 **Règle strictement respectée** : le CC est **toujours** dérivé de `tranches.sous_secteur` via
 `psp_charges_clientele`. Il **n'est jamais** déduit de `travaux_commandes.charge_clientele` ni de la
@@ -111,35 +111,37 @@ Le Suivi agrégera à la lecture.
 
 ### 3.1 PSP — préparation
 
-| Table | Colonnes clés | Rôle V8 |
-|---|---|---|
-| `psp_programmations` | id, annee_debut, annee_fin, version, type, statut, parent_id, auteur, remarques, validated_at/by, frozen_at/by | racine des versions ; **statut version** (brouillon→a_valider→validee→figee→archivee) |
-| `psp_lignes` | id, programmation_id, tranche_code, categorie (GE/GT/CP), corps_etat_code, corps_etat, nature_travaux, programme jsonb, ligne_budget, remarques, origine, statut, priorite, created_at, updated_at | **identité de l'opération** ; aucune contrainte UNIQUE métier depuis `20260818` |
-| `psp_ligne_patrimoine` | id, psp_ligne_id, tranche_code, niveau (tranche/rue/adresse/lot), rue, numero, lot_id | périmètre de la fiche opération |
-| `psp_enveloppes` | id, programmation_id, annee, categorie, montant ; UNIQUE(programmation_id, annee, categorie) | budget disponible (somme réelle) |
-| `psp_devis` | id, psp_ligne_id, fournisseur_id, entreprise, date_devis (null), montant (null), statut, commentaire, document_reference, created_at, updated_at | **demande/reçu** : created_at = date de demande |
-| `psp_reports` | id, source_ligne_id, source_annee, cible_ligne_id, cible_annee, montant, motif | trace des reports d'exercice |
-| `psp_ligne_historique` | id, ligne_id, operation (creation/modification/report/annulation/conflit_categorie), avant, apres, resolu, motif, created_at | historique des opérations PSP |
-| `psp_decisions` | id, type_decision, cible_type, cible_id, cle_metier, proposition_initiale, decision_utilisateur, valeur_retenue, motif, statut, psp_ligne_id, annee_cible, montant | décisions/arbitrages (rapprochement, report, annulation…) |
-| `psp_command_links` | id, commande_id, import_row_id, type_relation (commande/rattachement_ligne/rapprochement_historique), methode, confiance (numeric), statut, justification, psp_ligne_id | **mécanisme central du rattachement ligne↔commande** |
-| `psp_charges_clientele` | id, sous_secteur, charge_clientele, identifiant_personnel, actif | référentiel CC (vérité §1A) |
-| `psp_corps_etats` | id, code, libelle, categorie, actif | référentiel corps d'état |
+| Table                   | Colonnes clés                                                                                                                                                                                      | Rôle V8                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `psp_programmations`    | id, annee_debut, annee_fin, version, type, statut, parent_id, auteur, remarques, validated_at/by, frozen_at/by                                                                                     | racine des versions ; **statut version** (brouillon→a_valider→validee→figee→archivee) |
+| `psp_lignes`            | id, programmation_id, tranche_code, categorie (GE/GT/CP), corps_etat_code, corps_etat, nature_travaux, programme jsonb, ligne_budget, remarques, origine, statut, priorite, created_at, updated_at | **identité de l'opération** ; aucune contrainte UNIQUE métier depuis `20260818`       |
+| `psp_ligne_patrimoine`  | id, psp_ligne_id, tranche_code, niveau (tranche/rue/adresse/lot), rue, numero, lot_id                                                                                                              | périmètre de la fiche opération                                                       |
+| `psp_enveloppes`        | id, programmation_id, annee, categorie, montant ; UNIQUE(programmation_id, annee, categorie)                                                                                                       | budget disponible (somme réelle)                                                      |
+| `psp_devis`             | id, psp_ligne_id, fournisseur_id, entreprise, date_devis (null), montant (null), statut, commentaire, document_reference, created_at, updated_at                                                   | **demande/reçu** : created_at = date de demande                                       |
+| `psp_reports`           | id, source_ligne_id, source_annee, cible_ligne_id, cible_annee, montant, motif                                                                                                                     | trace des reports d'exercice                                                          |
+| `psp_ligne_historique`  | id, ligne_id, operation (creation/modification/report/annulation/conflit_categorie), avant, apres, resolu, motif, created_at                                                                       | historique des opérations PSP                                                         |
+| `psp_decisions`         | id, type_decision, cible_type, cible_id, cle_metier, proposition_initiale, decision_utilisateur, valeur_retenue, motif, statut, psp_ligne_id, annee_cible, montant                                 | décisions/arbitrages (rapprochement, report, annulation…)                             |
+| `psp_command_links`     | id, commande_id, import_row_id, type_relation (commande/rattachement_ligne/rapprochement_historique), methode, confiance (numeric), statut, justification, psp_ligne_id                            | **mécanisme central du rattachement ligne↔commande**                                  |
+| `psp_charges_clientele` | id, sous_secteur, charge_clientele, identifiant_personnel, actif                                                                                                                                   | référentiel CC (vérité §1A)                                                           |
+| `psp_corps_etats`       | id, code, libelle, categorie, actif                                                                                                                                                                | référentiel corps d'état                                                              |
 
 ### 3.2 Exécution / import
 
-| Table | Colonnes clés | Rôle V8 |
-|---|---|---|
-| `travaux_commandes` | id, numero_commande, secteur, tranche_code, lot_code, batiment, charge_clientele, adresse, nature_analytique, corps_etat, charge_operation, ligne_budget, descriptif, budget, numero_fournisseur, fournisseur, etat_commande, engage, ecart, paye, solde, etat_travaux, date_demarrage, date_fin_travaux, observations, actif, annee_exercice | source unique financière/état des commandes |
-| `travaux_commandes_historique` | id, import_id, commande_id, operation, avant, apres, resolu, created_at | historique des imports (conflits, modifs, confirmations) |
-| `psp_import_rows` | id, import_id, ligne_numero, numero_commande, numero_commande_interne, er_reference, tranche_er, batiment_er, entree_er, lot_er, corps_etat_code/libelle, nature_analytique, annee_exercice, montants (engage/paye/budget/ecart), fournisseur, adresse, donnees_brutes | brut Historique CMD ; `numero_commande_interne` = clé de rapprochement source |
-| `import_travaux` / `travaux_import_details` | journal + détails d'import (type, message, details jsonb) | rapports d'import |
-| `fournisseurs` / `fournisseur_aliases` | nom, ville… ; (fournisseur_id, source, identifiant_source) | référentiel fournisseurs + alias (recherche) |
-| `v_travaux_commandes_enrichies` | vue : travaux_commandes ⟕ psp_import_rows ⟕ psp_command_links ⟕ psp_command_analysis | vue de rapprochement source (Dashboard, fiches fournisseur) |
+| Table                                       | Colonnes clés                                                                                                                                                                                                                                                                                                                                 | Rôle V8                                                                       |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `travaux_commandes`                         | id, numero_commande, secteur, tranche_code, lot_code, batiment, charge_clientele, adresse, nature_analytique, corps_etat, charge_operation, ligne_budget, descriptif, budget, numero_fournisseur, fournisseur, etat_commande, engage, ecart, paye, solde, etat_travaux, date_demarrage, date_fin_travaux, observations, actif, annee_exercice | source unique financière/état des commandes                                   |
+| `travaux_commandes_historique`              | id, import_id, commande_id, operation, avant, apres, resolu, created_at                                                                                                                                                                                                                                                                       | historique des imports (conflits, modifs, confirmations)                      |
+| `psp_import_rows`                           | id, import_id, ligne_numero, numero_commande, numero_commande_interne, er_reference, tranche_er, batiment_er, entree_er, lot_er, corps_etat_code/libelle, nature_analytique, annee_exercice, montants (engage/paye/budget/ecart), fournisseur, adresse, donnees_brutes                                                                        | brut Historique CMD ; `numero_commande_interne` = clé de rapprochement source |
+| `import_travaux` / `travaux_import_details` | journal + détails d'import (type, message, details jsonb)                                                                                                                                                                                                                                                                                     | rapports d'import                                                             |
+| `fournisseurs` / `fournisseur_aliases`      | nom, ville… ; (fournisseur_id, source, identifiant_source)                                                                                                                                                                                                                                                                                    | référentiel fournisseurs + alias (recherche)                                  |
+| `v_travaux_commandes_enrichies`             | vue : travaux_commandes ⟕ psp_import_rows ⟕ psp_command_links ⟕ psp_command_analysis                                                                                                                                                                                                                                                          | vue de rapprochement source (Dashboard, fiches fournisseur)                   |
+
 ---
 
 ## 4. Cartographie des fonctions réutilisables
 
 ### 4.1 Moteur d'import Excel et états des travaux (`travaux.ts`, `travaux.functions.ts`)
+
 `parseTravauxWorkbook` · `travauxComparable` · `travauxIdentiques` · `champsDifferents` ·
 `decisionImportCommande` (creee/inchangee/report/conflit) · `etatMetier` / `isPasRealise` (état des
 travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernierImportExercice` ·
@@ -147,10 +149,12 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
 `createTravauxImport` / `importTravauxBatch` / `finalizeTravauxImport` (server).
 
 ### 4.2 Dashboard (`travaux.dashboard.functions.ts`)
+
 `getTravauxDashboard` · `getTravauxStats` · `getCommandeHistorique` · `updateCommandeTravaux` ·
 `getPspEnrichissementCommandes` · `resolveHistoriqueTravaux` · `checkTravauxLatestImport`.
 
 ### 4.3 Préparation PSP (pur)
+
 `psp.prep.ts` : `montantAnnee`, `totalOperation`, `totalProgramme`, `sommeParAnnee`,
 `statsOperations`, `statsDevis`, `construireDonneesExportXlsx`, `trierOperationsDetail`,
 `grouperParTranche`, `grouperParChargéClientele`, `comparerProgrammation`.
@@ -161,6 +165,7 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
 `psp.prep.data.ts` : `construireReferencePatrimoine`, `resoudreTranche`, `parseProgrammationWorkbook`.
 
 ### 4.4 Server PSP (`psp.prep.supabase.functions.ts`)
+
 `getPspBrouillon` · `createPspOperationComplete` / `updatePspOperationComplete` (atomiques) ·
 `create/update/delete PspDevis` · `createPspPerimetres` · `getPspEnveloppes` / `savePspEnveloppes` ·
 `updatePspLigneStatutPriorite` · `createPspReport` · `saveDecisionPsp` · `createPspCommandLink`
@@ -169,12 +174,14 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
 `savePspCorpsEtat` / `savePspChargeClientele`.
 
 ### 4.5 Validation PSP (`psp.validation.ts`, `psp.validation.functions.ts`)
+
 `resoudrePerimetrePsp` · `construireCleMetierCommande` · `detecterIncoherenceNature` ·
 `extraireChargePsp` · `calculerScorePriorite` · `construireGroupeApercu` ·
 `getPspValidationApercu` / `getPspValidationDetail` · `getPspDecision` / `savePspDecision` /
 `resoudreDecisionPsp`.
 
 ### 4.6 Revue des reports V3/V4 (`psp.prep.suivi.ts`) — **le seul calque à refactorer**
+
 `cleIdentitePsp` (TR+C — **obsolète pour V8**) · `memesCle` · `rapprocherLignes` ·
 `analyserLignesReport` · `resumeArbitrage` · `filtrerLignesArbitrage` · `trierLignesRevue` ·
 `ligneSuiviDepuisRaw` / `ligneSuiviDepuisCommande` (mapping — **réutilisables**) ·
@@ -182,6 +189,7 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
 `extraireConfirmationsHistorique` (diff + mémoire — **réutilisables**).
 
 ### 4.7 Fournisseurs / géo
+
 `rechercherFournisseurs` (fournisseurs.ts) · `rechercherFournisseursDevis` (server) ·
 `villeDepuisAdresse` / `buildDataVilles` / `repartitionCommandesParSecteur` (travaux.ts).
 
@@ -200,7 +208,7 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
    `HISTORIQUE_MODIFICATIONS_MOCK`) dans `preparation-psp.tsx` (lignes 62-75, 305-366). Le futur Suivi
    devra être 100 % alimenté par les sources réelles (§2).
 3. **Statuts désalignés** : `psp_lignes.statut` ne connaît que `a_definir | attente_agence |
-   attente_confirmation`, alors que le cycle cible est Brouillon / À arbitrer / Validée / Figée /
+attente_confirmation`, alors que le cycle cible est Brouillon / À arbitrer / Validée / Figée /
    Reportée / Annulée ; le cycle opérationnel (demande devis → … → clôturée) n'existe nulle part (§9, D2).
 4. **Pas de clé métier lisible/stable par opération** : seule `psp_lignes.id` (uuid) identifie une
    ligne ; elle change lors d'un report (nouvelle ligne `origine='report'`), ce qui complique le
@@ -220,11 +228,13 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
 10. **Deux historiques distincts** (`psp_ligne_historique` et `travaux_commandes_historique`) :
     corrects et à conserver, mais la fiche opération devra **fusionner les deux à l'affichage**
     (aucun nouveau stockage).
+
 ---
 
 ## 6. Problème critique : TR + C
 
 ### 6.1 Constat
+
 - `psp_lignes` : la contrainte `UNIQUE (programmation_id, tranche_code, categorie)` a été **supprimée**
   (`20260818_psp_operation_multi_tranche_atomique.sql`) : une tranche peut porter plusieurs opérations
   de même catégorie (toiture GT / chauffage GT / ventilation GT).
@@ -232,6 +242,7 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
   revue des reports (`rapprocherLignes`, `analyserLignesReport`, `resumeArbitrage`).
 
 ### 6.2 Pourquoi TR+C est insuffisant
+
 1. **C n'est pas un identifiant** : c'est une catégorie budgétaire (GE/GT/CP). Deux opérations
    légitimes partagent TR + C.
 2. `rapprocherLignes` retient **une seule** ligne du suivi par clé (priorité « ligne_budget présente,
@@ -245,18 +256,20 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
    de l'opération à travers les exercices exige une identité stable, pas un couple dérivé.
 
 ### 6.3 Fonctions qui dépendent aujourd'hui de TR+C
-| Fonction | Fichier | Impact |
-|---|---|---|
-| `cleIdentitePsp`, `memesCle` | `psp.prep.suivi.ts` | clé elle-même — à abandonner pour le Suivi |
-| `rapprocherLignes` | `psp.prep.suivi.ts` | cœur du rapprochement programmation↔suivi |
-| `analyserLignesReport` | `psp.prep.suivi.ts` | vue « à arbitrer » (V3/V4) |
-| `resumeArbitrage`, `filtrerLignesArbitrage`, `ligneMatchKpi` | `psp.prep.suivi.ts` | compteurs/filtres de la revue |
-| `detecterModificationsLigne` (commentaire « même TR + même C ») | `psp.prep.suivi.ts` | détection des modifs |
-| `comparerProgrammation` (rapproche « même TR + nature normalisée ») | `psp.prep.ts` | comparaison ancienne programmation — à harmoniser |
-| `PspRevueReports` (composant) | `src/components/preparation-psp` | UI de la revue |
-| scripts `analyse-fichiers-2026.mjs`, `test-psp-prep-suivi.mjs`, `test-psp-prep-v4.mjs`, `test-psp-v74.mjs` | `scripts/` | tests V3/V4 — à faire évoluer |
+
+| Fonction                                                                                                   | Fichier                          | Impact                                            |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------- |
+| `cleIdentitePsp`, `memesCle`                                                                               | `psp.prep.suivi.ts`              | clé elle-même — à abandonner pour le Suivi        |
+| `rapprocherLignes`                                                                                         | `psp.prep.suivi.ts`              | cœur du rapprochement programmation↔suivi         |
+| `analyserLignesReport`                                                                                     | `psp.prep.suivi.ts`              | vue « à arbitrer » (V3/V4)                        |
+| `resumeArbitrage`, `filtrerLignesArbitrage`, `ligneMatchKpi`                                               | `psp.prep.suivi.ts`              | compteurs/filtres de la revue                     |
+| `detecterModificationsLigne` (commentaire « même TR + même C »)                                            | `psp.prep.suivi.ts`              | détection des modifs                              |
+| `comparerProgrammation` (rapproche « même TR + nature normalisée »)                                        | `psp.prep.ts`                    | comparaison ancienne programmation — à harmoniser |
+| `PspRevueReports` (composant)                                                                              | `src/components/preparation-psp` | UI de la revue                                    |
+| scripts `analyse-fichiers-2026.mjs`, `test-psp-prep-suivi.mjs`, `test-psp-prep-v4.mjs`, `test-psp-v74.mjs` | `scripts/`                       | tests V3/V4 — à faire évoluer                     |
 
 ### 6.4 Ce qui doit changer
+
 - Le **rapprochement ligne PSP ↔ commande** du Suivi utilisera `psp_command_links` (granularité
   **ligne**, pas TR+C) — le seul mécanisme à étendre.
 - La revue V3/V4 basée sur TR+C sera **remplacée** (le composant `PspRevueReports` et ses fixtures
@@ -268,6 +281,7 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
 ## 7. Proposition d'identité opération
 
 ### 7.1 Audit des usages (constat)
+
 - **FK réelles** : `psp_devis.psp_ligne_id`, `psp_ligne_patrimoine.psp_ligne_id`,
   `psp_ligne_historique.ligne_id`, `psp_reports.source_ligne_id/cible_ligne_id`,
   `psp_command_links.psp_ligne_id`, `psp_decisions.psp_ligne_id` → **toute la grappe de tables
@@ -277,10 +291,12 @@ travaux normalisé — **source unique**) · `getAlertesCommande` · `getDernier
 - Aucune autre colonne n'est utilisée comme clé de grappe.
 
 ### 7.2 Proposition (à valider — D1)
+
 **Référence technique** : `psp_lignes.id` (inchangé) — unique, déjà FK de tout le graphe.
 
 **Clé métier stable et lisible** : nouvelle colonne `psp_lignes.code_operation` (text, nullable,
 ex. `1977-GT-001`).
+
 - Générée automatiquement à la création (`{tranche}-{C}-{NNN}` séquentiel dans la programmation).
 - **UNIQUE partielle** `UNIQUE (programmation_id, code_operation)` — distinguer à coup sûr plusieurs
   opérations sur même TR, même C, même année.
@@ -297,6 +313,7 @@ en aide au rapprochement** (jamais comme contrainte) — plus fragile (nature mo
 nullable).
 
 ### 7.3 Conséquences
+
 - `psp.prep.suivi.ts` : `cleIdentitePsp`/`rapprocherLignes`/`analyserLignesReport` sont retirés du
   chemin du Suivi (remplacés par le rapprochement par `id`/`code_operation` + `psp_command_links`).
 - `comparerProgrammation` (psp.prep.ts) : aligné sur `code_operation` quand disponible.
@@ -308,6 +325,7 @@ nullable).
 ## 8. Proposition de rapprochement PSP ↔ commandes
 
 ### 8.1 Critères actuellement utilisés
+
 1. **Source (existant, inchangé)** : `travaux_commandes.numero_commande` ↔
    `psp_import_rows.numero_commande_interne` (via `v_travaux_commandes_enrichies` et
    `psp_command_links.type_relation IN ('commande','rapprochement_historique')`). Confiance = 1.
@@ -316,14 +334,16 @@ nullable).
    `methode='manuel'`, `confiance=1`, `statut='valide'`.
 
 ### 8.2 Cible (3 niveaux, sans nouveau moteur parallèle)
-| Niveau | Mécanisme | Statut de confiance |
-|---|---|---|
-| L1 Rapprochement source | `psp_import_rows.numero_commande_interne` ↔ `travaux_commandes.numero_commande` | AUTO (confiance 1) |
+
+| Niveau                           | Mécanisme                                                                              | Statut de confiance                                  |
+| -------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| L1 Rapprochement source          | `psp_import_rows.numero_commande_interne` ↔ `travaux_commandes.numero_commande`        | AUTO (confiance 1)                                   |
 | L2 Rattachement ligne ↔ commande | `psp_command_links.psp_ligne_id` ↔ `commande_id`, `type_relation='rattachement_ligne'` | AUTO-CONFIRMÉ / À CONFIRMER / MANUEL / NON RAPPROCHÉ |
-| L3 Agrégation opération | somme des L2 par `psp_lignes.id` (0..N commandes) | affichage lecture seule |
+| L3 Agrégation opération          | somme des L2 par `psp_lignes.id` (0..N commandes)                                      | affichage lecture seule                              |
 
 **Système de confiance (données déjà dans `psp_command_links` : `methode`, `confiance` numeric,
 `statut`, `justification`)** :
+
 - **AUTO-CONFIRMÉ** : un seul candidat sans ambiguïté → `methode='auto'`, `confiance=1`,
   `statut='valide'` (créé automatiquement).
 - **À CONFIRMER** : plusieurs candidats plausibles → `confiance` 0..1, `statut='a_confirmer'`,
@@ -344,15 +364,15 @@ Le CC n'est **jamais** un critère (§1A).
 **Deux statuts séparés, jamais fusionnés** (implémentation = décision **D2**) :
 
 | STATUT PSP (sur `psp_lignes`/`psp_programmations`) | STATUT OPÉRATIONNEL (dérivé à la lecture, §10) |
-|---|---|
-| brouillon | à_lancer |
-| a_arbitrer | demande_devis |
-| validee | devis_recu |
-| figee | commande_passee |
-| reportee (via `psp_reports` + `psp_decisions`) | travaux_a_demarrer |
-| annulee (via `psp_decisions`) | travaux_en_cours |
-|  | travaux_termines |
-|  | cloturee |
+| -------------------------------------------------- | ---------------------------------------------- |
+| brouillon                                          | à_lancer                                       |
+| a_arbitrer                                         | demande_devis                                  |
+| validee                                            | devis_recu                                     |
+| figee                                              | commande_passee                                |
+| reportee (via `psp_reports` + `psp_decisions`)     | travaux_a_demarrer                             |
+| annulee (via `psp_decisions`)                      | travaux_en_cours                               |
+|                                                    | travaux_termines                               |
+|                                                    | cloturee                                       |
 
 - **STATUT OPÉRATIONNEL dérivé** (recommandé, sans colonne) à partir de : présence de devis
   (`psp_devis`), présence de commandes (`psp_command_links`), `etatMetier` (`travaux_commandes`),
@@ -360,11 +380,13 @@ Le CC n'est **jamais** un critère (§1A).
 - **STATUT PSP géré** par `psp_lignes.statut` (à faire évoluer vers le domaine cible — M2) et par le
   gel version (`psp_programmations.statut='figee'`).
 - Exemple cible : PSP=VALIDÉE + Opération=DEVIS REÇU (deux badges distincts, aucun recouvrement).
+
 ---
 
 ## 10. Modèle du futur Suivi
 
 ### 10.1 Architecture de données (aucune copie)
+
 ```
 psp_lignes ──┬── psp_ligne_patrimoine        travaux_commandes (source C)
              ├── psp_devis                   travaux_commandes_historique
@@ -372,10 +394,13 @@ psp_lignes ──┬── psp_ligne_patrimoine        travaux_commandes (source
              └── psp_command_links ────────► travaux_commandes
                       (psp_ligne_id ↔ commande_id)
 ```
+
 Lecture agrégée au moment de l'affichage ; **aucune valeur financière/état copiée dans PSP**.
 
 ### 10.2 Nouvelle vue de lecture (proposée, sans table — M3)
+
 `v_psp_suivi_operations` : une ligne par `psp_lignes.id`, avec :
+
 - opération (code, tranche, catégorie, corps d'état, nature, priorité, statut PSP) ;
 - périmètre (adresse/lot via `psp_ligne_patrimoine` + `lots`) ;
 - programmation (montants par année depuis `programme`, budget disponible depuis `psp_enveloppes`) ;
@@ -385,6 +410,7 @@ Lecture agrégée au moment de l'affichage ; **aucune valeur financière/état c
 - état opérationnel **dérivé** (logique pure réutilisée, pas de SQL métier dupliqué si possible).
 
 ### 10.3 Règles d'agrégation
+
 - `Programmé` = `psp_lignes.programme[année]` (B) · `Commandé` = `SUM(travaux_commandes.budget)`
   (C) · `Engagé` = `SUM(engage)` · `Payé` = `SUM(paye)` · `Reste` = programmé − engagé.
 - Un nouvel import Excel modifie `travaux_commandes` → le Suivi **reflète automatiquement** la
@@ -396,17 +422,17 @@ Lecture agrégée au moment de l'affichage ; **aucune valeur financière/état c
 
 Colonnes (9, pas 25 — le détail est dans la fiche) :
 
-| # | Colonne | Contenu | Source |
-|---|---|---|---|
-| 1 | OPÉRATION | code_operation + nature/corps d'état | B |
-| 2 | TR | tranche_code | B |
-| 3 | CC | identifiant_personnel (via tranches.sous_secteur → psp_charges_clientele) | A |
-| 4 | C | GE/GT/CP | B |
-| 5 | PROGRAMMATION | année cible + budget programmé | B |
-| 6 | DEVIS | statut (demande envoyée / reçu + montant) | B |
-| 7 | COMMANDE | n° + fournisseur + état | C (via liens) |
-| 8 | TRAVAUX | état opérationnel (badge) | dérivé (C) |
-| 9 | FINANCIER | programmé / commandé / engagé / payé / restant | B + C |
+| #   | Colonne       | Contenu                                                                   | Source        |
+| --- | ------------- | ------------------------------------------------------------------------- | ------------- |
+| 1   | OPÉRATION     | code_operation + nature/corps d'état                                      | B             |
+| 2   | TR            | tranche_code                                                              | B             |
+| 3   | CC            | identifiant_personnel (via tranches.sous_secteur → psp_charges_clientele) | A             |
+| 4   | C             | GE/GT/CP                                                                  | B             |
+| 5   | PROGRAMMATION | année cible + budget programmé                                            | B             |
+| 6   | DEVIS         | statut (demande envoyée / reçu + montant)                                 | B             |
+| 7   | COMMANDE      | n° + fournisseur + état                                                   | C (via liens) |
+| 8   | TRAVAUX       | état opérationnel (badge)                                                 | dérivé (C)    |
+| 9   | FINANCIER     | programmé / commandé / engagé / payé / restant                            | B + C         |
 
 **Filtres** : année · TR · CC · C · corps d'état · statut PSP · statut opérationnel · fournisseur ·
 commande (avec/sans) · priorité · recherche texte (code, nature, n°, fournisseur).
@@ -448,20 +474,20 @@ budget, engagé, payé, solde, état commande, état travaux, dates. Actions : r
 
 KPIs dynamiques (tous calculés depuis les sources réelles B + C, **aucun MOCK**) :
 
-| KPI | Définition |
-|---|---|
-| Opérations programmées | COUNT(`psp_lignes`) actives |
-| Demandes de devis | COUNT(`psp_devis` statut IN demande_envoyee/a_demander) |
-| Devis reçus | COUNT(`psp_devis` statut=recu) |
-| Commandées | COUNT(opérations avec ≥1 lien `rattachement_ligne` validé) |
-| Travaux en cours | opérations dont état dérivé = travaux_en_cours |
-| Terminées | état dérivé = travaux_termines |
-| Sans commande | opérations sans lien (statut = à_lancer..devis_recu) |
-| Budget programmé | SUM(`programme`) |
-| Budget commandé | SUM(`travaux_commandes.budget` liées) |
-| Budget engagé | SUM(`engage`) |
-| Budget payé | SUM(`paye`) |
-| Reste à engager | programmé − engagé |
+| KPI                    | Définition                                                 |
+| ---------------------- | ---------------------------------------------------------- |
+| Opérations programmées | COUNT(`psp_lignes`) actives                                |
+| Demandes de devis      | COUNT(`psp_devis` statut IN demande_envoyee/a_demander)    |
+| Devis reçus            | COUNT(`psp_devis` statut=recu)                             |
+| Commandées             | COUNT(opérations avec ≥1 lien `rattachement_ligne` validé) |
+| Travaux en cours       | opérations dont état dérivé = travaux_en_cours             |
+| Terminées              | état dérivé = travaux_termines                             |
+| Sans commande          | opérations sans lien (statut = à_lancer..devis_recu)       |
+| Budget programmé       | SUM(`programme`)                                           |
+| Budget commandé        | SUM(`travaux_commandes.budget` liées)                      |
+| Budget engagé          | SUM(`engage`)                                              |
+| Budget payé            | SUM(`paye`)                                                |
+| Reste à engager        | programmé − engagé                                         |
 
 Réutilise les briques pures existantes : `statsOperations`, `sommeParAnnee`,
 `budgetDisponibleTotalReel`, `resumeArbitrage` (adapté par ligne), `statsDevis`.
@@ -494,6 +520,7 @@ Réutilise les briques pures existantes : `statsOperations`, `sommeParAnnee`,
   commandes : le bloc « Commandes » liste chacune ; le FINANCIER agrège les sommes.
 - Interaction avec la confiance : confirmer/refuser un rattachement automatique proposé (statuts
   §8.2), réutilise `saveDecisionPsp` (type_decision='rapprochement').
+
 ---
 
 ## 16. Gestion import Excel
@@ -559,6 +586,7 @@ Réutilise les briques pures existantes : `statsOperations`, `sommeParAnnee`,
 **Aucune migration exécutée.** Propositions (à valider avant V8.1) :
 
 ### M1 — `psp_lignes.code_operation` (identité métier, D1)
+
 - Contenu : `add column code_operation text null` ; `UNIQUE (programmation_id, code_operation)` ;
   trigger de génération `{tranche}-{C}-{NNN}` ; backfill des lignes existantes (idempotent) ;
   héritage lors des reports.
@@ -569,6 +597,7 @@ Réutilise les briques pures existantes : `statsOperations`, `sommeParAnnee`,
 - Rollback : `drop column code_operation` (et le trigger associé).
 
 ### M2 — extension du domaine `psp_lignes.statut` (cycle de vie PSP, D2)
+
 - Contenu : remplacement du CHECK `('a_definir','attente_agence','attente_confirmation')` par
   `('brouillon','a_arbitrer','validee','figee','reportee','annulee')` (avec mapping/backfill
   conservatif : a_definir→a_arbitrer, attente_*→a_arbitrer).
@@ -578,10 +607,12 @@ Réutilise les briques pures existantes : `statsOperations`, `sommeParAnnee`,
 - Rollback : recréation du CHECK précédent.
 
 ### M3 — vue `v_psp_suivi_operations` (lecture seule, sans table)
+
 - Contenu : vue SQL de lecture agrégeant B + C (voir §10.2) ; index en appui si besoin.
 - Impact : **aucune donnée** ; rollback = `drop view`.
 
 ### M4 — (optionnel) `psp_command_links.statut` étendu `'a_confirmer'`
+
 - Si le domaine actuel ne l'inclut pas : extension additive du CHECK pour porter la confiance §8.2.
 - Rollback : re-CREATE du CHECK précédent.
 
@@ -589,6 +620,7 @@ Réutilise les briques pures existantes : `statsOperations`, `sommeParAnnee`,
 > `psp_reports`, `psp_decisions`, `psp_ligne_historique`, `psp_command_links`, `travaux_commandes`,
 > `travaux_commandes_historique`, `psp_import_rows`, `psp_charges_clientele`, `psp_corps_etats`
 > couvrent 100 % des besoins fonctionnels identifiés.
+
 ---
 
 ## 21. Plan de développement V8 par étapes
@@ -596,16 +628,17 @@ Réutilise les briques pures existantes : `statsOperations`, `sommeParAnnee`,
 > Chaque étape = branche déjà active, tests purs + live, `build`/`tsc`/`eslint`, SSR, non-régression
 > complète. Aucune étape n'est lancée avant validation de ce rapport.
 
-| Étape | Contenu | Livrable |
-|---|---|---|
-| **V8.1 — Fondations** | Validation D1/D2 → migrations M1/M2 (+M4 si besoin) ; refactor de l'identité : suppression de `cleIdentitePsp` du chemin Suivi ; `comparerProgrammation` aligné ; vue M3 | modèle + migrations + tests identité |
-| **V8.2 — Route Suivi** | `/suivi` : tableau §11 + filtres + navigation ; server fn `getPspSuiviOperations` (lecture B+C via M3 ou agrégation) | tableau opérationnel |
-| **V8.3 — Fiche opération** | fiche §12 : en-tête, périmètre, programmation, devis, historique fusionné | fiche lecture |
-| **V8.4 — Rapprochement** | propositions automatiques L2 (score, seuils D3), confirmation/refus humain, badges de confiance ; commandes dans la fiche (§15) | rapprochement complet |
-| **V8.5 — Hors programmation + sans commande + KPI** | §18/§19/§13 ; historique patrimoine par TR (§17) | vue globale |
-| **V8.6 — UX diagnostic** | §20 : bouton « Signaler un problème », identifiant technique de vue, contexte (page, mode, opération, TR, action) | qualité UX |
+| Étape                                               | Contenu                                                                                                                                                                  | Livrable                             |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| **V8.1 — Fondations**                               | Validation D1/D2 → migrations M1/M2 (+M4 si besoin) ; refactor de l'identité : suppression de `cleIdentitePsp` du chemin Suivi ; `comparerProgrammation` aligné ; vue M3 | modèle + migrations + tests identité |
+| **V8.2 — Route Suivi**                              | `/suivi` : tableau §11 + filtres + navigation ; server fn `getPspSuiviOperations` (lecture B+C via M3 ou agrégation)                                                     | tableau opérationnel                 |
+| **V8.3 — Fiche opération**                          | fiche §12 : en-tête, périmètre, programmation, devis, historique fusionné                                                                                                | fiche lecture                        |
+| **V8.4 — Rapprochement**                            | propositions automatiques L2 (score, seuils D3), confirmation/refus humain, badges de confiance ; commandes dans la fiche (§15)                                          | rapprochement complet                |
+| **V8.5 — Hors programmation + sans commande + KPI** | §18/§19/§13 ; historique patrimoine par TR (§17)                                                                                                                         | vue globale                          |
+| **V8.6 — UX diagnostic**                            | §20 : bouton « Signaler un problème », identifiant technique de vue, contexte (page, mode, opération, TR, action)                                                        | qualité UX                           |
 
 ### 21.1 Dépendances
+
 - V8.1 (identité) est un prérequis de V8.4 (rapprochement) et V8.5 (hors programmation).
 - V8.2 peut démarrer sans V8.1 si D1 est rejetée (clé dérivée) — mais V8.4 en sera plus fragile.
 - Aucune étape ne touche `/dashboard-travaux`, `/import-travaux`, `/psp-validation` (non-régression
@@ -616,33 +649,36 @@ Réutilise les briques pures existantes : `statsOperations`, `sommeParAnnee`,
 ## 22. Plan de tests
 
 ### 22.1 Nouveaux tests V8 (purs, Node)
-| Test | Scénario (brief §21) |
-|---|---|
-| A | PSP sans commande → badge SANS COMMANDE, financier « — » |
-| B | PSP avec demande de devis sans montant (montant null accepté, « Demande le ») |
-| C | PSP avec devis reçu (date + montant affichés) |
-| D | PSP avec 1 commande (financier agrégé depuis travaux_commandes) |
-| E | PSP avec plusieurs commandes (toiture : diagnostic + MO + travaux) |
-| F | commande hors programmation (affichée, non créée en PSP) |
-| G | opération hors programmation (non créée sans validation) |
-| H | opération terminée (état dérivé = travaux_termines) |
-| I | opération reportée (ligne cible, `psp_reports`, code_operation hérité) |
-| J | modification d'une commande après import (nouvelle valeur reflétée) |
-| K | nouvel import Excel (données C actualisées, aucune copie dans PSP) |
-| L | rapprochement automatique (score, AUTO-CONFIRMÉ vs À CONFIRMER) |
-| M | rapprochement manuel (`createPspCommandLink`) |
-| N | refus d'un rapprochement (statut rejeté, commande NON RAPPROCHÉE) |
-| O | **plusieurs opérations même TR + C** (2..3 lignes distinctes, zéro collision) |
-| P | historique (chronologie fusionnée PSP + commandes) |
-| Q | cohérence financier (programmé ≥ commandé ≥ engagé ≥ payé — alertes si non) |
-| R | absence de mock (aucune valeur 3 200 000 / 16 000 000 ni `SUIVI_2026_MOCK` dans le chemin Suivi) |
+
+| Test | Scénario (brief §21)                                                                             |
+| ---- | ------------------------------------------------------------------------------------------------ |
+| A    | PSP sans commande → badge SANS COMMANDE, financier « — »                                         |
+| B    | PSP avec demande de devis sans montant (montant null accepté, « Demande le »)                    |
+| C    | PSP avec devis reçu (date + montant affichés)                                                    |
+| D    | PSP avec 1 commande (financier agrégé depuis travaux_commandes)                                  |
+| E    | PSP avec plusieurs commandes (toiture : diagnostic + MO + travaux)                               |
+| F    | commande hors programmation (affichée, non créée en PSP)                                         |
+| G    | opération hors programmation (non créée sans validation)                                         |
+| H    | opération terminée (état dérivé = travaux_termines)                                              |
+| I    | opération reportée (ligne cible, `psp_reports`, code_operation hérité)                           |
+| J    | modification d'une commande après import (nouvelle valeur reflétée)                              |
+| K    | nouvel import Excel (données C actualisées, aucune copie dans PSP)                               |
+| L    | rapprochement automatique (score, AUTO-CONFIRMÉ vs À CONFIRMER)                                  |
+| M    | rapprochement manuel (`createPspCommandLink`)                                                    |
+| N    | refus d'un rapprochement (statut rejeté, commande NON RAPPROCHÉE)                                |
+| O    | **plusieurs opérations même TR + C** (2..3 lignes distinctes, zéro collision)                    |
+| P    | historique (chronologie fusionnée PSP + commandes)                                               |
+| Q    | cohérence financier (programmé ≥ commandé ≥ engagé ≥ payé — alertes si non)                      |
+| R    | absence de mock (aucune valeur 3 200 000 / 16 000 000 ni `SUIVI_2026_MOCK` dans le chemin Suivi) |
 
 ### 22.2 Non-régression (toutes versions)
+
 `test-psp` · `test-psp-functions` · `test-psp-classification` · `test-psp-prep` (+data/suivi/v4) ·
 `test-psp-v7`→`v710` (+live) · `test-psp-validation` · `test-psp-preview` · `test-psp-supabase` ·
 **`test-dashboard-travaux` (175/0 — Dashboard inchangé)**.
 
 ### 22.3 Live (Supabase)
+
 Scénarios D/E/F/I/L/M/N avec données de test marquées (`__V8__`) puis purgées ; vérification que
 les 15 enveloppes réelles et les lignes existantes restent intactes.
 
@@ -704,4 +740,4 @@ les 15 enveloppes réelles et les lignes existantes restent intactes.
 
 STOP.
 
-*Fin du rapport V8.0. Aucune étape V8.1 engagée, aucune implémentation du module Suivi démarrée.*
+_Fin du rapport V8.0. Aucune étape V8.1 engagée, aucune implémentation du module Suivi démarrée._

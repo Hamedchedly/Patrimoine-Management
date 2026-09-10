@@ -31,10 +31,10 @@ import {
   type PspCategorie,
   type PspOperation,
   type SaisieOperation,
-} from "@/lib/psp.prep";
-import { PRIORITE_LABELS, STATUT_LABELS, statutConsultationDepuisDevis } from "@/lib/psp.prep.v7";
-import type { ReferencePatrimoine } from "@/lib/psp.prep.data";
-import type { LotInfo, PerimetreLigne } from "@/lib/psp.prep.v7";
+} from "@/lib/psp/prep";
+import { PRIORITE_LABELS, STATUT_LABELS, statutConsultationDepuisDevis } from "@/lib/psp/prep.v7";
+import type { ReferencePatrimoine } from "@/lib/psp/prep.data";
+import type { LotInfo, PerimetreLigne } from "@/lib/psp/prep.v7";
 
 const CHARGE_OPERATION = "HCHEDLY";
 

@@ -32,7 +32,7 @@ import {
   resoudreBugReport,
   supprimerBugReport,
   type BugReport,
-} from "@/lib/bug_reports.functions";
+} from "@/lib/bugs/reports.functions";
 
 export const BUG_REPORTS_KEY = ["bug-reports"] as const;
 

@@ -4,7 +4,7 @@
 // Usage : node scripts/rapport-psp-utic.mjs [chemin du fichier]
 import * as XLSX from "xlsx";
 import { readFileSync, existsSync } from "node:fs";
-import { parsePspWorkbook } from "../src/lib/psp.ts";
+import { parsePspWorkbook } from "../src/lib/psp/index.ts";
 
 const chemin =
   process.argv[2] ??
@@ -28,7 +28,9 @@ console.log(`Fichier : ${chemin}`);
 console.log(`Colonne G (index 6) : ${JSON.stringify(header[6])}`);
 console.log(`Index colonne UTIC_CODE : ${uticIdx}`);
 
-let total = 0, avec = 0, sans = 0;
+let total = 0,
+  avec = 0,
+  sans = 0;
 const distincts = new Set();
 const exemples = [];
 for (let i = 1; i < rows.length; i++) {

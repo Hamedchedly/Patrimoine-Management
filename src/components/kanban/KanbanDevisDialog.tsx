@@ -50,7 +50,7 @@ import {
   getPspSuiviOperations,
   updatePspDevis,
   updatePspLigneEtatPilotage,
-} from "@/lib/psp.prep.supabase.functions";
+} from "@/lib/psp/prep.supabase.functions";
 import {
   ajouterFichierCloture,
   confronterKanbanCommandesPassees,
@@ -64,13 +64,13 @@ import {
   supprimerFichierCloture,
   type ClotureKanban,
   type FichierCloture,
-} from "@/lib/kanban.functions";
-import type { SuiviOperationVue } from "@/lib/psp.suivi.foundation";
+} from "@/lib/kanban/functions";
+import type { SuiviOperationVue } from "@/lib/psp/suivi.foundation";
 import {
   kpiRegistreAnnuel,
   villeDepuisAdresse,
   type LigneRegistreAnnuel,
-} from "@/lib/psp.suivi.view";
+} from "@/lib/psp/suivi.view";
 import {
   COLONNES_KANBAN,
   GROUPES_KANBAN,
@@ -83,7 +83,7 @@ import {
   type CommandePasseeKanban,
   type GroupeKanban,
   type TriCartesKanban,
-} from "@/lib/kanban.view";
+} from "@/lib/kanban/view";
 
 const OPS_KEY = ["kanban-operations"] as const;
 const cpKey = (exercice: number) => ["kanban-commandes-passees", exercice] as const;

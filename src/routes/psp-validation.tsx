@@ -51,7 +51,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { savePspFeedback } from "@/lib/psp.functions";
+import { savePspFeedback } from "@/lib/psp/functions";
 import {
   CHAMPS_MODIFIABLES,
   OPTIONS_DOMAINE_TECHNIQUE,
@@ -71,12 +71,12 @@ import {
   type PspMotifExclusion,
   type PspNiveauPriorite,
   type PspPerimetre,
-} from "@/lib/psp.validation";
+} from "@/lib/psp/validation";
 import {
   getPspDecision,
   getPspValidationApercu,
   getPspValidationDetail,
-} from "@/lib/psp.validation.functions";
+} from "@/lib/psp/validation.functions";
 
 export const Route = createFileRoute("/psp-validation")({
   head: () => ({

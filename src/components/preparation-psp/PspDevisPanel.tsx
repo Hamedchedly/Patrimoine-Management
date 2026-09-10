@@ -21,8 +21,8 @@ import {
   totalOperation,
   type PspDevis,
   type PspOperation,
-} from "@/lib/psp.prep";
-import { DEVIS_STATUT_LABELS, libelleEntrepriseAvecId } from "@/lib/psp.prep.v7";
+} from "@/lib/psp/prep";
+import { DEVIS_STATUT_LABELS, libelleEntrepriseAvecId } from "@/lib/psp/prep.v7";
 import { cn } from "@/lib/utils";
 
 export type DevisEdit = {

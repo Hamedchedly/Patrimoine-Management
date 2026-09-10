@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { creerBugReport } from "@/lib/bug_reports.functions";
+import { creerBugReport } from "@/lib/bugs/reports.functions";
 
 const MAX_CLICS = 12;
 type ClicHistorique = { h: string; cible: string };
@@ -60,7 +60,7 @@ const capturePage = async (): Promise<string | null> => {
     // Import dynamique du MODULE (chunk séparé) — l'import dynamique d'une
     // dépendance brute échoue sous Vite ; html-to-image est importé
     // statiquement dans src/lib/bug.capture.ts.
-    const mod = await import("@/lib/bug.capture");
+    const mod = await import("@/lib/bugs/capture");
     return await mod.capturePage();
   } catch (e) {
     console.error("[BugReport] capture", e);

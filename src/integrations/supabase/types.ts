@@ -42,8 +42,7 @@ export type Database = {
           updated_at?: string;
           ville?: string;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       fournisseur_activites: {
         Row: {
@@ -158,8 +157,7 @@ export type Database = {
           updated_at?: string;
           ville?: string | null;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       fournisseurs_contacts: {
         Row: {
@@ -260,8 +258,7 @@ export type Database = {
           statut?: string;
           termine_at?: string | null;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       imports: {
         Row: {
@@ -294,8 +291,7 @@ export type Database = {
           lots_maj?: number;
           tranches_creees?: number;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       lots: {
         Row: {
@@ -775,8 +771,7 @@ export type Database = {
           motif?: string | null;
           proposition_initiale?: Json;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       psp_import_rows: {
         Row: {
@@ -931,8 +926,7 @@ export type Database = {
           statut?: string;
           structure_detectee?: Json;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       psp_ligne_historique: {
         Row: {
@@ -1148,8 +1142,7 @@ export type Database = {
           type_patrimoine?: string | null;
           updated_at?: string;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       psp_programmations: {
         Row: {
@@ -1301,8 +1294,7 @@ export type Database = {
           type_regle?: string;
           updated_at?: string;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       tranches: {
         Row: {
@@ -1356,8 +1348,7 @@ export type Database = {
           zone_apl?: string | null;
           zone_edf?: string | null;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       travaux: {
         Row: {
@@ -1402,8 +1393,7 @@ export type Database = {
           tranche_code?: string | null;
           updated_at?: string;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       travaux_commandes: {
         Row: {
@@ -1902,8 +1892,7 @@ export type Database = {
           ville?: string;
           ville_normalisee?: string;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
     };
     Views: {

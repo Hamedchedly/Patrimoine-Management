@@ -13,7 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReferentielChargesClienteleBody } from "@/components/preparation-psp/PspChargesClienteleDialog";
 import { ReferentielCorpsEtatsBody } from "@/components/preparation-psp/PspCorpsEtatsDialog";
-import { getSousSecteursConnus } from "@/lib/psp.prep.data.functions";
+import { getSousSecteursConnus } from "@/lib/psp/prep.data.functions";
 
 /**
  * V8.16u — dialogue « Paramètres » (menu Admin). Réutilise les BODY existants des

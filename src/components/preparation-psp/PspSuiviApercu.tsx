@@ -12,7 +12,7 @@ import { Circle, CheckCircle2, GitBranch, Building2, Loader2 } from "lucide-reac
 
 import { Badge } from "@/components/ui/badge";
 import { money0 } from "@/lib/formats";
-import { getPspSuiviOperation } from "@/lib/psp.prep.supabase.functions";
+import { getPspSuiviOperation } from "@/lib/psp/prep.supabase.functions";
 
 const fmtDate = (v: string | null | undefined): string =>
   v ? new Date(v).toLocaleDateString("fr-FR") : "—";

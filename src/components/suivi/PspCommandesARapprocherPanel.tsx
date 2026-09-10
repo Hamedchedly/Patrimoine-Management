@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getPspCommandesARapprocher } from "@/lib/psp.prep.supabase.functions";
+import { getPspCommandesARapprocher } from "@/lib/psp/prep.supabase.functions";
 import PspCorrespondanceCommandeDialog from "@/components/suivi/PspCorrespondanceCommandeDialog";
 
 type LigneCompacte = {

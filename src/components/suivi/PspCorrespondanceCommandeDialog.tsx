@@ -33,9 +33,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   createPspCommandLink,
   rechercherOperationsPourCommande,
-} from "@/lib/psp.prep.supabase.functions";
-import { libelleEntreprise } from "@/lib/psp.prep.v7";
-import { determinerRelationPeriode } from "@/lib/psp.suivi.rapprochement";
+} from "@/lib/psp/prep.supabase.functions";
+import { libelleEntreprise } from "@/lib/psp/prep.v7";
+import { determinerRelationPeriode } from "@/lib/psp/suivi.rapprochement";
 
 const fmtMontant = (v: number | null | undefined): string => {
   if (v == null) return "—";

@@ -24,9 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PSP_ANNEES, type PspAnnee } from "@/lib/psp.prep";
-import { getPspEnveloppes } from "@/lib/psp.prep.supabase.functions";
-import type { EnveloppeMap } from "@/lib/psp.prep.v7";
+import { PSP_ANNEES, type PspAnnee } from "@/lib/psp/prep";
+import { getPspEnveloppes } from "@/lib/psp/prep.supabase.functions";
+import type { EnveloppeMap } from "@/lib/psp/prep.v7";
 
 export type OngletParametres = "charges" | "corps" | "enveloppes";
 

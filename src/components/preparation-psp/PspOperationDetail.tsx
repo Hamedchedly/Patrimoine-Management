@@ -46,10 +46,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { diffHistorique, libelleAdresseLigne } from "@/lib/psp.prep.v7";
-import type { LotInfo, PerimetreLigne } from "@/lib/psp.prep.v7";
-import type { PspOperation, SaisieOperation } from "@/lib/psp.prep";
-import type { ReferencePatrimoine } from "@/lib/psp.prep.data";
+import { diffHistorique, libelleAdresseLigne } from "@/lib/psp/prep.v7";
+import type { LotInfo, PerimetreLigne } from "@/lib/psp/prep.v7";
+import type { PspOperation, SaisieOperation } from "@/lib/psp/prep";
+import type { ReferencePatrimoine } from "@/lib/psp/prep.data";
 
 export default function PspOperationDetail({
   operation,

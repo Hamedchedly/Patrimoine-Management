@@ -18,7 +18,7 @@ import PspFournisseurSearch, {
   type FournisseurSelection,
 } from "@/components/preparation-psp/PspFournisseurSearch";
 import PspLotsDevisSection from "@/components/preparation-psp/PspLotsDevisSection";
-import { useMailModeles } from "@/lib/psp.mail.hooks";
+import { useMailModeles } from "@/lib/psp/mail.hooks";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,9 +49,9 @@ import {
   composerMail,
   construireMailto,
   dateRetourParDefaut,
-} from "@/lib/psp.suivi.foundation";
-import { libelleEntrepriseAvecNumero } from "@/lib/psp.prep.v7";
-import { createPspDevis, getPspEntreprisesSuggestions } from "@/lib/psp.prep.supabase.functions";
+} from "@/lib/psp/suivi.foundation";
+import { libelleEntrepriseAvecNumero } from "@/lib/psp/prep.v7";
+import { createPspDevis, getPspEntreprisesSuggestions } from "@/lib/psp/prep.supabase.functions";
 
 /**
  * V8.3 — opération source d'une demande de devis. Type STRUCTUREL : utilisé

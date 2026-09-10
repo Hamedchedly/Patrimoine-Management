@@ -31,9 +31,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getPspChargesClientele } from "@/lib/psp.prep.data.functions";
-import type { ChargesClienteleReferentiel } from "@/lib/psp.prep.data";
-import { savePspChargeClientele } from "@/lib/psp.prep.supabase.functions";
+import { getPspChargesClientele } from "@/lib/psp/prep.data.functions";
+import type { ChargesClienteleReferentiel } from "@/lib/psp/prep.data";
+import { savePspChargeClientele } from "@/lib/psp/prep.supabase.functions";
 
 type LigneEditable = {
   sousSecteur: string;

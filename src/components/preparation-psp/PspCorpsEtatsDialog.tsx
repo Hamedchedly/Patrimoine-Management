@@ -34,9 +34,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { PspCategorie } from "@/lib/psp.prep";
-import { getCorpsEtats, savePspCorpsEtat } from "@/lib/psp.prep.supabase.functions";
-import type { CorpsEtatReferentiel } from "@/lib/psp.prep.v7";
+import type { PspCategorie } from "@/lib/psp/prep";
+import { getCorpsEtats, savePspCorpsEtat } from "@/lib/psp/prep.supabase.functions";
+import type { CorpsEtatReferentiel } from "@/lib/psp/prep.v7";
 
 type LigneEditable = {
   id: string | null;

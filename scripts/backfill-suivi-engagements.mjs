@@ -15,7 +15,7 @@ import { join } from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { parseTravauxWorkbook } from "../src/lib/travaux.ts";
+import { parseTravauxWorkbook } from "../src/lib/travaux/index.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];
@@ -30,13 +30,14 @@ const FICHIERS = [
   { annee: 2026, nom: "ANM_SUIVTRXSECT 2026.xlsx" },
 ];
 
-const numberOrNull = (v) =>
-  typeof v === "number" && Number.isFinite(v) ? v : null;
+const numberOrNull = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
 // ── 1. Charger les lignes suivi existantes ────────────────────────────────────
 const { data: lignes, error: errLignes } = await db
   .from("psp_lignes")
-  .select("id, tranche_code, categorie, corps_etat, nature_travaux, programme, ligne_budget, origine, remarques")
+  .select(
+    "id, tranche_code, categorie, corps_etat, nature_travaux, programme, ligne_budget, origine, remarques",
+  )
   .eq("origine", "suivi");
 if (errLignes) throw new Error(`Chargement psp_lignes : ${errLignes.message}`);
 console.log(`Lignes suivi chargées : ${lignes?.length ?? 0}`);
@@ -84,7 +85,11 @@ for (const f of FICHIERS) {
   for (const issue of parsed.sansCommande ?? []) {
     const id = refs.get(`${f.annee}:${issue.line}`);
     if (!id) continue;
-    const maj = misesAJour.get(id) ?? { annee_exercice: f.annee, montant_engage: null, montant_paye: null };
+    const maj = misesAJour.get(id) ?? {
+      annee_exercice: f.annee,
+      montant_engage: null,
+      montant_paye: null,
+    };
     maj.annee_exercice = f.annee;
     maj.montant_engage = numberOrNull(Number(issue.engage) || null);
     maj.montant_paye = numberOrNull(Number(issue.paye) || null);
@@ -111,7 +116,11 @@ for (const [id, maj] of misesAJour) {
 }
 
 // ── 4. Synthèse ───────────────────────────────────────────────────────────────
-console.log(`\nFichiers traités : ${fichiersTraites}/4 · lignes sans commande matchées : ${lignesMatch}`);
+console.log(
+  `\nFichiers traités : ${fichiersTraites}/4 · lignes sans commande matchées : ${lignesMatch}`,
+);
 console.log(`Mises à jour appliquées : ${majOk} · erreurs : ${majErr}`);
-console.log(`Lignes suivi restées sans année : ${[...misesAJour.values()].filter((m) => m.annee_exercice == null).length}`);
+console.log(
+  `Lignes suivi restées sans année : ${[...misesAJour.values()].filter((m) => m.annee_exercice == null).length}`,
+);
 process.exit(majErr === 0 ? 0 : 1);

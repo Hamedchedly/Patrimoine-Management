@@ -68,8 +68,8 @@ import {
   getFournisseurDetail,
   saveActivitesManuelles,
   updateFournisseur,
-} from "@/lib/fournisseurs.functions";
-import { useFavorisLocal } from "@/lib/fournisseurs.favoris.hooks";
+} from "@/lib/fournisseurs/functions";
+import { useFavorisLocal } from "@/lib/fournisseurs/favoris.hooks";
 import {
   ORDRE_NIVEAU,
   PROFIL_BADGE,
@@ -83,7 +83,7 @@ import {
   type ProfilActivite,
   type ProfilNiveau,
   type VilleFournisseur,
-} from "@/lib/fournisseurs.analyse";
+} from "@/lib/fournisseurs/analyse";
 import { evo, money2, pct } from "@/lib/formats";
 import EvoCell from "@/components/EvoCell";
 import Labeled from "@/components/Labeled";
@@ -103,8 +103,8 @@ import {
   LISTE_FOURNISSEURS_SEARCH_VIDE,
   type ListeFournisseursSearch,
 } from "@/routes/fournisseurs.index";
-import type { CommandeTravauxEnrichie } from "@/lib/travaux.dashboard.functions";
-import { formatDateCommandeFr } from "@/lib/psp.validation";
+import type { CommandeTravauxEnrichie } from "@/lib/travaux/dashboard.functions";
+import { formatDateCommandeFr } from "@/lib/psp/validation";
 
 export const Route = createFileRoute("/fournisseurs/$fournisseurId")({
   // Param `?cmd=<commandeId>` (fiche commande en overlay) et `?annee=` (KPI).
@@ -121,7 +121,7 @@ export const Route = createFileRoute("/fournisseurs/$fournisseurId")({
   component: FournisseurFiche,
 });
 
-const FournisseurVillesMap = lazy(() => import("@/components/FournisseurVillesMap"));
+const FournisseurVillesMap = lazy(() => import("@/components/map/FournisseurVillesMap"));
 
 /** Carte des villes — chargée uniquement côté client (react-leaflet), comme le Dashboard. */
 function CarteVillesClient({ villes }: { villes: VilleFournisseur[] }) {

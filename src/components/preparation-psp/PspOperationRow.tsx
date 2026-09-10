@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { money0 } from "@/lib/formats";
-import { PSP_ANNEES, montantAnnee, totalOperation, type PspOperation } from "@/lib/psp.prep";
+import { PSP_ANNEES, montantAnnee, totalOperation, type PspOperation } from "@/lib/psp/prep";
 import {
   PRIORITE_LABELS,
   STATUT_LABELS,
@@ -25,7 +25,7 @@ import {
   statutConsultationDepuisDevis,
   type LotInfo,
   type PerimetreLigne,
-} from "@/lib/psp.prep.v7";
+} from "@/lib/psp/prep.v7";
 import { cn } from "@/lib/utils";
 
 const STATUT_STYLES: Record<string, string> = {

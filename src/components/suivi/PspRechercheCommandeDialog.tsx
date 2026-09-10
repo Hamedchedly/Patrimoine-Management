@@ -15,8 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { createPspCommandLink, rechercherCommandes } from "@/lib/psp.prep.supabase.functions";
-import { libelleEntreprise } from "@/lib/psp.prep.v7";
+import { createPspCommandLink, rechercherCommandes } from "@/lib/psp/prep.supabase.functions";
+import { libelleEntreprise } from "@/lib/psp/prep.v7";
 
 const fmtMontant = (v: number | null | undefined): string => {
   if (v == null) return "—";

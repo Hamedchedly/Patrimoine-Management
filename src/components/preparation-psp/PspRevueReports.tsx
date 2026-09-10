@@ -45,7 +45,7 @@ import {
   type LigneSuivi,
   type ModificationSuivi,
   type StatutArbitrage,
-} from "@/lib/psp.prep.suivi";
+} from "@/lib/psp/prep.suivi";
 import { cn } from "@/lib/utils";
 
 const STATUTS: Record<StatutArbitrage, { label: string; className: string }> = {

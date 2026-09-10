@@ -3,7 +3,7 @@
 // Affiche : mapping des colonnes + statistiques réelles + exemples de lignes.
 import * as XLSX from "xlsx";
 import { readFile } from "node:fs/promises";
-import { parsePspWorkbook } from "../src/lib/psp.ts";
+import { parsePspWorkbook } from "../src/lib/psp/index.ts";
 
 const FILE =
   process.argv[2] ??
@@ -15,7 +15,13 @@ const parsed = parsePspWorkbook(ab);
 
 const fmt = (n) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(n ?? 0);
 const money = (n) =>
-  n === null || n === undefined ? "—" : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
+  n === null || n === undefined
+    ? "—"
+    : new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 2,
+      }).format(n);
 
 console.log(`\n=== RAPPORT DU FICHIER RÉEL : ${FILE.split("\\").pop()} ===`);
 console.log(`Feuille utilisée : ${parsed.feuille ?? "inconnue"}`);
@@ -49,7 +55,9 @@ console.log(`  en erreur                     : ${parsed.erreurs}`);
 console.log(`Doublons identiques             : ${parsed.doublons_identiques}`);
 console.log(`Conflits (doublons différents)  : ${parsed.doublons_conflits}`);
 console.log(`Références ER distinctes        : ${erTous.size}`);
-console.log(`Codes corps d'état distincts    : ${corpsCodes.size}${corpsCodes.size ? ` (${[...corpsCodes].join(", ")})` : ""}`);
+console.log(
+  `Codes corps d'état distincts    : ${corpsCodes.size}${corpsCodes.size ? ` (${[...corpsCodes].join(", ")})` : ""}`,
+);
 console.log(`Lignes à rattachement ER ambigu : ${ambigu.length}`);
 console.log(`Montant total budget            : ${money(totBudget)}`);
 console.log(`Montant total engagé            : ${money(totEngage)}`);
@@ -69,13 +77,17 @@ for (const [k, v] of Object.entries(repartition).sort((a, b) => b[1] - a[1])) {
 
 // Corps d'état (libellés)
 console.log(`\n--- CORPS D'ÉTAT (libellés distincts : ${corpsLibelles.length}) ---`);
-console.log(`  ${corpsLibelles.slice(0, 30).join(" | ")}${corpsLibelles.length > 30 ? " | …" : ""}`);
+console.log(
+  `  ${corpsLibelles.slice(0, 30).join(" | ")}${corpsLibelles.length > 30 ? " | …" : ""}`,
+);
 
 // ── 3. Exemples de lignes problématiques ────────────────────────────────────
 const problematiques = lignes.filter((l) => l.statut !== "valide");
 console.log(`\n--- EXEMPLES DE LIGNES PROBLÉMATIQUES (${problematiques.length}) — 8 max ---`);
 for (const l of problematiques.slice(0, 8)) {
-  console.log(`  L${l.ligne} [${l.statut}] n°=${l.numero_commande || "—"} interne=${l.numero_commande_interne ?? "—"} er=${l.er_references.join(",") || "—"}`);
+  console.log(
+    `  L${l.ligne} [${l.statut}] n°=${l.numero_commande || "—"} interne=${l.numero_commande_interne ?? "—"} er=${l.er_references.join(",") || "—"}`,
+  );
   for (const i of l.erreurs_psp.slice(0, 3)) console.log(`      • ${i.code}: ${i.message}`);
 }
 
@@ -86,4 +98,6 @@ if (valide) {
   console.log(JSON.stringify(valide, null, 2).slice(0, 1500));
 }
 
-console.log(`\nTOTAL général : ${lignes.length} lignes, ${commandes} commandes, ${parsed.erreurs} erreurs, ${parsed.a_controler} à contrôler.`);
+console.log(
+  `\nTOTAL général : ${lignes.length} lignes, ${commandes} commandes, ${parsed.erreurs} erreurs, ${parsed.a_controler} à contrôler.`,
+);

@@ -33,11 +33,7 @@ const { data: rows, error } = await db
   .select("id, corps_etat, date_demarrage, annee_exercice");
 if (error) throw new Error(error.message);
 
-const ligne = (t) =>
-  (t ?? "")
-    .toString()
-    .trim()
-    .replace(/\s+/g, " ");
+const ligne = (t) => (t ?? "").toString().trim().replace(/\s+/g, " ");
 
 // ── Agrégation par code ──────────────────────────────────────────────────────
 const parCode = new Map();
@@ -74,7 +70,9 @@ const codes = [...parCode.keys()].sort();
 console.log("=".repeat(78));
 console.log("ANALYSE LECTURE SEULE — travaux_commandes.corps_etat");
 console.log(`Total lignes : ${rows.length} | corps NULL : ${nulls} | corps vide : ${vides}`);
-console.log(`Valeurs distinctes de corps_etat : ${new Set(rows.map((r) => ligne(r.corps_etat)).filter(Boolean)).size}`);
+console.log(
+  `Valeurs distinctes de corps_etat : ${new Set(rows.map((r) => ligne(r.corps_etat)).filter(Boolean)).size}`,
+);
 console.log(`Codes corps d'état distincts (extraits) : ${codes.length}`);
 console.log("=".repeat(78));
 
@@ -83,7 +81,9 @@ for (const code of codes) {
   const dates = e.dates.filter(Boolean).sort();
   const libelles = [...e.libelles.entries()].sort((a, b) => b[1] - a[1]);
   console.log(`\n◈ CODE « ${code} » — ${e.commandes} commande(s)`);
-  console.log(`   Libellés (${libelles.length}) : ${libelles.map(([l, n]) => `${l} (${n})`).join("  |  ")}`);
+  console.log(
+    `   Libellés (${libelles.length}) : ${libelles.map(([l, n]) => `${l} (${n})`).join("  |  ")}`,
+  );
   console.log(
     `   Période date_demarrage : ${dates.length ? `${dates[0]} → ${dates[dates.length - 1]}` : "aucune date"}  ·  exercices : ${[...e.annees].sort().join(", ")}`,
   );
@@ -102,12 +102,16 @@ else
 
 // ── 5. Corps sans code exploitable (pas de préfixe « (x) ») ──────────────────
 console.log("\n5. CORPS D'ÉTAT SANS CODE EXPLOITABLE (aucun préfixe « (x) »)");
-const sansCode = codes.filter((c) => !/^\([^)]*\)\s/.test(parCode.get(c).libelles.keys().next().value ?? ""));
+const sansCode = codes.filter(
+  (c) => !/^\([^)]*\)\s/.test(parCode.get(c).libelles.keys().next().value ?? ""),
+);
 if (sansCode.length === 0) console.log("Aucun — tous les corps portent un préfixe codé.");
 else
   for (const c of sansCode) {
     const e = parCode.get(c);
-    console.log(`  • « ${[...e.libelles.keys()][0]} » → code déterministe « ${c} » (normalisé du libellé)`);
+    console.log(
+      `  • « ${[...e.libelles.keys()][0]} » → code déterministe « ${c} » (normalisé du libellé)`,
+    );
   }
 
 // ── 6. NULL / vide ───────────────────────────────────────────────────────────
@@ -115,7 +119,9 @@ console.log(`\n6. CORPS_ETAT NULL : ${nulls} · VIDES : ${vides}  (lignes de com
 
 // ── 7. Liste utilisée par « Ajouter un corps d'état » ────────────────────────
 console.log("\n7. LISTE « AJOUTER UN CORPS D'ÉTAT » (fournisseurs.functions → corps_disponibles)");
-console.log(`   Source : DISTINCT travaux_commandes.corps_etat, clé = code extrait (même fonction).`);
+console.log(
+  `   Source : DISTINCT travaux_commandes.corps_etat, clé = code extrait (même fonction).`,
+);
 console.log(`   Résultat attendu : ${codes.length} entrées — `);
 console.log(`   ${codes.map((c) => `${c}⇐${[...parCode.get(c).libelles.keys()][0]}`).join(" | ")}`);
 

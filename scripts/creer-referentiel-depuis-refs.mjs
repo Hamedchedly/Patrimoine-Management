@@ -24,8 +24,7 @@ const db = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const normaliser = (code) =>
-  (code ?? "").toString().trim().replace(/\s+/g, "");
+const normaliser = (code) => (code ?? "").toString().trim().replace(/\s+/g, "");
 
 async function main() {
   // 1) Refs réelles du suivi annuel (lecture seule).
@@ -35,11 +34,7 @@ async function main() {
     .not("numero_fournisseur", "is", null);
   if (eRefs) throw new Error("travaux_commandes : " + eRefs.message);
   const refsDistinct = [
-    ...new Set(
-      refsRows
-        .map((r) => normaliser(r.numero_fournisseur))
-        .filter(Boolean),
-    ),
+    ...new Set(refsRows.map((r) => normaliser(r.numero_fournisseur)).filter(Boolean)),
   ].sort();
 
   // 2) Alias suivi existants (références déjà rattachées au référentiel).

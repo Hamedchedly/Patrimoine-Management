@@ -21,7 +21,7 @@ import type { DevisEdit } from "@/components/preparation-psp/PspDevisPanel";
 import PspRevueAnciennes from "@/components/preparation-psp/PspRevueAnciennes";
 import PspRevueReports from "@/components/preparation-psp/PspRevueReports";
 import PspTable from "@/components/preparation-psp/PspTable";
-import { useEtiquettesTranches } from "@/lib/tranches.etiquettes.hooks";
+import { useEtiquettesTranches } from "@/lib/tranches/etiquettes.hooks";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,14 +58,14 @@ import {
   type PspCategorie,
   type PspOperation,
   type SaisieOperation,
-} from "@/lib/psp.prep";
+} from "@/lib/psp/prep";
 import {
   construireReferencePatrimoine,
   enrichirOperationsAvecReference,
   parseEsquisse2027Workbook,
   type ReferencePatrimoine,
-} from "@/lib/psp.prep.data";
-import { getPspFichiers2026, getPspReferencePatrimoine } from "@/lib/psp.prep.data.functions";
+} from "@/lib/psp/prep.data";
+import { getPspFichiers2026, getPspReferencePatrimoine } from "@/lib/psp/prep.data.functions";
 import {
   HISTORIQUE_MODIFICATIONS_MOCK,
   PSP_PROGRAMMATION_2026,
@@ -79,8 +79,8 @@ import {
   type LigneProgrammee,
   type LigneSuivi,
   type ModificationSuivi,
-} from "@/lib/psp.prep.suivi";
-import { getTravauxDashboard } from "@/lib/travaux.dashboard.functions";
+} from "@/lib/psp/prep.suivi";
+import { getTravauxDashboard } from "@/lib/travaux/dashboard.functions";
 import {
   createPspDevis,
   createPspLigne,
@@ -96,7 +96,7 @@ import {
   updatePspOperationComplete,
   type PspLignePersist,
   type PspPerimetrePersist,
-} from "@/lib/psp.prep.supabase.functions";
+} from "@/lib/psp/prep.supabase.functions";
 import {
   analyserCompletudeExport,
   calculEnveloppe,
@@ -107,7 +107,7 @@ import {
   type PerimetreLigne,
   programmeParAnneeCategorie,
   extraireCodeCorpsEtat,
-} from "@/lib/psp.prep.v7";
+} from "@/lib/psp/prep.v7";
 
 export const Route = createFileRoute("/preparation-psp")({
   head: () => ({

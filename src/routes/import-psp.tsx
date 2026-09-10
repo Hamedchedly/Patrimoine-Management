@@ -44,7 +44,7 @@ import {
   finalizePspImport,
   failPspImport,
   importPspBatch,
-} from "@/lib/psp.functions";
+} from "@/lib/psp/functions";
 import {
   TAILLE_LOT_PSP,
   construireAnalyse,
@@ -56,7 +56,7 @@ import {
   statutFinalImport,
   type PspAnalyse,
   type PspFiltre,
-} from "@/lib/psp.preview";
+} from "@/lib/psp/preview";
 
 export const Route = createFileRoute("/import-psp")({
   head: () => ({
@@ -257,11 +257,7 @@ function ImportPspPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setConfirmOuvert(true)}
-                  disabled={busy}
-                >
+                <Button variant="outline" onClick={() => setConfirmOuvert(true)} disabled={busy}>
                   <Upload className="size-4" /> Importer dans l'historique CMD
                 </Button>
                 <Button variant="ghost" onClick={annuler} disabled={busy}>
@@ -288,7 +284,11 @@ function ImportPspPage() {
             <h3 className="font-semibold">Synthèse</h3>
             <div className="mt-3 grid gap-2 sm:grid-cols-5">
               <SyntheseCell label="Valide" count={analyse.synthese.valide} color="green" />
-              <SyntheseCell label="À contrôler" count={analyse.synthese.a_controler} color="amber" />
+              <SyntheseCell
+                label="À contrôler"
+                count={analyse.synthese.a_controler}
+                color="amber"
+              />
               <SyntheseCell label="Erreur" count={analyse.synthese.erreur} color="red" />
               <SyntheseCell label="Doublon" count={analyse.synthese.doublon} color="slate" />
               <SyntheseCell label="Conflit" count={analyse.synthese.conflit} color="violet" />
@@ -332,7 +332,10 @@ function ImportPspPage() {
                 <TableBody>
                   {lignesAffichées.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                      <TableCell
+                        colSpan={7}
+                        className="py-6 text-center text-sm text-muted-foreground"
+                      >
                         Aucune ligne pour ce filtre.
                       </TableCell>
                     </TableRow>
@@ -351,7 +354,7 @@ function ImportPspPage() {
                           {ligne.er_ambigue ? (
                             <span className="text-warning-foreground">ambigu</span>
                           ) : (
-                            ligne.er_reference ?? "—"
+                            (ligne.er_reference ?? "—")
                           )}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
@@ -507,15 +510,9 @@ function ConfirmImportDialog({
           <p>
             <strong>{resume.lignes_a_importer}</strong> ligne(s) vont être importées
           </p>
-          <p>
-            {resume.lignes_valides} valide(s)
-          </p>
-          <p>
-            {resume.lignes_a_controler} à contrôler
-          </p>
-          <p>
-            {resume.lignes_erreur} en erreur (elles restent visibles, jamais supprimées)
-          </p>
+          <p>{resume.lignes_valides} valide(s)</p>
+          <p>{resume.lignes_a_controler} à contrôler</p>
+          <p>{resume.lignes_erreur} en erreur (elles restent visibles, jamais supprimées)</p>
           <p className="text-muted-foreground">{resume.lots} lot(s) d'enregistrement</p>
         </div>
         <DialogFooter>
@@ -557,7 +554,9 @@ function LigneDetailDialog({
                 { label: "Numéro commande", value: ligne.numero_commande || "—" },
                 {
                   label: "ER détecté",
-                  value: ligne.er_ambigue ? ligne.er_references.join(", ") : (ligne.er_reference ?? "—"),
+                  value: ligne.er_ambigue
+                    ? ligne.er_references.join(", ")
+                    : (ligne.er_reference ?? "—"),
                 },
                 { label: "Tranche", value: ligne.tranche_er ?? ligne.tranche_code ?? "—" },
                 { label: "Bâtiment", value: ligne.batiment_er ?? ligne.batiment ?? "—" },

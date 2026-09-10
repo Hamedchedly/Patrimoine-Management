@@ -7,7 +7,7 @@
 // sans quota bloquant. En cas d'échec définitif, on garde l'ancienne coordonnée (ne pas détruire).
 // Exécution : node --env-file=.env scripts/regeocode-adresses-retry.mjs
 import { createClient } from "@supabase/supabase-js";
-import { geocodeDataGouv } from "../src/lib/geo.ts";
+import { geocodeDataGouv } from "../src/lib/geo/index.ts";
 
 const url = process.env.EXT_SUPABASE_URL;
 const key = process.env.EXT_SUPABASE_SERVICE_ROLE_KEY;

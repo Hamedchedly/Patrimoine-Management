@@ -12,7 +12,7 @@ import PspSecteurBadge from "@/components/preparation-psp/PspSecteurBadge";
 import { useReferentielCorpsEtats } from "@/components/preparation-psp/useReferentielCorpsEtats";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { corpsEtatsGroupesReferentiel } from "@/lib/psp.prep.v7";
+import { corpsEtatsGroupesReferentiel } from "@/lib/psp/prep.v7";
 import { cn } from "@/lib/utils";
 
 export default function PspCorpsEtatSelect({

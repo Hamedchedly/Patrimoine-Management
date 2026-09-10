@@ -3,14 +3,14 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { parseProgrammationWorkbook } from "../src/lib/psp.prep.data.ts";
-import { parseTravauxWorkbook } from "../src/lib/travaux.ts";
+import { parseProgrammationWorkbook } from "../src/lib/psp/prep.data.ts";
+import { parseTravauxWorkbook } from "../src/lib/travaux/index.ts";
 import {
   analyserLignesReport,
   cleIdentitePsp,
   ligneSuiviDepuisRaw,
   resumeArbitrage,
-} from "../src/lib/psp.prep.suivi.ts";
+} from "../src/lib/psp/prep.suivi.ts";
 
 const dir = fileURLToPath(new URL("../data/2026/", import.meta.url));
 

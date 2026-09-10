@@ -18,8 +18,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { updateTrancheEtiquette } from "@/lib/isis.functions";
-import { TRANCHES_ETIQUETTES_KEY } from "@/lib/tranches.etiquettes.hooks";
+import { updateTrancheEtiquette } from "@/lib/isis/functions";
+import { TRANCHES_ETIQUETTES_KEY } from "@/lib/tranches/etiquettes.hooks";
 import { cn } from "@/lib/utils";
 
 /** Couleurs des étiquettes connues (valeurs libres → neutre). */

@@ -7,7 +7,7 @@
 //   node --env-file=.env scripts/backfill-rattachement-lot.mjs          (écriture)
 //   node --env-file=.env scripts/backfill-rattachement-lot.mjs --dry-run (prévisualisation)
 import { createClient } from "@supabase/supabase-js";
-import { rattacherLotsACommandes } from "../src/lib/commande.rattachement.supabase.functions.ts";
+import { rattacherLotsACommandes } from "../src/lib/commande/rattachement.supabase.functions.ts";
 
 const url = process.env.EXT_SUPABASE_URL;
 const key = process.env.EXT_SUPABASE_SERVICE_ROLE_KEY;
@@ -25,7 +25,9 @@ const commandes = [];
   for (;;) {
     const { data, error } = await db
       .from("travaux_commandes")
-      .select("id, numero_commande, tranche_code, adresse, descriptif, annee_exercice, actif, lot_code")
+      .select(
+        "id, numero_commande, tranche_code, adresse, descriptif, annee_exercice, actif, lot_code",
+      )
       .is("lot_code", null)
       .order("id", { ascending: true })
       .range(from, from + CHUNK - 1);
@@ -81,4 +83,6 @@ for (const item of aRattacher) {
     console.log(`  ✓ #${item.numero} → lot_code = ${item.code}`);
   }
 }
-console.log(`\nTerminé : ${maj} mis à jour / ${erreurs} erreur(s)${DRY_RUN ? " (dry-run, rien écrit)" : ""}.`);
+console.log(
+  `\nTerminé : ${maj} mis à jour / ${erreurs} erreur(s)${DRY_RUN ? " (dry-run, rien écrit)" : ""}.`,
+);

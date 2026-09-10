@@ -47,8 +47,8 @@ import {
   failTravauxImport,
   finalizeTravauxImport,
   importTravauxBatch,
-} from "@/lib/travaux.functions";
-import { getTravauxImportDetails, resoudreConflitsImport } from "@/lib/travaux.dashboard.functions";
+} from "@/lib/travaux/functions";
+import { getTravauxImportDetails, resoudreConflitsImport } from "@/lib/travaux/dashboard.functions";
 
 export const Route = createFileRoute("/import-travaux")({
   head: () => ({

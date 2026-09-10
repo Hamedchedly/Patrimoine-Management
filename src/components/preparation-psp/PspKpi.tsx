@@ -5,14 +5,14 @@ import PspSecteurBadge from "@/components/preparation-psp/PspSecteurBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { money0 } from "@/lib/formats";
-import { PSP_ANNEES, kpiGlobal, type PspAnnee, type PspOperation } from "@/lib/psp.prep";
+import { PSP_ANNEES, kpiGlobal, type PspAnnee, type PspOperation } from "@/lib/psp/prep";
 import {
   calculEnveloppe,
   budgetDisponibleParAnnee,
   budgetDisponibleTotalReel,
   programmeParAnneeCategorie,
   type EnveloppeMap,
-} from "@/lib/psp.prep.v7";
+} from "@/lib/psp/prep.v7";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES = ["GT", "GE", "CP"] as const;

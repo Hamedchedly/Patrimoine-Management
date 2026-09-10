@@ -260,7 +260,7 @@ function MultiSelect({
   );
 }
 
-const DashboardMap = lazy(() => import("@/components/DashboardMap"));
+const DashboardMap = lazy(() => import("@/components/map/DashboardMap"));
 
 function ClientOnlyMap({
   dataVilles,

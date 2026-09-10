@@ -16,7 +16,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { LISTE_FOURNISSEURS_SEARCH_VIDE } from "@/routes/fournisseurs.index";
-import { PatrimoineHomeMap } from "@/components/PatrimoineHomeMap";
+import { PatrimoineHomeMap } from "@/components/map/PatrimoineHomeMap";
 import { getPatrimoine } from "@/lib/isis.functions";
 import { isLogement } from "@/lib/isis";
 import { loadRecents, rueDe, type LotItem, type RecentAdresse } from "@/lib/adresses";

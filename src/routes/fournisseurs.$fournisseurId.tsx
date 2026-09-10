@@ -121,7 +121,7 @@ export const Route = createFileRoute("/fournisseurs/$fournisseurId")({
   component: FournisseurFiche,
 });
 
-const FournisseurVillesMap = lazy(() => import("@/components/FournisseurVillesMap"));
+const FournisseurVillesMap = lazy(() => import("@/components/map/FournisseurVillesMap"));
 
 /** Carte des villes — chargée uniquement côté client (react-leaflet), comme le Dashboard. */
 function CarteVillesClient({ villes }: { villes: VilleFournisseur[] }) {

@@ -14,7 +14,7 @@ import {
   agregerPatrimoineHome,
   adressesDeVille,
   type AdressesGeoApercu,
-} from "@/components/PatrimoineHomeMap";
+} from "@/lib/patrimoine.home";
 import {
   Dialog,
   DialogContent,

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { CircleMarker, Popup } from "react-leaflet";
 
 import { moneyCents } from "@/lib/formats";
-import LeafletMapShell from "@/components/LeafletMapShell";
+import LeafletMapShell from "@/components/map/LeafletMapShell";
 
 export type VilleAmount = {
   ville: string;

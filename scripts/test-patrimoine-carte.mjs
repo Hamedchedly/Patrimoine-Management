@@ -140,7 +140,11 @@ assert(
 // ---------------------------------------------------------------- T7 — Ville sans coordonnées
 const nangis = r.villes.find((v) => v.ville === "NANGIS");
 assert("T7 ville sans coordonnées → absente des markers", nangis === undefined);
-assert("T7b compteur villes non localisées = 1", r.nonGeolocaliseesVilles === 1, String(r.nonGeolocaliseesVilles));
+assert(
+  "T7b compteur villes non localisées = 1",
+  r.nonGeolocaliseesVilles === 1,
+  String(r.nonGeolocaliseesVilles),
+);
 
 // ---------------------------------------------------------------- T8 — Lots non rattachables
 assert(
@@ -157,4 +161,3 @@ console.log("==========================================");
 console.log(`Résultat : ${passed} PASS, ${failed} FAIL`);
 console.log("==========================================");
 process.exit(failed > 0 ? 1 : 0);
-

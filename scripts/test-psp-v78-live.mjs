@@ -13,7 +13,9 @@ import { createClient } from "@supabase/supabase-js";
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];
 if (!url || !key) {
-  console.error("EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env");
+  console.error(
+    "EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env",
+  );
   process.exit(1);
 }
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -37,7 +39,12 @@ async function run(fn) {
 const created = { lignes: [], perimetres: [], devis: [], programmations: [] };
 
 async function main() {
-  const { data: tranches } = await db.from("tranches").select("code").eq("actif", true).order("code").limit(20);
+  const { data: tranches } = await db
+    .from("tranches")
+    .select("code")
+    .eq("actif", true)
+    .order("code")
+    .limit(20);
   const trancheA = tranches?.[0]?.code;
   if (!trancheA) {
     console.error("Aucune tranche disponible.");
@@ -45,7 +52,10 @@ async function main() {
   }
 
   const rP = await run(() =>
-    db.from("psp_programmations").insert({ annee_debut: 2095, annee_fin: 2099, version: 1, remarques: MARQUEUR }).select("id"),
+    db
+      .from("psp_programmations")
+      .insert({ annee_debut: 2095, annee_fin: 2099, version: 1, remarques: MARQUEUR })
+      .select("id"),
   );
   const P1 = rP.data?.[0];
   if (P1?.id) created.programmations.push(P1.id);
@@ -84,12 +94,22 @@ async function main() {
     { programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 200000 },
     { programmation_id: P1.id, annee: 2095, categorie: "CP", montant: 50000 },
   ];
-  const envIns = await run(() => db.from("psp_enveloppes").upsert(envInit, { onConflict: "programmation_id,annee,categorie" }).select("*"));
+  const envIns = await run(() =>
+    db
+      .from("psp_enveloppes")
+      .upsert(envInit, { onConflict: "programmation_id,annee,categorie" })
+      .select("*"),
+  );
   check("D. enveloppes initiales renseignées", (envIns.data ?? []).length === 3, envIns.msg);
 
   // Fermeture / réouverture = relecture → mêmes valeurs.
   const relu1 = await run(() =>
-    db.from("psp_enveloppes").select("annee,categorie,montant").eq("programmation_id", P1.id).eq("annee", 2095).order("categorie"),
+    db
+      .from("psp_enveloppes")
+      .select("annee,categorie,montant")
+      .eq("programmation_id", P1.id)
+      .eq("annee", 2095)
+      .order("categorie"),
   );
   const ge1 = relu1.data?.find((r) => r.categorie === "GE")?.montant;
   const gt1 = relu1.data?.find((r) => r.categorie === "GT")?.montant;
@@ -100,11 +120,22 @@ async function main() {
 
   // Modification d'UNE seule cellule (GT 200000 → 250000) — les autres restent.
   const envMod = await run(() =>
-    db.from("psp_enveloppes").upsert({ programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 250000 }, { onConflict: "programmation_id,annee,categorie" }).select("*"),
+    db
+      .from("psp_enveloppes")
+      .upsert(
+        { programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 250000 },
+        { onConflict: "programmation_id,annee,categorie" },
+      )
+      .select("*"),
   );
   check("D. modification d'une cellule acceptée", !envMod.error, envMod.msg);
   const relu2 = await run(() =>
-    db.from("psp_enveloppes").select("annee,categorie,montant").eq("programmation_id", P1.id).eq("annee", 2095).order("categorie"),
+    db
+      .from("psp_enveloppes")
+      .select("annee,categorie,montant")
+      .eq("programmation_id", P1.id)
+      .eq("annee", 2095)
+      .order("categorie"),
   );
   const ge2 = relu2.data?.find((r) => r.categorie === "GE")?.montant;
   const gt2 = relu2.data?.find((r) => r.categorie === "GT")?.montant;
@@ -119,32 +150,57 @@ async function main() {
   const fournisseur = fournisseurs?.[0];
   check("E. préparation : un fournisseur réel disponible", !!fournisseur, "aucun fournisseur");
   const devisIns = await run(() =>
-    db.from("psp_devis").insert({
-      psp_ligne_id: ligneId,
-      fournisseur_id: fournisseur?.id ?? null,
-      entreprise: fournisseur?.nom ?? "ENTREPRISE TEST",
-      date_devis: "2026-06-01",
-      montant: 35000,
-      statut: "recu",
-      document_reference: "DEV-7788",
-      commentaire: MARQUEUR,
-    }).select("*"),
+    db
+      .from("psp_devis")
+      .insert({
+        psp_ligne_id: ligneId,
+        fournisseur_id: fournisseur?.id ?? null,
+        entreprise: fournisseur?.nom ?? "ENTREPRISE TEST",
+        date_devis: "2026-06-01",
+        montant: 35000,
+        statut: "recu",
+        document_reference: "DEV-7788",
+        commentaire: MARQUEUR,
+      })
+      .select("*"),
   );
   check("E. devis créé (Oui/Non → champs renseignés)", !devisIns.error, devisIns.msg);
   const devisId = devisIns.data?.[0]?.id;
   if (devisId) created.devis.push(devisId);
-  const reluDevis = await run(() => db.from("psp_devis").select("montant, document_reference, fournisseur_id, date_devis, statut").eq("id", devisId));
+  const reluDevis = await run(() =>
+    db
+      .from("psp_devis")
+      .select("montant, document_reference, fournisseur_id, date_devis, statut")
+      .eq("id", devisId),
+  );
   const dv = reluDevis.data?.[0];
   check("E. montant conservé", dv?.montant === 35000, String(dv?.montant));
-  check("E. N° devis (document_reference) conservé = DEV-7788", dv?.document_reference === "DEV-7788", String(dv?.document_reference));
-  check("E. fournisseur_id conservé", dv?.fournisseur_id === (fournisseur?.id ?? null), String(dv?.fournisseur_id));
+  check(
+    "E. N° devis (document_reference) conservé = DEV-7788",
+    dv?.document_reference === "DEV-7788",
+    String(dv?.document_reference),
+  );
+  check(
+    "E. fournisseur_id conservé",
+    dv?.fournisseur_id === (fournisseur?.id ?? null),
+    String(dv?.fournisseur_id),
+  );
   check("E. date conservée", dv?.date_devis === "2026-06-01", String(dv?.date_devis));
   check("E. statut = recu", dv?.statut === "recu");
   // badge « Devis » Oui = devis.length > 0 (via le brouillon).
-  const brouillon = await run(() => db.from("psp_lignes").select("id").eq("programmation_id", P1.id));
-  check("E. ligne porte bien des devis (badge Devis → Oui côté brouillon)", (brouillon.data ?? []).length >= 1);
+  const brouillon = await run(() =>
+    db.from("psp_lignes").select("id").eq("programmation_id", P1.id),
+  );
+  check(
+    "E. ligne porte bien des devis (badge Devis → Oui côté brouillon)",
+    (brouillon.data ?? []).length >= 1,
+  );
   const delDevis = await run(() => db.from("psp_devis").delete().eq("id", devisId).select("id"));
-  check("E. suppression devis possible depuis la fiche", (delDevis.data ?? []).length === 1, delDevis.msg);
+  check(
+    "E. suppression devis possible depuis la fiche",
+    (delDevis.data ?? []).length === 1,
+    delDevis.msg,
+  );
 
   // ── PURGE ──
   console.log("\n=== PURGE ===");

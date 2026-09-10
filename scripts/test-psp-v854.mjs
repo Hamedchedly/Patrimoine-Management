@@ -45,8 +45,12 @@ const op = (over = {}) => ({
   ligne_budget: null,
   origine: over.origine ?? "preparation",
   montant_total: over.montant_total ?? 100000,
-  perimetres: over.perimetres ?? [{ niveau: "lot", rue: "RUE DE PARIS", numero: "12", lot_id: "lot-1" }],
-  entreprises_consultees: over.entreprises_consultees ?? [{ fournisseur_id: "f-1", entreprise: "Entreprise A" }],
+  perimetres: over.perimetres ?? [
+    { niveau: "lot", rue: "RUE DE PARIS", numero: "12", lot_id: "lot-1" },
+  ],
+  entreprises_consultees: over.entreprises_consultees ?? [
+    { fournisseur_id: "f-1", entreprise: "Entreprise A" },
+  ],
   ...over,
 });
 
@@ -90,11 +94,20 @@ check(
   determinerRelationPeriode([2030], null, "2024-06-01").type === "historique",
 );
 check("B. période courante", determinerRelationPeriode(annees, 2028).type === "courant");
-check("B. période courante (date d'appui)", determinerRelationPeriode([2027], null, "2027-03-15").type === "courant");
+check(
+  "B. période courante (date d'appui)",
+  determinerRelationPeriode([2027], null, "2027-03-15").type === "courant",
+);
 check("C. période future", determinerRelationPeriode(annees, 2033).type === "futur");
-check("C. période future (date d'appui)", determinerRelationPeriode([2027], null, "2030-09-01").type === "futur");
+check(
+  "C. période future (date d'appui)",
+  determinerRelationPeriode([2027], null, "2030-09-01").type === "futur",
+);
 check("D. période inconnue", determinerRelationPeriode([], 2027).type === "inconnu");
-check("D. période inconnue (pas d'années, pas de date)", determinerRelationPeriode([], null).type === "inconnu");
+check(
+  "D. période inconnue (pas d'années, pas de date)",
+  determinerRelationPeriode([], null).type === "inconnu",
+);
 check(
   "D. deriverExerciceCorrespondance réutilisé (aucune logique parallèle)",
   deriverExerciceCorrespondance(annees, 2024).type === "historique",
@@ -122,7 +135,12 @@ check(
 }
 {
   // G. commande sans correspondance : aucune proposition fiable.
-  const commande = cmd({ tranche_code: "9999", adresse: "INCONNUE XYZ", descriptif: "Autre", budget: 5 });
+  const commande = cmd({
+    tranche_code: "9999",
+    adresse: "INCONNUE XYZ",
+    descriptif: "Autre",
+    budget: 5,
+  });
   const props = suggererOperationsPourCommande(commande, [op()], [], [fournisseur()]);
   check("G. commande sans correspondance → aucune proposition", props.length === 0);
 }
@@ -139,28 +157,50 @@ check(
     "H. ambiguïté → première proposition A_CONFIRMER (aucune sélection automatique)",
     props[0]?.niveau === "A_CONFIRMER" || props[1]?.niveau === "A_CONFIRMER",
   );
-  check(
-    "H. candidats alternatifs exposés",
-    (props[0]?.candidatsAlternatifs?.length ?? 0) > 0,
-  );
+  check("H. candidats alternatifs exposés", (props[0]?.candidatsAlternatifs?.length ?? 0) > 0);
 }
 
 // ════════════ I–M. RECHERCHE PAR CRITÈRES (fonctions de normalisation) ═══════
-check("I. recherche par numéro de commande (normalisation des séparateurs)", normaliserNumeroCommande("458-1335") === normaliserNumeroCommande("458 1335"));
-check("J. recherche par fournisseur (normalisation)", normaliserEntreprise("  Entreprise   A  ") === "entreprise a");
+check(
+  "I. recherche par numéro de commande (normalisation des séparateurs)",
+  normaliserNumeroCommande("458-1335") === normaliserNumeroCommande("458 1335"),
+);
+check(
+  "J. recherche par fournisseur (normalisation)",
+  normaliserEntreprise("  Entreprise   A  ") === "entreprise a",
+);
 check("K. recherche par TR (normalisation)", normaliserTranche("1977") === "1977");
-check("L. recherche par adresse (normalisation)", normaliserAdresse("12 RUE DE PARIS COUPVRAY") === "12 rue de paris coupvray");
+check(
+  "L. recherche par adresse (normalisation)",
+  normaliserAdresse("12 RUE DE PARIS COUPVRAY") === "12 rue de paris coupvray",
+);
 check("M. recherche par descriptif (tokens significatifs présents)", true);
 
 // ════════════ N–P. OPÉRATIONS PSP / HORS PSP / ANTI-DOUBLON ══════════════════
 {
-  const props = suggererOperationsPourCommande(cmd(), [op({ id: "op-psp", origine: "preparation" })], [], [fournisseur()]);
-  check("N. opération PSP proposée", props.some((p) => p.operationId === "op-psp"));
+  const props = suggererOperationsPourCommande(
+    cmd(),
+    [op({ id: "op-psp", origine: "preparation" })],
+    [],
+    [fournisseur()],
+  );
+  check(
+    "N. opération PSP proposée",
+    props.some((p) => p.operationId === "op-psp"),
+  );
 }
 {
   // O. opération hors PSP : origine hors_psp, programmation_id NULL — proposée aussi.
-  const props = suggererOperationsPourCommande(cmd(), [op({ id: "op-hors", origine: "hors_psp" })], [], [fournisseur()]);
-  check("O. opération hors PSP proposée", props.some((p) => p.operationId === "op-hors"));
+  const props = suggererOperationsPourCommande(
+    cmd(),
+    [op({ id: "op-hors", origine: "hors_psp" })],
+    [],
+    [fournisseur()],
+  );
+  check(
+    "O. opération hors PSP proposée",
+    props.some((p) => p.operationId === "op-hors"),
+  );
 }
 {
   // P. anti-doublon : la même commande déjà liée à op-1977 est signalée dejaLie
@@ -170,17 +210,35 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
   const liens = [lien({ commande_id: commande.id, psp_ligne_id: "op-1977" })];
   const props = suggererOperationsPourCommande(commande, ops, liens, [fournisseur()]);
   check("P. anti-doublon — commande déjà liée → dejaLie signalé", props[0]?.dejaLie === true);
-  check("P. anti-doublon — aucune proposition AUTO", props.every((p) => p.niveau !== "AUTO"));
+  check(
+    "P. anti-doublon — aucune proposition AUTO",
+    props.every((p) => p.niveau !== "AUTO"),
+  );
 }
 
 // ════════════ Q. COMMANDE DÉJÀ LIÉE À UNE AUTRE OPÉRATION ════════════════════
 {
   const commande = cmd();
-  const liens = [lien({ commande_id: commande.id, psp_ligne_id: "op-1999", methode: "manuel", statut: "valide" })];
-  const props = suggererOperationsPourCommande(commande, [op({ id: "op-1977" })], liens, [fournisseur()]);
-  check("Q. commande déjà liée à une autre opération → dejaLie signalé", props[0]?.dejaLie === true);
+  const liens = [
+    lien({
+      commande_id: commande.id,
+      psp_ligne_id: "op-1999",
+      methode: "manuel",
+      statut: "valide",
+    }),
+  ];
+  const props = suggererOperationsPourCommande(commande, [op({ id: "op-1977" })], liens, [
+    fournisseur(),
+  ]);
+  check(
+    "Q. commande déjà liée à une autre opération → dejaLie signalé",
+    props[0]?.dejaLie === true,
+  );
   check("Q. opération cible exposée", props[0]?.operationLieeId === "op-1999");
-  check("Q. méthode/statut du lien exposés", props[0]?.methodeLien === "manuel" && props[0]?.statutLien === "valide");
+  check(
+    "Q. méthode/statut du lien exposés",
+    props[0]?.methodeLien === "manuel" && props[0]?.statutLien === "valide",
+  );
   check("Q. aucune modification automatique (pas de nouveau lien)", liens.length === 1);
 }
 
@@ -190,7 +248,10 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
   const c2 = cmd({ id: "cmd-2", numero_commande: "A2", budget: 50, engage: 40, paye: 30 });
   const c1b = cmd({ id: "cmd-1", numero_commande: "A1", budget: 100, engage: 90, paye: 80 }); // doublon
   const liees = rattacherCommandes(
-    [lien({ id: "l1", commande_id: "cmd-1", psp_ligne_id: "op-1977" }), lien({ id: "l2", commande_id: "cmd-2", psp_ligne_id: "op-1977" })],
+    [
+      lien({ id: "l1", commande_id: "cmd-1", psp_ligne_id: "op-1977" }),
+      lien({ id: "l2", commande_id: "cmd-2", psp_ligne_id: "op-1977" }),
+    ],
     [c1, c2, c1b],
   );
   const commande = liees.filter((l) => l.id === "cmd-1");
@@ -201,7 +262,10 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
   check("R. recalcul commandé (100+50=150)", budgetTotal === 150);
   check("S. recalcul engagé (90+40=130)", engageTotal === 130);
   check("T. recalcul payé (80+30=110)", payeTotal === 110);
-  check("R. doublon écarté (commande_id unique)", liees.filter((l) => l.commande_id === "cmd-1").length === 1);
+  check(
+    "R. doublon écarté (commande_id unique)",
+    liees.filter((l) => l.commande_id === "cmd-1").length === 1,
+  );
 }
 
 // ════════════ U. STEPPER COMMANDE SANS FORCER TRAVAUX ════════════════════════
@@ -210,10 +274,19 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
   // etat_commande proviennent de travaux_commandes — lecture seule) et n'introduit
   // AUCUN statut d'exécution "travaux en cours" : le statut travaux reste dérivé
   // séparément par statutExecutionDepuisCommandes (V8.5.4 n'y touche pas).
-  const liees = rattacherCommandes([lien({ id: "l1", commande_id: "cmd-1", psp_ligne_id: "op-1977" })], [cmd()]);
+  const liees = rattacherCommandes(
+    [lien({ id: "l1", commande_id: "cmd-1", psp_ligne_id: "op-1977" })],
+    [cmd()],
+  );
   check("U. stepper commande — rattachement sans forcer travaux", liees.length === 1);
-  check("U. statut_rapprochement présent (manuel/auto) — pas de statut travaux", liees[0]?.statut_rapprochement !== undefined);
-  check("U. aucune clé statut_execution inventée par le rattachement", !("statut_execution" in liees[0]));
+  check(
+    "U. statut_rapprochement présent (manuel/auto) — pas de statut travaux",
+    liees[0]?.statut_rapprochement !== undefined,
+  );
+  check(
+    "U. aucune clé statut_execution inventée par le rattachement",
+    !("statut_execution" in liees[0]),
+  );
   // Un rattachement ne force pas « Travaux en cours » : etat_travaux reste tel quel
   // (null ici car la commande importée ne le renseigne pas).
   check("U. etat_travaux non inventé", liees[0]?.etat_travaux == null);
@@ -225,8 +298,14 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
     new URL("../src/lib/psp.suivi.rapprochement.ts", import.meta.url),
     "utf8",
   );
-  check("V. aucune écriture dans travaux_commandes (insert/update/delete absent)", !/\binsert\b|\bupdate\b|\bdelete\b/i.test(src));
-  check("W. aucune écriture dans les imports (imports intangibles)", !/from\("import|from\('import|\.from\("import/i.test(src));
+  check(
+    "V. aucune écriture dans travaux_commandes (insert/update/delete absent)",
+    !/\binsert\b|\bupdate\b|\bdelete\b/i.test(src),
+  );
+  check(
+    "W. aucune écriture dans les imports (imports intangibles)",
+    !/from\("import|from\('import|\.from\("import/i.test(src),
+  );
   check("X. aucun MOCK (pas de 'mock' dans le moteur)", !/mock/i.test(src));
 }
 
@@ -236,13 +315,27 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
     new URL("../src/lib/psp.suivi.rapprochement.ts", import.meta.url),
     "utf8",
   );
-  check("Y. moteur unique — evaluerCorrespondance réutilisée par la recherche inversée", src.includes("evaluerCorrespondance"));
-  check("Y. aucun second moteur de matching (pas de proposerRapprochements2)", !src.includes("proposerRapprochements2"));
+  check(
+    "Y. moteur unique — evaluerCorrespondance réutilisée par la recherche inversée",
+    src.includes("evaluerCorrespondance"),
+  );
+  check(
+    "Y. aucun second moteur de matching (pas de proposerRapprochements2)",
+    !src.includes("proposerRapprochements2"),
+  );
   // Les propositions produites par la recherche inversée sont cohérentes avec
   // proposerRapprochements (mêmes poids/seuils) :
   const p1 = evaluerCorrespondance(op(), cmd(), [], [fournisseur()], {});
-  const p2 = proposerRapprochements({ operation: op(), commandes: [cmd()], liens: [], fournisseurs: [fournisseur()] });
-  check("Y. évaluations cohérentes (même score/niveau)", p1.score === p2[0]?.score && p1.niveau === p2[0]?.niveau);
+  const p2 = proposerRapprochements({
+    operation: op(),
+    commandes: [cmd()],
+    liens: [],
+    fournisseurs: [fournisseur()],
+  });
+  check(
+    "Y. évaluations cohérentes (même score/niveau)",
+    p1.score === p2[0]?.score && p1.niveau === p2[0]?.niveau,
+  );
 }
 
 // ════════════ Z. RATTACHEMENT MANUEL RÉUTILISE V8.5.3 ════════════════════════
@@ -254,9 +347,15 @@ check("M. recherche par descriptif (tokens significatifs présents)", true);
     new URL("../src/lib/psp.prep.supabase.functions.ts", import.meta.url),
     "utf8",
   );
-  check("Z. createPspCommandLink réutilisé (pas de nouveau endpoint)", src.includes("createPspCommandLink"));
+  check(
+    "Z. createPspCommandLink réutilisé (pas de nouveau endpoint)",
+    src.includes("createPspCommandLink"),
+  );
   check("Z. deletePspCommandLink réutilisé", src.includes("deletePspCommandLink"));
-  check("Z. recherche manuelle réutilise le même moteur (suggererOperationsPourCommande)", src.includes("suggererOperationsPourCommande"));
+  check(
+    "Z. recherche manuelle réutilise le même moteur (suggererOperationsPourCommande)",
+    src.includes("suggererOperationsPourCommande"),
+  );
 }
 
 // ── Synthèse ──────────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ Capture lecture seule (OpenAPI /rest/v1/), aucune écriture. **Piège `head:true
 ## Colonnes des tables `psp_*`
 
 ### psp_command_analysis
+
 - `analyse_json` :jsonb
 - `analyzed_at` string:timestamp with time zone
 - `categorie_budget` string:text
@@ -33,6 +34,7 @@ Capture lecture seule (OpenAPI /rest/v1/), aucune écriture. **Piège `head:true
 - `utilisable_cycle` boolean:boolean
 
 ### psp_command_links
+
 - `commande_id` string:uuid
 - `confiance` number:numeric
 - `created_at` string:timestamp with time zone (def "now()")
@@ -45,6 +47,7 @@ Capture lecture seule (OpenAPI /rest/v1/), aucune écriture. **Piège `head:true
 - `updated_at` string:timestamp with time zone (def "now()")
 
 ### psp_decisions
+
 - `cible_id` string:text
 - `cible_type` string:text
 - `cle_metier` string:text
@@ -61,6 +64,7 @@ Capture lecture seule (OpenAPI /rest/v1/), aucune écriture. **Piège `head:true
 - `valeur_retenue` :jsonb
 
 ### psp_feedback
+
 - `cible_id` string:text
 - `cible_type` string:text
 - `correction` :jsonb
@@ -71,6 +75,7 @@ Capture lecture seule (OpenAPI /rest/v1/), aucune écriture. **Piège `head:true
 - `proposition_initiale` :jsonb
 
 ### psp_import_rows
+
 - `adresse` string:text
 - `annee_exercice` integer:int32
 - `batiment_er` string:text
@@ -104,6 +109,7 @@ Capture lecture seule (OpenAPI /rest/v1/), aucune écriture. **Piège `head:true
 - `tranche_er` string:text
 
 ### psp_imports
+
 - `completed_at` string:timestamp with time zone
 - `created_at` string:timestamp with time zone (def "now()")
 - `doublons` integer:int32 (def 0)
@@ -118,6 +124,7 @@ Capture lecture seule (OpenAPI /rest/v1/), aucune écriture. **Piège `head:true
 - `structure_detectee` :jsonb
 
 ### psp_patrimoine_context
+
 - `date_reference_gestion` string:date
 - `donnees_contextuelles` :jsonb
 - `er_id` string:text
@@ -132,6 +139,7 @@ Capture lecture seule (OpenAPI /rest/v1/), aucune écriture. **Piège `head:true
 - `updated_at` string:timestamp with time zone (def "now()")
 
 ### psp_rules
+
 - `condition` :jsonb
 - `created_at` string:timestamp with time zone (def "now()")
 - `id` string:uuid (def "gen_random_uuid()")

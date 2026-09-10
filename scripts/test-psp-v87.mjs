@@ -15,7 +15,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { statutConsultationDepuisDevis } from "../src/lib/psp.prep.v7.ts";
-import { deriverEtatSuiviAnnuel, construireLigneRegistreAnnuel } from "../src/lib/psp.suivi.view.ts";
+import {
+  deriverEtatSuiviAnnuel,
+  construireLigneRegistreAnnuel,
+} from "../src/lib/psp.suivi.view.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = (p) => join(__dirname, "..", "src", p);
@@ -95,7 +98,6 @@ check(
   "G3. aucun libellé « ☑ Oui (N) » / « ☐ Non » restant",
   !rowSrc.includes("Oui (${nbDevis})") && !rowSrc.includes('Non"'),
 );
-
 
 // ════════════ B. SUIVI ANNUEL — ÉTATS DÉRIVÉS ═════════════════════════════════
 console.log("\n=== B. Registre annuel — états dérivés ===");
@@ -189,10 +191,7 @@ check(
   rapprochementSrc.includes("export const suggererOperationsPourCommande") &&
     rapprochementSrc.includes("evaluerCorrespondance"),
 );
-check(
-  "D2. aucun nouveau moteur dans psp.prep.v7.ts",
-  !prepV7.includes("rapproche"),
-);
+check("D2. aucun nouveau moteur dans psp.prep.v7.ts", !prepV7.includes("rapproche"));
 
 // ════════════ E. NON-RÉGRESSION — AUCUNE TABLE/MIGRATION/MOTEUR PARALLÈLE ═════
 console.log("\n=== E. Non-régression architecture ===");

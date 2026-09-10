@@ -8,8 +8,16 @@ function analyser(nom) {
   const parsed = parseTravauxWorkbook(readFileSync(join(downloads, nom)));
   // Lignes "budgétaires" : commandes + lignes sans commande ayant une LB
   const lignes = [
-    ...parsed.commandes.map((c) => ({ lb: (c.ligne_budget ?? "").trim(), budget: c.budget ?? 0, id: `CMD ${c.numero_commande}` })),
-    ...parsed.sansCommande.map((e) => ({ lb: (e.ligne_budget ?? "").trim(), budget: e.budget ?? 0, id: `SANS (ligne ${e.line})` })),
+    ...parsed.commandes.map((c) => ({
+      lb: (c.ligne_budget ?? "").trim(),
+      budget: c.budget ?? 0,
+      id: `CMD ${c.numero_commande}`,
+    })),
+    ...parsed.sansCommande.map((e) => ({
+      lb: (e.ligne_budget ?? "").trim(),
+      budget: e.budget ?? 0,
+      id: `SANS (ligne ${e.line})`,
+    })),
   ].filter((l) => l.lb);
   const parLB = new Map();
   for (const l of lignes) {

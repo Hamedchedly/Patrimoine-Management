@@ -13,5 +13,7 @@ const { data: lots, error } = await db
 if (error) throw new Error(error.message);
 console.log(`lots contenant HAWKING : ${lots?.length ?? 0}`);
 for (const l of lots ?? []) {
-  console.log(`${l.code_patrimoine} | tranche ${l.tranche_code} | ${l.adresse} | ${l.ville} | ${l.code_postal}`);
+  console.log(
+    `${l.code_patrimoine} | tranche ${l.tranche_code} | ${l.adresse} | ${l.ville} | ${l.code_postal}`,
+  );
 }

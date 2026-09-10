@@ -13,7 +13,9 @@ import { createClient } from "@supabase/supabase-js";
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];
 if (!url || !key) {
-  console.error("EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env");
+  console.error(
+    "EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env",
+  );
   process.exit(1);
 }
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -38,7 +40,12 @@ const created = { lignes: [], programmations: [], cc: [], corps: [] };
 
 async function main() {
   // Préparatifs : une tranche réelle pour le brouillon.
-  const { data: tranches } = await db.from("tranches").select("code").eq("actif", true).order("code").limit(20);
+  const { data: tranches } = await db
+    .from("tranches")
+    .select("code")
+    .eq("actif", true)
+    .order("code")
+    .limit(20);
   const trancheA = tranches?.[0]?.code;
   if (!trancheA) {
     console.error("Aucune tranche disponible.");
@@ -47,7 +54,10 @@ async function main() {
 
   // Programmation de test (années hautes pour éviter toute collision).
   const rP = await run(() =>
-    db.from("psp_programmations").insert({ annee_debut: 2095, annee_fin: 2099, version: 1, remarques: MARQUEUR }).select("id"),
+    db
+      .from("psp_programmations")
+      .insert({ annee_debut: 2095, annee_fin: 2099, version: 1, remarques: MARQUEUR })
+      .select("id"),
   );
   const P1 = rP.data?.[0];
   if (P1?.id) created.programmations.push(P1.id);
@@ -84,7 +94,10 @@ async function main() {
   );
   const relu = relecture.data?.[0];
   check("2. ligne présente après relecture", Boolean(relu?.id), relecture.msg);
-  check("2. programme vide conservé", relu?.programme && Object.values(relu.programme).every((v) => Number(v) === 0));
+  check(
+    "2. programme vide conservé",
+    relu?.programme && Object.values(relu.programme).every((v) => Number(v) === 0),
+  );
   check("2. corps d'état vide", (relu?.corps_etat ?? null) === null);
 
   // ── 3. COMPLÉTION (corps + montant + nature) → ACCEPTÉE ──
@@ -114,36 +127,84 @@ async function main() {
   // ── 4. RÉFÉRENTIEL CC : AJOUT CMICHEL / LALLIANC + MODIFICATION + DÉSACTIVATION ──
   console.log("\n=== 4. RÉFÉRENTIEL CC ===");
   const ccCm = await run(() =>
-    db.from("psp_charges_clientele").upsert({ sous_secteur: "90", charge_clientele: "CMICHEL", identifiant_personnel: "CMICHEL", actif: true }, { onConflict: "sous_secteur" }).select("sous_secteur"),
+    db
+      .from("psp_charges_clientele")
+      .upsert(
+        {
+          sous_secteur: "90",
+          charge_clientele: "CMICHEL",
+          identifiant_personnel: "CMICHEL",
+          actif: true,
+        },
+        { onConflict: "sous_secteur" },
+      )
+      .select("sous_secteur"),
   );
   check("4. ajout CMICHEL (sous-secteur 90)", !ccCm.error, ccCm.msg);
   const ccLl = await run(() =>
-    db.from("psp_charges_clientele").upsert({ sous_secteur: "91", charge_clientele: "LALLIANC", identifiant_personnel: "LALLIANC", actif: true }, { onConflict: "sous_secteur" }).select("sous_secteur"),
+    db
+      .from("psp_charges_clientele")
+      .upsert(
+        {
+          sous_secteur: "91",
+          charge_clientele: "LALLIANC",
+          identifiant_personnel: "LALLIANC",
+          actif: true,
+        },
+        { onConflict: "sous_secteur" },
+      )
+      .select("sous_secteur"),
   );
   check("4. ajout LALLIANC (sous-secteur 91)", !ccLl.error, ccLl.msg);
   const ccMod = await run(() =>
-    db.from("psp_charges_clientele").update({ charge_clientele: "CMICHEL", identifiant_personnel: "CMICHEL" }).eq("sous_secteur", "90").select("charge_clientele"),
+    db
+      .from("psp_charges_clientele")
+      .update({ charge_clientele: "CMICHEL", identifiant_personnel: "CMICHEL" })
+      .eq("sous_secteur", "90")
+      .select("charge_clientele"),
   );
   check("4. modification CMICHEL", ccMod.data?.[0]?.charge_clientele === "CMICHEL", ccMod.msg);
   const ccDes = await run(() =>
-    db.from("psp_charges_clientele").update({ actif: false }).eq("sous_secteur", "91").select("actif"),
+    db
+      .from("psp_charges_clientele")
+      .update({ actif: false })
+      .eq("sous_secteur", "91")
+      .select("actif"),
   );
   check("4. désactivation LALLIANC", ccDes.data?.[0]?.actif === false, ccDes.msg);
   created.cc.push("90", "91");
   // ── 5. RÉFÉRENTIEL CORPS D'ÉTAT : AJOUT + RATTACHEMENT + DÉSACTIVATION ──
   console.log("\n=== 5. RÉFÉRENTIEL CORPS D'ÉTAT ===");
   const cE = await run(() =>
-    db.from("psp_corps_etats").upsert({ code: "t9", libelle: "(t9) Test V7.6", categorie: "GT", actif: true }, { onConflict: "libelle" }).select("id, categorie"),
+    db
+      .from("psp_corps_etats")
+      .upsert(
+        { code: "t9", libelle: "(t9) Test V7.6", categorie: "GT", actif: true },
+        { onConflict: "libelle" },
+      )
+      .select("id, categorie"),
   );
-  check("5. ajout corps (t9) Test V7.6 → GT", !cE.error && cE.data?.[0]?.categorie === "GT", cE.msg);
+  check(
+    "5. ajout corps (t9) Test V7.6 → GT",
+    !cE.error && cE.data?.[0]?.categorie === "GT",
+    cE.msg,
+  );
   const corpsId = cE.data?.[0]?.id;
   if (corpsId) created.corps.push(corpsId);
   const cEMod = await run(() =>
-    db.from("psp_corps_etats").update({ categorie: "CP" }).eq("libelle", "(t9) Test V7.6").select("categorie"),
+    db
+      .from("psp_corps_etats")
+      .update({ categorie: "CP" })
+      .eq("libelle", "(t9) Test V7.6")
+      .select("categorie"),
   );
   check("5. rattachement CP accepté", cEMod.data?.[0]?.categorie === "CP", cEMod.msg);
   const cEDes = await run(() =>
-    db.from("psp_corps_etats").update({ actif: false }).eq("libelle", "(t9) Test V7.6").select("actif"),
+    db
+      .from("psp_corps_etats")
+      .update({ actif: false })
+      .eq("libelle", "(t9) Test V7.6")
+      .select("actif"),
   );
   check("5. désactivation acceptée", cEDes.data?.[0]?.actif === false, cEDes.msg);
 
@@ -156,9 +217,13 @@ async function main() {
 
   const residu = await run(() => db.from("psp_lignes").select("id").eq("remarques", MARQUEUR));
   check("purge : 0 ligne PSP de test résiduelle", (residu.data ?? []).length === 0);
-  const residuCc = await run(() => db.from("psp_charges_clientele").select("sous_secteur").in("sous_secteur", created.cc));
+  const residuCc = await run(() =>
+    db.from("psp_charges_clientele").select("sous_secteur").in("sous_secteur", created.cc),
+  );
   check("purge : référentiel CC nettoyé", (residuCc.data ?? []).length === 0);
-  const residuCorps = await run(() => db.from("psp_corps_etats").select("id").in("id", created.corps));
+  const residuCorps = await run(() =>
+    db.from("psp_corps_etats").select("id").in("id", created.corps),
+  );
   check("purge : référentiel corps nettoyé", (residuCorps.data ?? []).length === 0);
 
   console.log(`\nRésultat : ${PASS.length} ok, ${FAIL.length} échec(s)`);

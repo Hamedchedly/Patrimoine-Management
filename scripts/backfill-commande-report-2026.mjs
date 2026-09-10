@@ -28,7 +28,9 @@ if (!existsSync(fichier)) throw new Error(`Fichier absent : ${fichier}`);
 const parsed = parseTravauxWorkbook(readFileSync(fichier));
 const src = parsed.commandes.find((c) => String(c.numero_commande).trim() === NUMERO);
 if (!src) throw new Error(`${NUMERO} absente du fichier 2026`);
-console.log(`Source fichier 2026 : ${NUMERO} budget=${src.budget} engage=${src.engage} paye=${src.paye} TR=${src.tranche_code} LB=${src.ligne_budget} fournisseur=${src.fournisseur}`);
+console.log(
+  `Source fichier 2026 : ${NUMERO} budget=${src.budget} engage=${src.engage} paye=${src.paye} TR=${src.tranche_code} LB=${src.ligne_budget} fournisseur=${src.fournisseur}`,
+);
 
 // 2. Ligne 2025 existante (à conserver).
 const { data: existantes } = await db
@@ -84,7 +86,9 @@ if (deja2026) {
     .select("id, numero_commande, annee_exercice, budget, engage, paye")
     .single();
   if (error) throw new Error(`Création ligne 2026 : ${error.message}`);
-  console.log(`Ligne 2026 créée : id=${creee.id} engage=${creee.engage} (2025 conservée id=${ligne2025.id})`);
+  console.log(
+    `Ligne 2026 créée : id=${creee.id} engage=${creee.engage} (2025 conservée id=${ligne2025.id})`,
+  );
 }
 
 // 3. Résoudre le/les conflit(s) en attente pour cette commande (version 2026 désormais

@@ -6,9 +6,7 @@
 //  3. recherche ER → rue / numéro remplis (données déjà retournées, sans re-requête).
 // Exécution : node scripts/test-psp-v75.mjs
 // ═══════════════════════════════════════════════════════════════════════════════
-import {
-  construireReferencePatrimoine,
-} from "../src/lib/psp.prep.data.ts";
+import { construireReferencePatrimoine } from "../src/lib/psp.prep.data.ts";
 import { estLotGarage, sansGarages } from "../src/lib/psp.prep.v7.ts";
 
 let passed = 0;
@@ -26,30 +24,96 @@ function check(label, ok, detail = "") {
 // ── 1. Garages : type_lot GAR / BOX masqués par défaut (filtre d'affichage) ─────
 console.log("\n=== 1. FILTRE GARAGES ===");
 {
-  const garage = { id: "g1", code_patrimoine: "ER.1", tranche_code: "1", adresse: "RUE X", type_lot: "GAR" };
-  const box = { id: "g2", code_patrimoine: "ER.2", tranche_code: "1", adresse: "RUE X", type_lot: "BOX" };
-  const parc = { id: "l1", code_patrimoine: "ER.3", tranche_code: "1", adresse: "RUE X", type_lot: "PAR" };
-  const sansType = { id: "l2", code_patrimoine: "ER.4", tranche_code: "1", adresse: "RUE X", type_lot: null };
+  const garage = {
+    id: "g1",
+    code_patrimoine: "ER.1",
+    tranche_code: "1",
+    adresse: "RUE X",
+    type_lot: "GAR",
+  };
+  const box = {
+    id: "g2",
+    code_patrimoine: "ER.2",
+    tranche_code: "1",
+    adresse: "RUE X",
+    type_lot: "BOX",
+  };
+  const parc = {
+    id: "l1",
+    code_patrimoine: "ER.3",
+    tranche_code: "1",
+    adresse: "RUE X",
+    type_lot: "PAR",
+  };
+  const sansType = {
+    id: "l2",
+    code_patrimoine: "ER.4",
+    tranche_code: "1",
+    adresse: "RUE X",
+    type_lot: null,
+  };
   check("GAR → garage", estLotGarage(garage) === true);
   check("BOX → garage", estLotGarage(box) === true);
   check("PAR → pas garage", estLotGarage(parc) === false);
   check("type inconnu → pas garage", estLotGarage(sansType) === false);
-  check("null → pas garage", estLotGarage({ id: "x", code_patrimoine: "ER.5", tranche_code: "1", adresse: null, type_lot: null }) === false);
+  check(
+    "null → pas garage",
+    estLotGarage({
+      id: "x",
+      code_patrimoine: "ER.5",
+      tranche_code: "1",
+      adresse: null,
+      type_lot: null,
+    }) === false,
+  );
   const filtres = sansGarages([garage, box, parc, sansType], false);
-  check("sansGarages masque GAR/BOX", filtres.length === 2 && filtres.every((l) => !estLotGarage(l)));
-  check("sansGarages(affichage=true) garde tout", sansGarages([garage, box, parc], true).length === 3);
+  check(
+    "sansGarages masque GAR/BOX",
+    filtres.length === 2 && filtres.every((l) => !estLotGarage(l)),
+  );
+  check(
+    "sansGarages(affichage=true) garde tout",
+    sansGarages([garage, box, parc], true).length === 3,
+  );
 }
 
 // ── 2. Référentiel CC : sous_secteur → CC actuel (autorité) ────────────────────
 console.log("\n=== 2. RÉFÉRENTIEL CHARGÉ CLIENTÈLE ===");
 {
   const tranches = [
-    { code: "1950", libelle: null, localite: "THORIGNY", sous_secteur: "1", secteur: "A", nb_logements: 30 },
-    { code: "1976", libelle: null, localite: "THORIGNY", sous_secteur: "2", secteur: "A", nb_logements: 40 },
-    { code: "9999", libelle: null, localite: null, sous_secteur: "9", secteur: null, nb_logements: null },
+    {
+      code: "1950",
+      libelle: null,
+      localite: "THORIGNY",
+      sous_secteur: "1",
+      secteur: "A",
+      nb_logements: 30,
+    },
+    {
+      code: "1976",
+      libelle: null,
+      localite: "THORIGNY",
+      sous_secteur: "2",
+      secteur: "A",
+      nb_logements: 40,
+    },
+    {
+      code: "9999",
+      libelle: null,
+      localite: null,
+      sous_secteur: "9",
+      secteur: null,
+      nb_logements: null,
+    },
   ];
   const lots = [
-    { id: "a", code_patrimoine: "ER.1", tranche_code: "1950", adresse: "RUE DE REIMS", ville: "REIMS" },
+    {
+      id: "a",
+      code_patrimoine: "ER.1",
+      tranche_code: "1950",
+      adresse: "RUE DE REIMS",
+      ville: "REIMS",
+    },
   ];
   // Commandes historiques : pour 1950, la fréquence donnerait CANTONY (mauvais) —
   // le référentiel doit faire foi.
@@ -60,8 +124,18 @@ console.log("\n=== 2. RÉFÉRENTIEL CHARGÉ CLIENTÈLE ===");
     { tranche_code: "1950", charge_clientele: "ALOTHORE" },
   ];
   const referentiel = [
-    { sous_secteur: "1", charge_clientele: "ALOTHORE", identifiant_personnel: "ALOTHORE", actif: true },
-    { sous_secteur: "2", charge_clientele: "SKILIDJIAN", identifiant_personnel: "SKILIDJIAN", actif: true },
+    {
+      sous_secteur: "1",
+      charge_clientele: "ALOTHORE",
+      identifiant_personnel: "ALOTHORE",
+      actif: true,
+    },
+    {
+      sous_secteur: "2",
+      charge_clientele: "SKILIDJIAN",
+      identifiant_personnel: "SKILIDJIAN",
+      actif: true,
+    },
     { sous_secteur: "9", charge_clientele: "X", identifiant_personnel: "X", actif: false }, // inactif ignoré
   ];
 
@@ -72,10 +146,7 @@ console.log("\n=== 2. RÉFÉRENTIEL CHARGÉ CLIENTÈLE ===");
     tr1950?.charge_clientele === "ALOTHORE",
     String(tr1950?.charge_clientele),
   );
-  check(
-    "TR 1950 → identifiant personnel porté",
-    tr1950?.identifiant_personnel === "ALOTHORE",
-  );
+  check("TR 1950 → identifiant personnel porté", tr1950?.identifiant_personnel === "ALOTHORE");
   const tr1976 = ref.tranches.get("1976");
   check(
     "TR 1976 → CC référentiel sous-secteur 2 (SKILIDJIAN)",

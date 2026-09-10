@@ -9,12 +9,7 @@
 import type { PspParsedTravaux, PspParsedRow } from "./psp";
 
 /** Catégories du tableau de synthèse (lignes + anomalies du fichier). */
-export type PspStatutSynthese =
-  | "valide"
-  | "a_controler"
-  | "erreur"
-  | "doublon"
-  | "conflit";
+export type PspStatutSynthese = "valide" | "a_controler" | "erreur" | "doublon" | "conflit";
 
 /** Synthèse calculée après lecture d'un classeur (aucune écriture). */
 export type PspAnalyse = {
@@ -75,10 +70,7 @@ export const construireAnalyse = (parsed: PspParsedTravaux): PspAnalyse => {
 export type PspFiltre = "tous" | "erreurs" | "doublons" | "conflits" | "ambiguites" | "valides";
 
 /** Filtre les lignes affichées selon la catégorie choisie. */
-export const filtrerLignesPsp = (
-  parsed: PspParsedTravaux,
-  filtre: PspFiltre,
-): PspParsedRow[] => {
+export const filtrerLignesPsp = (parsed: PspParsedTravaux, filtre: PspFiltre): PspParsedRow[] => {
   switch (filtre) {
     case "valides":
       return parsed.lignes.filter((l) => l.statut === "valide");
@@ -89,9 +81,7 @@ export const filtrerLignesPsp = (
     case "doublons":
       return parsed.doublons;
     case "conflits":
-      return parsed.doublons.filter((d) =>
-        d.erreurs_psp.some((i) => i.code === "doublon_conflit"),
-      );
+      return parsed.doublons.filter((d) => d.erreurs_psp.some((i) => i.code === "doublon_conflit"));
     case "tous":
     default:
       return parsed.lignes;
@@ -139,7 +129,7 @@ export const statutFinalImport = (
   resume.lignes_erreur > 0 || resume.lignes_a_controler > 0 ? "a_controler" : "termine";
 
 /** Découpe un tableau en lots de `taille` éléments (écriture par lots). */
-export const decouperEnLots = <T,>(arr: T[], taille: number): T[][] =>
+export const decouperEnLots = <T>(arr: T[], taille: number): T[][] =>
   Array.from({ length: Math.ceil(arr.length / taille) }, (_, i) =>
     arr.slice(i * taille, i * taille + taille),
   );

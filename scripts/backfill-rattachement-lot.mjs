@@ -25,7 +25,9 @@ const commandes = [];
   for (;;) {
     const { data, error } = await db
       .from("travaux_commandes")
-      .select("id, numero_commande, tranche_code, adresse, descriptif, annee_exercice, actif, lot_code")
+      .select(
+        "id, numero_commande, tranche_code, adresse, descriptif, annee_exercice, actif, lot_code",
+      )
       .is("lot_code", null)
       .order("id", { ascending: true })
       .range(from, from + CHUNK - 1);
@@ -81,4 +83,6 @@ for (const item of aRattacher) {
     console.log(`  ✓ #${item.numero} → lot_code = ${item.code}`);
   }
 }
-console.log(`\nTerminé : ${maj} mis à jour / ${erreurs} erreur(s)${DRY_RUN ? " (dry-run, rien écrit)" : ""}.`);
+console.log(
+  `\nTerminé : ${maj} mis à jour / ${erreurs} erreur(s)${DRY_RUN ? " (dry-run, rien écrit)" : ""}.`,
+);

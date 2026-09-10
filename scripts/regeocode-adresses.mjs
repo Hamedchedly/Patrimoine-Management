@@ -17,9 +17,7 @@ const db = createClient(url, key, { auth: { persistSession: false, autoRefreshTo
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY = 800; // ms, doublé à chaque tentative + jitter
 
-const { data: adresses, error } = await db
-  .from("adresses_geo")
-  .select("cle, adresse, ville");
+const { data: adresses, error } = await db.from("adresses_geo").select("cle, adresse, ville");
 if (error) throw new Error(error.message);
 console.log(`Adresses à re-géocoder : ${adresses?.length ?? 0}`);
 
@@ -67,4 +65,3 @@ console.log(
   `\nTerminé — ok=${ok} · hors commune purgés=${refuse} · sans résultat=${vide} · erreurs=${erreurs}`,
 );
 process.exit(erreurs === 0 ? 0 : 1);
-

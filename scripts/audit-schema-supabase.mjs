@@ -54,6 +54,8 @@ for (const table of candidats) {
 console.log("=== TABLES PRÉSENTES ===");
 for (const t of existantes) {
   console.log(`\n${t.table}`);
-  console.log(`  colonnes : ${t.colonnes.join(", ") || "(table vide — colonnes via OpenAPI, voir audit-openapi-schema.mjs)"}`);
+  console.log(
+    `  colonnes : ${t.colonnes.join(", ") || "(table vide — colonnes via OpenAPI, voir audit-openapi-schema.mjs)"}`,
+  );
 }
 console.log(`\n=== TABLES ABSENTES ===\n${absentes.join(", ")}`);

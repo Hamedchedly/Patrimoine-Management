@@ -8,7 +8,10 @@
 // doivent être STRICTEMENT identiques avant/après. Aucune création d'opération
 // parallèle : on réutilise une opération réelle + une commande réelle.
 import { createClient } from "@supabase/supabase-js";
-import { determinerRelationPeriode, suggererOperationsPourCommande } from "../src/lib/psp.suivi.rapprochement.ts";
+import {
+  determinerRelationPeriode,
+  suggererOperationsPourCommande,
+} from "../src/lib/psp.suivi.rapprochement.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];
@@ -61,7 +64,9 @@ async function main() {
   // Commande réelle avec import_row réel (comme V8.5.3).
   const { data: cmds } = await db
     .from("travaux_commandes")
-    .select("id, numero_commande, tranche_code, adresse, corps_etat, descriptif, fournisseur, numero_fournisseur, budget, annee_exercice, etat_travaux")
+    .select(
+      "id, numero_commande, tranche_code, adresse, corps_etat, descriptif, fournisseur, numero_fournisseur, budget, annee_exercice, etat_travaux",
+    )
     .not("numero_commande", "is", null)
     .limit(80);
   const nums = (cmds ?? []).map((c) => String(c.numero_commande).trim());
@@ -81,23 +86,31 @@ async function main() {
   // 2–3. ANALYSE — le moteur V8.5.1 analyse la commande contre les opérations
   // (aucune écriture). Période en critère d'appui.
   if (operation?.id && commande?.id) {
-    const annees = Object.keys(operation.programme ?? {}).map(Number).filter((a) => Number.isFinite(a));
+    const annees = Object.keys(operation.programme ?? {})
+      .map(Number)
+      .filter((a) => Number.isFinite(a));
     const relation = determinerRelationPeriode(annees, commande.annee_exercice ?? null, null);
-    check("A. relation de période dérivée", ["historique", "courant", "futur", "inconnu"].includes(relation.type), relation.libelle);
+    check(
+      "A. relation de période dérivée",
+      ["historique", "courant", "futur", "inconnu"].includes(relation.type),
+      relation.libelle,
+    );
 
     // Proposition via le moteur pur (structure minimale des fixtures réelles).
-    const ops = [{
-      id: operation.id,
-      tranche_code: operation.tranche_code,
-      categorie: null,
-      corps_etat: operation.corps_etat,
-      nature_travaux: operation.nature_travaux,
-      ligne_budget: null,
-      origine: operation.origine ?? "preparation",
-      montant_total: null,
-      perimetres: [],
-      entreprises_consultees: [],
-    }];
+    const ops = [
+      {
+        id: operation.id,
+        tranche_code: operation.tranche_code,
+        categorie: null,
+        corps_etat: operation.corps_etat,
+        nature_travaux: operation.nature_travaux,
+        ligne_budget: null,
+        origine: operation.origine ?? "preparation",
+        montant_total: null,
+        perimetres: [],
+        entreprises_consultees: [],
+      },
+    ];
     const c = {
       id: commande.id,
       numero_commande: commande.numero_commande,
@@ -112,7 +125,10 @@ async function main() {
     };
     const props = suggererOperationsPourCommande(c, ops, [], [], {});
     check("B. moteur analysable (recherche inversée)", Array.isArray(props));
-    check("B. niveau retourné conforme", props.every((p) => ["AUTO", "A_CONFIRMER", "MANUEL"].includes(p.niveau)));
+    check(
+      "B. niveau retourné conforme",
+      props.every((p) => ["AUTO", "A_CONFIRMER", "MANUEL"].includes(p.niveau)),
+    );
 
     // 6. RECHERCHE MANUELLE — mêmes critères que rechercherCommandes
     // (n° commande, TR, adresse, descriptif, fournisseur) via ILIKE.
@@ -122,7 +138,10 @@ async function main() {
       .select("id, numero_commande")
       .ilike("numero_commande", `%${num.slice(0, 6)}%`)
       .limit(5);
-    check("C. recherche par n° commande", (parNum ?? []).some((r) => r.id === commande.id));
+    check(
+      "C. recherche par n° commande",
+      (parNum ?? []).some((r) => r.id === commande.id),
+    );
 
     if (commande.tranche_code) {
       const { data: parTr } = await db
@@ -130,43 +149,61 @@ async function main() {
         .select("id")
         .ilike("tranche_code", `%${commande.tranche_code}%`)
         .limit(20);
-      check("D. recherche par TR", (parTr ?? []).some((r) => r.id === commande.id));
+      check(
+        "D. recherche par TR",
+        (parTr ?? []).some((r) => r.id === commande.id),
+      );
     } else {
       check("D. recherche par TR (champ absent — ignoré)", true);
     }
 
     if (commande.adresse) {
-      const mot = String(commande.adresse).split(/\s+/).find((w) => w.length > 3);
+      const mot = String(commande.adresse)
+        .split(/\s+/)
+        .find((w) => w.length > 3);
       const { data: parAdr } = await db
         .from("travaux_commandes")
         .select("id")
         .ilike("adresse", `%${mot}%`)
         .limit(20);
-      check("E. recherche par adresse", (parAdr ?? []).some((r) => r.id === commande.id));
+      check(
+        "E. recherche par adresse",
+        (parAdr ?? []).some((r) => r.id === commande.id),
+      );
     } else {
       check("E. recherche par adresse (champ absent — ignoré)", true);
     }
 
     if (commande.fournisseur) {
-      const mot = String(commande.fournisseur).split(/\s+/).find((w) => w.length > 3);
+      const mot = String(commande.fournisseur)
+        .split(/\s+/)
+        .find((w) => w.length > 3);
       const { data: parF } = await db
         .from("travaux_commandes")
         .select("id")
         .ilike("fournisseur", `%${mot}%`)
         .limit(20);
-      check("F. recherche par fournisseur", (parF ?? []).some((r) => r.id === commande.id));
+      check(
+        "F. recherche par fournisseur",
+        (parF ?? []).some((r) => r.id === commande.id),
+      );
     } else {
       check("F. recherche par fournisseur (champ absent — ignoré)", true);
     }
 
     if (commande.descriptif) {
-      const mot = String(commande.descriptif).split(/\s+/).find((w) => w.length > 4);
+      const mot = String(commande.descriptif)
+        .split(/\s+/)
+        .find((w) => w.length > 4);
       const { data: parDesc } = await db
         .from("travaux_commandes")
         .select("id")
         .ilike("descriptif", `%${mot}%`)
         .limit(20);
-      check("G. recherche par descriptif", (parDesc ?? []).some((r) => r.id === commande.id));
+      check(
+        "G. recherche par descriptif",
+        (parDesc ?? []).some((r) => r.id === commande.id),
+      );
     } else {
       check("G. recherche par descriptif (champ absent — ignoré)", true);
     }
@@ -195,7 +232,10 @@ async function main() {
     if (lien?.id) {
       lienId = lien.id;
       check("H. rattachement créé", true);
-      check("H2. methode = manuel, statut = valide", lien.methode === "manuel" && lien.statut === "valide");
+      check(
+        "H2. methode = manuel, statut = valide",
+        lien.methode === "manuel" && lien.statut === "valide",
+      );
 
       // Anti-doublon serveur : un second lien sur la même commande doit échouer.
       const { error: errDup } = await db
@@ -263,7 +303,11 @@ async function main() {
     pspImports: await comptage("psp_imports"),
     histLignes: await comptage("psp_ligne_historique"),
   };
-  check("INTÉGRITÉ psp_command_links", avant.liens === apres.liens, `${avant.liens} vs ${apres.liens}`);
+  check(
+    "INTÉGRITÉ psp_command_links",
+    avant.liens === apres.liens,
+    `${avant.liens} vs ${apres.liens}`,
+  );
   check("INTÉGRITÉ psp_lignes", avant.lignes === apres.lignes);
   check("INTÉGRITÉ travaux_commandes", avant.commandes === apres.commandes);
   check("INTÉGRITÉ travaux_commandes_historique", avant.historiques === apres.historiques);

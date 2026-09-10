@@ -8,7 +8,11 @@ import { supabaseAdmin } from "../src/integrations/supabase-ext/client.server.ts
 const fmtEuro = (n) =>
   n == null
     ? "—"
-    : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
+    : new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 2,
+      }).format(n);
 const clean = (s) => (s ?? "").trim();
 const cap = (arr, n) => {
   const shown = arr.slice(0, n).join(", ");
@@ -73,8 +77,12 @@ const trie = (liste) =>
 
 // ── Rapport 1 : noms par identifiant suivi ────────────────────────────────────
 console.log("=".repeat(110));
-console.log("ANALYSE LECTURE SEULE — NOMS FOURNISSEURS (travaux_commandes.fournisseur) par numero_fournisseur");
-console.log("Statut : UNIQUE (1 nom) · VARIATION (plusieurs noms) · VIDE (aucun nom). Aucune écriture.");
+console.log(
+  "ANALYSE LECTURE SEULE — NOMS FOURNISSEURS (travaux_commandes.fournisseur) par numero_fournisseur",
+);
+console.log(
+  "Statut : UNIQUE (1 nom) · VARIATION (plusieurs noms) · VIDE (aucun nom). Aucune écriture.",
+);
 console.log("=".repeat(110));
 
 const liste = [...agg.values()].sort((x, y) => y.commandes - x.commandes);
@@ -94,12 +102,16 @@ for (const a of liste) {
   console.log(`\n▶ ${a.id}  — ${st}  (${a.commandes} commande(s) · ${fmtEuro(a.engage)})`);
   console.log(`   Noms            : ${[...a.noms].sort().join(" | ") || "(aucun nom renseigné)"}`);
   console.log(`   Corps d'état    : ${cap([...a.corps].sort(), 8) || "—"}`);
-  console.log(`   Lots/patrimoines: ${a.patrimoine.size} distinct(s) : ${cap([...a.patrimoine].sort(), 6) || "—"}`);
+  console.log(
+    `   Lots/patrimoines: ${a.patrimoine.size} distinct(s) : ${cap([...a.patrimoine].sort(), 6) || "—"}`,
+  );
   console.log(`   Premières       : ${premieres.map(fmtCmd).join(" ; ") || "—"}`);
   console.log(`   Dernières       : ${dernieres.map(fmtCmd).join(" ; ") || "—"}`);
 }
 
-console.log(`\nSYNTHÈSE : ${liste.length} identifiants suivi — UNIQUE : ${nUnique} · VARIATION : ${nVariation} · VIDE : ${nVide}`);
+console.log(
+  `\nSYNTHÈSE : ${liste.length} identifiants suivi — UNIQUE : ${nUnique} · VARIATION : ${nVariation} · VIDE : ${nVide}`,
+);
 
 // ── Rapport 2 : 9 correspondances CERTAINES + cohérence du nom ────────────────
 const CERTAINES = [
@@ -114,7 +126,9 @@ const CERTAINES = [
   ["30888", "662037"],
 ];
 
-console.log(`\n${"─".repeat(110)}\nVÉRIFICATION DES 9 CORRESPONDANCES CERTAINES (suivi ↔ FRAN_NUM)\n${"─".repeat(110)}`);
+console.log(
+  `\n${"─".repeat(110)}\nVÉRIFICATION DES 9 CORRESPONDANCES CERTAINES (suivi ↔ FRAN_NUM)\n${"─".repeat(110)}`,
+);
 for (const [sid, fnum] of CERTAINES) {
   const a = agg.get(sid);
   if (!a) {

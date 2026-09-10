@@ -115,8 +115,8 @@ try {
   // Attend que le TITRE des KPI change réellement d'année (refetch terminé).
   await page.waitForFunction(
     (a) => {
-      const el = [...document.querySelectorAll("h1,h2,h3,h4,div,span,p")].find(
-        (x) => /^KPIs — année \d{4}$/.test((x.textContent ?? "").trim()),
+      const el = [...document.querySelectorAll("h1,h2,h3,h4,div,span,p")].find((x) =>
+        /^KPIs — année \d{4}$/.test((x.textContent ?? "").trim()),
       );
       const t = (el?.textContent ?? "").trim();
       const m = t.match(/^KPIs — année (\d{4})$/);
@@ -133,8 +133,8 @@ try {
   await page.getByRole("button", { name: "Année suivante" }).click();
   await page.waitForFunction(
     (a) => {
-      const el = [...document.querySelectorAll("h1,h2,h3,h4,div,span,p")].find(
-        (x) => /^KPIs — année \d{4}$/.test((x.textContent ?? "").trim()),
+      const el = [...document.querySelectorAll("h1,h2,h3,h4,div,span,p")].find((x) =>
+        /^KPIs — année \d{4}$/.test((x.textContent ?? "").trim()),
       );
       const t = (el?.textContent ?? "").trim();
       return t === `KPIs — année ${a}`;
@@ -625,10 +625,16 @@ try {
   //     → retour liste, en vérifiant la conservation de tous les contextes.
   await page.goto(`${BASE}/`, { waitUntil: "networkidle", timeout: 60000 });
   await page.waitForSelector("nav", { timeout: 15000 });
-  await page.getByRole("link", { name: /Pilotage/ }).first().click();
+  await page
+    .getByRole("link", { name: /Pilotage/ })
+    .first()
+    .click();
   await page.waitForURL(/\/dashboard-travaux/, { timeout: 20000 });
   ok("Accueil → barre globale → Pilotage (dashboard)", page.url().includes("/dashboard-travaux"));
-  await page.getByRole("link", { name: /Sourcing/ }).first().click();
+  await page
+    .getByRole("link", { name: /Sourcing/ })
+    .first()
+    .click();
   await page.waitForURL(/\/fournisseurs($|\?)/, { timeout: 20000 });
   ok("barre globale → Sourcing (liste fournisseurs)", /\/fournisseurs($|\?)/.test(page.url()));
   // Recherche fournisseur → filtres persistés dans l'URL (?q=)
@@ -658,11 +664,9 @@ try {
   });
   ok("fiche fournisseur → commande overlay (URL ?cmd=)", page.url().includes("cmd="));
   await page.getByRole("button", { name: "FERMER LA FICHE" }).click();
-  await page.waitForFunction(
-    () => !document.body.textContent.includes("Fiche Commande #"),
-    null,
-    { timeout: 10000 },
-  );
+  await page.waitForFunction(() => !document.body.textContent.includes("Fiche Commande #"), null, {
+    timeout: 10000,
+  });
   ok("commande fermée → overlay refermé, URL sans cmd", !page.url().includes("cmd="));
   // Patrimoine (overlay/URL ?retour=) ← puis retour explicite vers la fiche
   const patLinkNav = cmdTableNav

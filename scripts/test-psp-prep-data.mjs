@@ -62,7 +62,12 @@ const commandes = [
 // V7.6 §8 — le CC provient UNIQUEMENT du référentiel sous-secteur → CC
 // (jamais la fréquence des commandes historiques).
 const referentiel = [
-  { sous_secteur: "2", charge_clientele: "SKILIDJIAN", identifiant_personnel: "SKILIDJIAN", actif: true },
+  {
+    sous_secteur: "2",
+    charge_clientele: "SKILIDJIAN",
+    identifiant_personnel: "SKILIDJIAN",
+    actif: true,
+  },
   { sous_secteur: "4", charge_clientele: "JDUPUIS", identifiant_personnel: "JDUPUIS", actif: true },
 ];
 
@@ -74,7 +79,10 @@ assert(
 );
 
 const ref1976 = resoudreTranche(reference, "1976");
-assert("TR→CC : SKILIDJIAN (référentiel sous-secteur 2)", ref1976?.charge_clientele === "SKILIDJIAN");
+assert(
+  "TR→CC : SKILIDJIAN (référentiel sous-secteur 2)",
+  ref1976?.charge_clientele === "SKILIDJIAN",
+);
 assert(
   "TR→adresse : 32 RUE CORNILLIOT (mode des lots 1976)",
   ref1976?.adresse_reference === "32 RUE CORNILLIOT",

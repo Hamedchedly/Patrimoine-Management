@@ -44,11 +44,11 @@ const lot = (code, tranche, adresse) => ({
 
 // Hiérarchie ville → tranche → adresse (déjà filtrée des garages masqués).
 const tranches = {
-  "1400": {
+  1400: {
     "AVENUE DE SARIA": [lot("L1", "1400", "AVENUE DE SARIA"), lot("L2", "1400", "AVENUE DE SARIA")],
     "RUE ROBERT THIBOUST": [lot("L3", "1400", "RUE ROBERT THIBOUST")],
   },
-  "1401": {
+  1401: {
     "PLACE THOMAS LE PILLEUR": [
       lot("L4", "1401", "PLACE THOMAS LE PILLEUR"),
       lot("L5", "1401", "PLACE THOMAS LE PILLEUR"),
@@ -61,7 +61,10 @@ const groupes = adressesParTranche(tranches);
 
 // Regroupement : une section par tranche, adresses directement listées dedans.
 assert("regroupement → 2 tranches (sections)", groupes.length === 2);
-assert("Tranches triées par ordre d'apparition (1400, 1401)", groupes[0].code === "1400" && groupes[1].code === "1401");
+assert(
+  "Tranches triées par ordre d'apparition (1400, 1401)",
+  groupes[0].code === "1400" && groupes[1].code === "1401",
+);
 
 // Conservation des compteurs par tranche.
 const t1400 = groupes.find((g) => g.code === "1400");
@@ -82,13 +85,16 @@ assert("TRANCHE 1401 → 1 adresse / 3 lots", t1401?.nbAdresses === 1 && t1401?.
 assert("tranche sans adresse visible → absente", adressesParTranche({}).length === 0);
 assert(
   "adresses d'une tranche → 0 ligne quand vide",
-  adressesParTranche({ "9999": {} }).length === 0,
+  adressesParTranche({ 9999: {} }).length === 0,
 );
 
 // Helpers patrimoine inchangés (réutilisés par la page).
 assert("estGarage code ER.G → true", estGarage({ code_patrimoine: "ER.G12", type_lot: "LOG" }));
 assert("estGarage type PAR → true", estGarage({ code_patrimoine: "L7", type_lot: "PAR" }));
-assert("estGarage lot standard → false", estGarage({ code_patrimoine: "L7", type_lot: "LOG" }) === false);
+assert(
+  "estGarage lot standard → false",
+  estGarage({ code_patrimoine: "L7", type_lot: "LOG" }) === false,
+);
 assert("rueDe retire le numéro", rueDe("25-27  RUE DE RUZE") === "RUE DE RUZE");
 assert("entreeDe normalise les espaces", entreeDe("  PLACE  THOMAS  ") === "PLACE THOMAS");
 
@@ -125,10 +131,16 @@ const lotsRef = [
 
 // T1 : recherche ville exacte
 const rOthis = rechercherPatrimoine("OTHIS", lotsRef, villesRef);
-assert("T1 OTHIS → ville trouvée", rOthis.villes.some((v) => v.ville === "OTHIS"));
+assert(
+  "T1 OTHIS → ville trouvée",
+  rOthis.villes.some((v) => v.ville === "OTHIS"),
+);
 // T2 : recherche ville partielle
 const rOth = rechercherPatrimoine("OTH", lotsRef, villesRef);
-assert("T2 OTH → OTHIS trouvé", rOth.villes.some((v) => v.ville === "OTHIS"));
+assert(
+  "T2 OTH → OTHIS trouvé",
+  rOth.villes.some((v) => v.ville === "OTHIS"),
+);
 // T3 : recherche adresse
 const rCaron = rechercherPatrimoine("CARON", lotsRef, villesRef);
 assert(
@@ -141,7 +153,10 @@ assert(
   rCaron.locataires.some((l) => l.nom.includes("CARON")),
 );
 // T5 : même terme adresse + locataire → les deux groupes
-assert("T5 CARON → adresses ET locataires", rCaron.adresses.length > 0 && rCaron.locataires.length > 0);
+assert(
+  "T5 CARON → adresses ET locataires",
+  rCaron.adresses.length > 0 && rCaron.locataires.length > 0,
+);
 // T6 : même terme ville + adresse + locataire (PARIS)
 const rParis = rechercherPatrimoine("PARIS", lotsRef, villesRef);
 assert(
@@ -177,17 +192,23 @@ assert(
 // T11 : insensible aux accents
 assert(
   "T11 FRERES → RUE DES FRÈRES",
-  rechercherPatrimoine("FRERES", lotsRef, villesRef).adresses.some((a) => a.adresse === "RUE DES FRÈRES"),
+  rechercherPatrimoine("FRERES", lotsRef, villesRef).adresses.some(
+    (a) => a.adresse === "RUE DES FRÈRES",
+  ),
 );
 assert("T11b normaliserRecherche('frères') = FRERES", normaliserRecherche("frères") === "FRERES");
 assert(
   "T11c LEVEQUE → René LÉVÊQUE",
-  rechercherPatrimoine("LEVEQUE", lotsRef, villesRef).locataires.some((l) => l.nom === "René LÉVÊQUE"),
+  rechercherPatrimoine("LEVEQUE", lotsRef, villesRef).locataires.some(
+    (l) => l.nom === "René LÉVÊQUE",
+  ),
 );
 // T12 : recherche partielle
 assert(
   "T12 thomas → PLACE THOMAS LE PILLEUR",
-  rechercherPatrimoine("thomas", lotsRef, villesRef).adresses.some((a) => a.adresse === "PLACE THOMAS LE PILLEUR"),
+  rechercherPatrimoine("thomas", lotsRef, villesRef).adresses.some(
+    (a) => a.adresse === "PLACE THOMAS LE PILLEUR",
+  ),
 );
 // T13 : recherche vide → aucun résultat (comportement normal de /adresses)
 const rVide = rechercherPatrimoine("", lotsRef, villesRef);
@@ -211,7 +232,9 @@ assert(
 // T16 : navigation depuis un résultat Ville → ville + compteurs
 assert(
   "T16 résultat Ville porte la ville cible + compteurs",
-  rOthis.villes[0].ville === "OTHIS" && rOthis.villes[0].tranches === 2 && rOthis.villes[0].lots === 5,
+  rOthis.villes[0].ville === "OTHIS" &&
+    rOthis.villes[0].tranches === 2 &&
+    rOthis.villes[0].lots === 5,
 );
 // T17 : navigation depuis un résultat Adresse → contexte ville/tranche/lots
 const adrCaron = rCaron.adresses.find((a) => a.adresse === "14 RUE ROBERT CARON");
@@ -223,7 +246,9 @@ assert(
 const locJean = rCaron.locataires.find((l) => l.nom === "Jean CARON");
 assert(
   "T18 résultat Locataire porte adresse/ville/tranche",
-  locJean?.adresse === "14 RUE ROBERT CARON" && locJean?.ville === "SERRIS" && locJean?.tranche === "1400",
+  locJean?.adresse === "14 RUE ROBERT CARON" &&
+    locJean?.ville === "SERRIS" &&
+    locJean?.tranche === "1400",
 );
 // T19 : aucun résultat → groupes vides (message « Aucun résultat » côté page)
 const rRien = rechercherPatrimoine("ZZZ", lotsRef, villesRef);
@@ -270,22 +295,32 @@ const histNangis = historiqueDeLaVille(
   ],
   "NANGIS",
 );
-assert("TEST 1 actif=false inclus dans l'historique", histNangis.some((c) => c.actif === false));
+assert(
+  "TEST 1 actif=false inclus dans l'historique",
+  histNangis.some((c) => c.actif === false),
+);
 // TEST 2 : ville avec commandes 2024 + 2025 + 2026 → les trois années
 assert(
   "TEST 2 années 2024+2025+2026 retournées",
   [2024, 2025, 2026].every((y) => histNangis.some((c) => c.annee_exercice === y)),
 );
 // TEST 3 : adresse d'import prioritaire (adresse « SERRIS » prime sur tranche CHESSY)
-const adressePrime = [{ id: "d", tranche_code: "1396", adresse: "5 RUE Z, SERRIS", annee_exercice: 2026, actif: true }];
+const adressePrime = [
+  { id: "d", tranche_code: "1396", adresse: "5 RUE Z, SERRIS", annee_exercice: 2026, actif: true },
+];
 assert(
   "TEST 3 adresse d'import prioritaire (SERRIS)",
   historiqueDeLaVille(adressePrime, "SERRIS").length === 1 &&
     historiqueDeLaVille(adressePrime, "CHESSY").length === 0,
 );
 // TEST 4 : adresse sans ville → fallback tranche.localite
-const fallbackTranche = [{ id: "e", tranche_code: "2293", adresse: "RUE TEST", annee_exercice: 2026, actif: true }];
-assert("TEST 4 fallback tranche.localite → NANGIS", historiqueDeLaVille(fallbackTranche, "NANGIS").length === 1);
+const fallbackTranche = [
+  { id: "e", tranche_code: "2293", adresse: "RUE TEST", annee_exercice: 2026, actif: true },
+];
+assert(
+  "TEST 4 fallback tranche.localite → NANGIS",
+  historiqueDeLaVille(fallbackTranche, "NANGIS").length === 1,
+);
 // TEST 5 : date_demarrage présente → affichée
 assert(
   "TEST 5 date_demarrage → affichée",
@@ -303,7 +338,10 @@ assert(
   libelleDateTravail(null, null, "2025-06-06").startsWith("Comm. :"),
 );
 // TEST 8 : aucune date → « Date non précisée »
-assert("TEST 8 aucune date → « Date non précisée »", libelleDateTravail(null, null, null) === "Date non précisée");
+assert(
+  "TEST 8 aucune date → « Date non précisée »",
+  libelleDateTravail(null, null, null) === "Date non précisée",
+);
 // TEST 8b : priorité demarrage > fin > comm
 assert(
   "TEST 8b priorité demarrage > fin > comm",
@@ -322,9 +360,19 @@ assert(
 );
 
 // Libellé du compteur du modal Travaux (correction « travailx » → « commandes de travaux »)
-assert("T6 1 commande → « 1 commande de travaux »", libelleNbCommandesTravaux(1) === "1 commande de travaux");
-assert("T7 3 commandes → « 3 commandes de travaux »", libelleNbCommandesTravaux(3) === "3 commandes de travaux");
-assert("T8 aucune occurrence de « travailx »", !libelleNbCommandesTravaux(1).includes("travailx") && !libelleNbCommandesTravaux(3).includes("travailx"));
+assert(
+  "T6 1 commande → « 1 commande de travaux »",
+  libelleNbCommandesTravaux(1) === "1 commande de travaux",
+);
+assert(
+  "T7 3 commandes → « 3 commandes de travaux »",
+  libelleNbCommandesTravaux(3) === "3 commandes de travaux",
+);
+assert(
+  "T8 aucune occurrence de « travailx »",
+  !libelleNbCommandesTravaux(1).includes("travailx") &&
+    !libelleNbCommandesTravaux(3).includes("travailx"),
+);
 
 // ── Phase 6B : construireSearchAdresses (helper navigation partagé, module pur) ──
 // Le helper retourne TOUTES les clés du search /adresses ; les valeurs undefined sont
@@ -339,9 +387,10 @@ assert(
   JSON.stringify(construireSearchAdresses({ q: "1426", ville: "SERRIS", retour: "abc-123" })) ===
     '{"q":"1426","ville":"SERRIS","retour":"abc-123"}',
 );
-assert("S3 helper : null et undefined normalisés pareil", 
+assert(
+  "S3 helper : null et undefined normalisés pareil",
   JSON.stringify(construireSearchAdresses({ tranche: null, rue: undefined })) ===
-  JSON.stringify(construireSearchAdresses({ tranche: undefined, rue: null })),
+    JSON.stringify(construireSearchAdresses({ tranche: undefined, rue: null })),
 );
 
 console.log("\n==========================================");

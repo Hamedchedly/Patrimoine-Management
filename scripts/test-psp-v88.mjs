@@ -126,7 +126,7 @@ check(
   "D3. compteur sans commande par exercice — dernier import de l'exercice (V8.13)",
   supabaseFn.includes('.eq("annee_exercice", annee)') &&
     supabaseFn.includes('.order("demarre_at", { ascending: false })') &&
-    supabaseFn.includes('.limit(1)') &&
+    supabaseFn.includes(".limit(1)") &&
     supabaseFn.includes('.eq("import_id", dernierImportExercice)'),
 );
 check(

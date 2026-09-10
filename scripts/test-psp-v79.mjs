@@ -22,8 +22,7 @@ function check(label, ok, detail = "") {
     console.error(`  ✘ ${label}${detail ? ` — ${detail}` : ""}`);
   }
 }
-const source = (rel) =>
-  readFileSync(fileURLToPath(new URL(`../${rel}`, import.meta.url)), "utf8");
+const source = (rel) => readFileSync(fileURLToPath(new URL(`../${rel}`, import.meta.url)), "utf8");
 
 // ── A. ENVELOPPES : MAPPING + NON-ÉCRASEMENT ───────────────────────────────────
 console.log("\n=== A. ENVELOPPES ===");
@@ -36,7 +35,10 @@ console.log("\n=== A. ENVELOPPES ===");
   ];
   const map = rows.reduce((m, r) => ((m[`${r.annee}|${r.categorie}`] = r.montant), m), {});
   check("grille alimentée depuis psp_enveloppes (GE 2027 = 150)", map["2027|GE"] === 150);
-  check("aucune cellule existante transformée en 0", map["2027|GT"] === 200 && map["2027|GT"] !== 0);
+  check(
+    "aucune cellule existante transformée en 0",
+    map["2027|GT"] === 200 && map["2027|GT"] !== 0,
+  );
   check("cellule absente → vide (pas 0)", map["2028|CP"] === undefined);
   // Modification d'UNE cellule : les autres restent inchangées.
   const modifie = { ...map, "2027|GT": 250 };
@@ -49,7 +51,10 @@ console.log("\n=== A. ENVELOPPES ===");
     if (v === "" || v === undefined) continue;
     nettoie[cle] = typeof v === "number" ? v : Number(v) || 0;
   }
-  check("cellule vide ignorée à l'enregistrement", !("2028|GE" in nettoie) && !("2028|GT" in nettoie));
+  check(
+    "cellule vide ignorée à l'enregistrement",
+    !("2028|GE" in nettoie) && !("2028|GT" in nettoie),
+  );
   check("valeurs renseignées conservées", nettoie["2027|GE"] === 150 && nettoie["2027|GT"] === 250);
 }
 
@@ -57,15 +62,36 @@ console.log("\n=== A. ENVELOPPES ===");
 console.log("\n=== B. DEVIS ===");
 {
   const panel = source("src/components/preparation-psp/PspDevisPanel.tsx");
-  check("case « Devis » Oui/Non présente dans la fiche (unique)", /type="checkbox"[^>]*checked=\{devisOui \|\| ajoutOuvert\}/.test(panel.replace(/\s+/g, " ")));
-  check("aucun bouton « Ajouter un devis » redondant (case Oui/Non = contrôle unique, V7.10)", !panel.includes("Ajouter un devis"));
-  check("formulaire ajout → bouton « Ajouter »", panel.includes("<Plus className=\"size-3\" /> Ajouter"));
-  check("formulaire édition → bouton « Enregistrer »", panel.includes("<Check className=\"size-3\" /> Enregistrer"));
+  check(
+    "case « Devis » Oui/Non présente dans la fiche (unique)",
+    /type="checkbox"[^>]*checked=\{devisOui \|\| ajoutOuvert\}/.test(panel.replace(/\s+/g, " ")),
+  );
+  check(
+    "aucun bouton « Ajouter un devis » redondant (case Oui/Non = contrôle unique, V7.10)",
+    !panel.includes("Ajouter un devis"),
+  );
+  check(
+    "formulaire ajout → bouton « Ajouter »",
+    panel.includes('<Plus className="size-3" /> Ajouter'),
+  );
+  check(
+    "formulaire édition → bouton « Enregistrer »",
+    panel.includes('<Check className="size-3" /> Enregistrer'),
+  );
   check("création via onAdd (createPspDevis côté route)", panel.includes("await onAdd({"));
-  check("modification via onUpdate (updatePspDevis côté route)", panel.includes("await onUpdate(editionId, {"));
+  check(
+    "modification via onUpdate (updatePspDevis côté route)",
+    panel.includes("await onUpdate(editionId, {"),
+  );
   const saisie = source("src/components/preparation-psp/PspQuickAddRow.tsx");
-  check("saisie directe : case Devis reliée au state (basculerDevis)", saisie.includes("onChange={(e) => basculerDevis(e.target.checked)}"));
-  check("saisie directe : décoché vide les champs devis", saisie.includes("if (!checked)") && saisie.includes("setDevisMontant(\"\")"));
+  check(
+    "saisie directe : case Devis reliée au state (basculerDevis)",
+    saisie.includes("onChange={(e) => basculerDevis(e.target.checked)}"),
+  );
+  check(
+    "saisie directe : décoché vide les champs devis",
+    saisie.includes("if (!checked)") && saisie.includes('setDevisMontant("")'),
+  );
 }
 
 // ── C. CC : 2 COLONNES + MAJUSCULES ────────────────────────────────────────────
@@ -74,10 +100,22 @@ console.log("\n=== C. RÉFÉRENTIEL CC ===");
   const body = source("src/components/preparation-psp/PspChargesClienteleDialog.tsx");
   check("colonne « Sous-secteur » présente", /Sous-secteur/.test(body));
   check("colonne « ID CC » présente", /ID CC/.test(body));
-  check("colonne « Chargé clientèle » ABSENTE de la grille", !/Chargé clientèle/.test(body.replace(/\/\*[\s\S]*?\*\//g, "")) || body.indexOf("Chargé clientèle") > body.indexOf("ID CC") + 20);
+  check(
+    "colonne « Chargé clientèle » ABSENTE de la grille",
+    !/Chargé clientèle/.test(body.replace(/\/\*[\s\S]*?\*\//g, "")) ||
+      body.indexOf("Chargé clientèle") > body.indexOf("ID CC") + 20,
+  );
   check("colonne « ID personnel » ABSENTE de l'en-tête", !body.includes(">ID personnel<"));
-  check("saisie ID en MAJUSCULES (input toUpperCase)", body.includes("identifiantPersonnel: e.target.value.toUpperCase()"));
-  check("normalisation MAJUSCULES côté serveur (savePspChargeClientele)", source("src/lib/psp.prep.supabase.functions.ts").includes("identifiantPersonnel: z.string().trim().toUpperCase().nullish()"));
+  check(
+    "saisie ID en MAJUSCULES (input toUpperCase)",
+    body.includes("identifiantPersonnel: e.target.value.toUpperCase()"),
+  );
+  check(
+    "normalisation MAJUSCULES côté serveur (savePspChargeClientele)",
+    source("src/lib/psp.prep.supabase.functions.ts").includes(
+      "identifiantPersonnel: z.string().trim().toUpperCase().nullish()",
+    ),
+  );
   check("règle uppercase : cmichel → CMICHEL", "cMichel".trim().toUpperCase() === "CMICHEL");
   check("règle uppercase : CmIchel → CMICHEL", "CmIchel".trim().toUpperCase() === "CMICHEL");
   check("règle uppercase : cmiCHEL → CMICHEL", "cmiCHEL".trim().toUpperCase() === "CMICHEL");

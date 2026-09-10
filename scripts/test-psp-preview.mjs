@@ -83,7 +83,10 @@ const H = [
     parsePspWorkbook(workbookVide());
   } catch (e) {
     aLance = true;
-    assert("T3  Excel vide : erreur explicite (en-tête No commande introuvable)", String(e).includes("No commande"));
+    assert(
+      "T3  Excel vide : erreur explicite (en-tête No commande introuvable)",
+      String(e).includes("No commande"),
+    );
   }
   assert("T3  Excel vide : le parsing lève une erreur (aucune ligne inventée)", aLance === true);
 }
@@ -95,7 +98,10 @@ const H = [
     parsePspWorkbook(workbook(["FOO", "BAR", "BAZ"], [["a", "b", "c"]]));
   } catch (e) {
     aLance = true;
-    assert("T4  en-têtes inconnus : erreur explicite (No commande introuvable)", String(e).includes("No commande"));
+    assert(
+      "T4  en-têtes inconnus : erreur explicite (No commande introuvable)",
+      String(e).includes("No commande"),
+    );
   }
   assert("T4  en-têtes inconnus : le parsing lève une erreur", aLance === true);
 }
@@ -163,8 +169,14 @@ const H = [
   assert("T8  sans COMC_NOLIG : 2 lignes valides", analyse.lignes_valides === 2);
   assert("T8  sans COMC_NOLIG : 0 erreur", analyse.lignes_erreur === 0);
   assert("T8  sans COMC_NOLIG : 1 commande détectée", analyse.commandes_detectees === 1);
-  assert("T8  sans COMC_NOLIG : la ligne sans numéro reste visible", parsed.lignes.some((l) => l.numero_commande === ""));
-  assert("T8  sans COMC_NOLIG : filtre erreurs = 0", filtrerLignesPsp(parsed, "erreurs").length === 0);
+  assert(
+    "T8  sans COMC_NOLIG : la ligne sans numéro reste visible",
+    parsed.lignes.some((l) => l.numero_commande === ""),
+  );
+  assert(
+    "T8  sans COMC_NOLIG : filtre erreurs = 0",
+    filtrerLignesPsp(parsed, "erreurs").length === 0,
+  );
 }
 
 // ── 9. Import validé (logique pure) ──────────────────────────────────────────
@@ -179,9 +191,16 @@ const H = [
   assert("T9  import : 2 lignes à importer (toutes conservées)", resume.lignes_a_importer === 2);
   assert("T9  import : 2 valides", resume.lignes_valides === 2);
   assert("T9  import : 0 en erreur", resume.lignes_erreur === 0);
-  assert("T9  import : statut final termine (aucune anomalie)", statutFinalImport(resume) === "termine");
+  assert(
+    "T9  import : statut final termine (aucune anomalie)",
+    statutFinalImport(resume) === "termine",
+  );
 
-  const resumeOk = construireResumeImport(parsePspWorkbook(workbook(H, [["GE", "ER.T1", null, "2024-031", null, null, "OK", null, null, null, "C32"]])));
+  const resumeOk = construireResumeImport(
+    parsePspWorkbook(
+      workbook(H, [["GE", "ER.T1", null, "2024-031", null, null, "OK", null, null, null, "C32"]]),
+    ),
+  );
   assert("T9  import : statut final termine", statutFinalImport(resumeOk) === "termine");
 
   const lots = decouperEnLots(parsed.lignes, TAILLE_LOT_PSP);
@@ -191,15 +210,38 @@ const H = [
     ligne: i + 1,
     numero_commande: `C-${i}`,
     numero_commande_interne: `I-${i}`,
-    secteur: null, tranche_code: null, batiment: null, lot_code: null, entree: null,
-    nature_analytique: null, corps_etat: null, descriptif: null, observations: null,
-    patrimoine: null, etat: null, date_commande: null, fournisseur: null,
-    adresse: null, commune: null,
-    budget: null, engage: null, paye: null, ecart: null,
-    er_reference: null, tranche_er: null, batiment_er: null, entree_er: null, lot_er: null,
-    er_references: [], er_ambigue: false, niveau_rattachement: "unknown",
-    corps_etat_code: null, corps_etat_libelle: null, montant_financier_valide: true,
-    statut: "valide", erreurs_psp: [],
+    secteur: null,
+    tranche_code: null,
+    batiment: null,
+    lot_code: null,
+    entree: null,
+    nature_analytique: null,
+    corps_etat: null,
+    descriptif: null,
+    observations: null,
+    patrimoine: null,
+    etat: null,
+    date_commande: null,
+    fournisseur: null,
+    adresse: null,
+    commune: null,
+    budget: null,
+    engage: null,
+    paye: null,
+    ecart: null,
+    er_reference: null,
+    tranche_er: null,
+    batiment_er: null,
+    entree_er: null,
+    lot_er: null,
+    er_references: [],
+    er_ambigue: false,
+    niveau_rattachement: "unknown",
+    corps_etat_code: null,
+    corps_etat_libelle: null,
+    montant_financier_valide: true,
+    statut: "valide",
+    erreurs_psp: [],
   }));
   const lotsGros = decouperEnLots(gros, TAILLE_LOT_PSP);
   assert("T9  import : 250 lignes → 3 lots de 100", lotsGros.length === 3);
@@ -211,12 +253,17 @@ const H = [
   // L'annulation est un reset d'état UI (annuler() remet parsed/fichier à null).
   // En logique pure, on vérifie qu'aucun helper ne déclenche d'écriture : la
   // construction du résumé est sans effet de bord et ne requiert pas d'import.
-  const parsed = parsePspWorkbook(workbook(H, [["GE", "ER.T1", null, "2024-040", null, null, "OK", null, null, null]]));
+  const parsed = parsePspWorkbook(
+    workbook(H, [["GE", "ER.T1", null, "2024-040", null, null, "OK", null, null, null]]),
+  );
   const avant = JSON.stringify(construireResumeImport(parsed));
   // « Annuler » équivaut à rejeter parsed : l'aperçu disparaît, aucun lot n'est écrit.
   const aucunLot = decouperEnLots([], TAILLE_LOT_PSP);
   assert("T10 annulé : aucun lot à écrire quand l'analyse est vidée", aucunLot.length === 0);
-  assert("T10 annulé : le résumé reste déterministe (aucun effet de bord)", avant === JSON.stringify(construireResumeImport(parsed)));
+  assert(
+    "T10 annulé : le résumé reste déterministe (aucun effet de bord)",
+    avant === JSON.stringify(construireResumeImport(parsed)),
+  );
 }
 
 // ── Récapitulatif ────────────────────────────────────────────────────────────

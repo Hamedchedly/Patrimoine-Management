@@ -11,7 +11,9 @@ import { createClient } from "@supabase/supabase-js";
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];
 if (!url || !key) {
-  console.error("EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env");
+  console.error(
+    "EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env",
+  );
   process.exit(1);
 }
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -47,40 +49,90 @@ async function main() {
   const progId = prog?.[0]?.id;
   check("A. programmation officielle brouillon présente", !!progId);
   const envReelles = await run(() =>
-    db.from("psp_enveloppes").select("annee,categorie,montant").eq("programmation_id", progId).order("annee").order("categorie"),
+    db
+      .from("psp_enveloppes")
+      .select("annee,categorie,montant")
+      .eq("programmation_id", progId)
+      .order("annee")
+      .order("categorie"),
   );
   check("A. enveloppes réelles lues (≥ 1)", (envReelles.data ?? []).length >= 1, envReelles.msg);
   const ge2027 = envReelles.data?.find((r) => r.annee === 2027 && r.categorie === "GE")?.montant;
-  check("A. aucune enveloppe existante transformée en 0", ge2027 !== 0 && ge2027 !== undefined, `GE 2027 = ${String(ge2027)}`);
+  check(
+    "A. aucune enveloppe existante transformée en 0",
+    ge2027 !== 0 && ge2027 !== undefined,
+    `GE 2027 = ${String(ge2027)}`,
+  );
 
   // Test d'écrasement sur une programmation TEMPORAIRE.
   const rP = await run(() =>
-    db.from("psp_programmations").insert({ annee_debut: 2095, annee_fin: 2099, version: 1, remarques: MARQUEUR }).select("id"),
+    db
+      .from("psp_programmations")
+      .insert({ annee_debut: 2095, annee_fin: 2099, version: 1, remarques: MARQUEUR })
+      .select("id"),
   );
   const P1 = rP.data?.[0];
   if (P1?.id) created.programmations.push(P1.id);
   const envIns = await run(() =>
-    db.from("psp_enveloppes").upsert([
-      { programmation_id: P1.id, annee: 2095, categorie: "GE", montant: 100000 },
-      { programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 200000 },
-      { programmation_id: P1.id, annee: 2095, categorie: "CP", montant: 50000 },
-    ], { onConflict: "programmation_id,annee,categorie" }),
+    db.from("psp_enveloppes").upsert(
+      [
+        { programmation_id: P1.id, annee: 2095, categorie: "GE", montant: 100000 },
+        { programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 200000 },
+        { programmation_id: P1.id, annee: 2095, categorie: "CP", montant: 50000 },
+      ],
+      { onConflict: "programmation_id,annee,categorie" },
+    ),
   );
   check("A. enveloppes temporaires renseignées", !envIns.error, envIns.msg);
-  const relu1 = await run(() => db.from("psp_enveloppes").select("categorie,montant").eq("programmation_id", P1.id).eq("annee", 2095));
-  check("A. réouverture → GE 100000 / GT 200000 / CP 50000", relu1.data?.length === 3 && relu1.data?.find((r) => r.categorie === "GT")?.montant === 200000, relu1.msg);
+  const relu1 = await run(() =>
+    db
+      .from("psp_enveloppes")
+      .select("categorie,montant")
+      .eq("programmation_id", P1.id)
+      .eq("annee", 2095),
+  );
+  check(
+    "A. réouverture → GE 100000 / GT 200000 / CP 50000",
+    relu1.data?.length === 3 && relu1.data?.find((r) => r.categorie === "GT")?.montant === 200000,
+    relu1.msg,
+  );
   const mod = await run(() =>
-    db.from("psp_enveloppes").upsert({ programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 250000 }, { onConflict: "programmation_id,annee,categorie" }),
+    db
+      .from("psp_enveloppes")
+      .upsert(
+        { programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 250000 },
+        { onConflict: "programmation_id,annee,categorie" },
+      ),
   );
   check("A. modification d'une cellule (GT → 250000)", !mod.error, mod.msg);
-  const relu2 = await run(() => db.from("psp_enveloppes").select("categorie,montant").eq("programmation_id", P1.id).eq("annee", 2095));
-  check("A. GT = 250000 après modification", relu2.data?.find((r) => r.categorie === "GT")?.montant === 250000);
-  check("A. GE inchangée (100000)", relu2.data?.find((r) => r.categorie === "GE")?.montant === 100000);
-  check("A. CP inchangée (50000)", relu2.data?.find((r) => r.categorie === "CP")?.montant === 50000);
+  const relu2 = await run(() =>
+    db
+      .from("psp_enveloppes")
+      .select("categorie,montant")
+      .eq("programmation_id", P1.id)
+      .eq("annee", 2095),
+  );
+  check(
+    "A. GT = 250000 après modification",
+    relu2.data?.find((r) => r.categorie === "GT")?.montant === 250000,
+  );
+  check(
+    "A. GE inchangée (100000)",
+    relu2.data?.find((r) => r.categorie === "GE")?.montant === 100000,
+  );
+  check(
+    "A. CP inchangée (50000)",
+    relu2.data?.find((r) => r.categorie === "CP")?.montant === 50000,
+  );
 
   // ── B. DEVIS : CRÉATION → RELECTURE → MODIFICATION → SUPPRESSION ──
   console.log("\n=== B. DEVIS ===");
-  const { data: tranches } = await db.from("tranches").select("code").eq("actif", true).order("code").limit(10);
+  const { data: tranches } = await db
+    .from("tranches")
+    .select("code")
+    .eq("actif", true)
+    .order("code")
+    .limit(10);
   const trancheA = tranches?.[0]?.code;
   const ligne = await run(() =>
     db.rpc("create_psp_operation", {
@@ -106,37 +158,71 @@ async function main() {
   const { data: fournisseurs } = await db.from("fournisseurs").select("id, nom").limit(1);
   const fournisseur = fournisseurs?.[0];
   const devisIns = await run(() =>
-    db.from("psp_devis").insert({
-      psp_ligne_id: ligneId,
-      fournisseur_id: fournisseur?.id ?? null,
-      entreprise: fournisseur?.nom ?? "ENTREPRISE V79",
-      date_devis: "2026-07-01",
-      montant: 40000,
-      statut: "recu",
-      document_reference: "DEV-7901",
-      commentaire: MARQUEUR,
-    }).select("id, montant, document_reference, fournisseur_id"),
+    db
+      .from("psp_devis")
+      .insert({
+        psp_ligne_id: ligneId,
+        fournisseur_id: fournisseur?.id ?? null,
+        entreprise: fournisseur?.nom ?? "ENTREPRISE V79",
+        date_devis: "2026-07-01",
+        montant: 40000,
+        statut: "recu",
+        document_reference: "DEV-7901",
+        commentaire: MARQUEUR,
+      })
+      .select("id, montant, document_reference, fournisseur_id"),
   );
   const devisId = devisIns.data?.[0]?.id;
   if (devisId) created.devis.push(devisId);
   check("B. devis créé (psp_devis)", !devisIns.error && !!devisId, devisIns.msg);
   check("B. N° devis conservé", devisIns.data?.[0]?.document_reference === "DEV-7901");
   const modDevis = await run(() =>
-    db.from("psp_devis").update({ montant: 45000, document_reference: "DEV-7902" }).eq("id", devisId).select("montant, document_reference"),
+    db
+      .from("psp_devis")
+      .update({ montant: 45000, document_reference: "DEV-7902" })
+      .eq("id", devisId)
+      .select("montant, document_reference"),
   );
-  check("B. devis modifié (updatePspDevis)", modDevis.data?.[0]?.montant === 45000 && modDevis.data?.[0]?.document_reference === "DEV-7902", modDevis.msg);
-  const reluDevis = await run(() => db.from("psp_devis").select("montant, document_reference").eq("id", devisId));
-  check("B. relecture après modification (45000 / DEV-7902)", reluDevis.data?.[0]?.montant === 45000 && reluDevis.data?.[0]?.document_reference === "DEV-7902");
+  check(
+    "B. devis modifié (updatePspDevis)",
+    modDevis.data?.[0]?.montant === 45000 && modDevis.data?.[0]?.document_reference === "DEV-7902",
+    modDevis.msg,
+  );
+  const reluDevis = await run(() =>
+    db.from("psp_devis").select("montant, document_reference").eq("id", devisId),
+  );
+  check(
+    "B. relecture après modification (45000 / DEV-7902)",
+    reluDevis.data?.[0]?.montant === 45000 &&
+      reluDevis.data?.[0]?.document_reference === "DEV-7902",
+  );
   const delDevis = await run(() => db.from("psp_devis").delete().eq("id", devisId).select("id"));
   check("B. suppression devis", (delDevis.data ?? []).length === 1, delDevis.msg);
 
   // ── C. CC : ID MAJUSCULES ──
   console.log("\n=== C. CC ===");
-  const ccReel = await run(() => db.from("psp_charges_clientele").select("sous_secteur, identifiant_personnel"));
+  const ccReel = await run(() =>
+    db.from("psp_charges_clientele").select("sous_secteur, identifiant_personnel"),
+  );
   const ids = (ccReel.data ?? []).map((r) => r.identifiant_personnel).filter((v) => v != null);
-  check("C. tous les ID CC stockés en MAJUSCULES", ids.length > 0 && ids.every((id) => id === String(id).toUpperCase()), ids.join(","));
+  check(
+    "C. tous les ID CC stockés en MAJUSCULES",
+    ids.length > 0 && ids.every((id) => id === String(id).toUpperCase()),
+    ids.join(","),
+  );
   const ccIns = await run(() =>
-    db.from("psp_charges_clientele").upsert({ sous_secteur: "98", charge_clientele: "CMICHEL", identifiant_personnel: "cmichel", actif: true }, { onConflict: "sous_secteur" }).select("identifiant_personnel"),
+    db
+      .from("psp_charges_clientele")
+      .upsert(
+        {
+          sous_secteur: "98",
+          charge_clientele: "CMICHEL",
+          identifiant_personnel: "cmichel",
+          actif: true,
+        },
+        { onConflict: "sous_secteur" },
+      )
+      .select("identifiant_personnel"),
   );
   created.cc.push("98");
   // Note : la normalisation uppercase est appliquée par savePspChargeClientele (serveur) —

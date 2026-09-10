@@ -92,7 +92,5 @@ for (const [norm, ville] of aTraiter) {
   await attendre(250);
 }
 
-console.log(
-  `\nTerminé — villes géocodées=${ok} · non géocodées=${refuse} · erreurs=${echec}`,
-);
+console.log(`\nTerminé — villes géocodées=${ok} · non géocodées=${refuse} · erreurs=${echec}`);
 process.exit(echec === 0 ? 0 : 1);

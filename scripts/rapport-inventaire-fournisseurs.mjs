@@ -11,7 +11,11 @@ import { supabaseAdmin } from "../src/integrations/supabase-ext/client.server.ts
 const fmtEuro = (n) =>
   n == null
     ? "—"
-    : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
+    : new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 2,
+      }).format(n);
 const clean = (s) => (s ?? "").trim();
 const cap = (arr, n) => {
   const shown = arr.slice(0, n).join(", ");
@@ -61,7 +65,15 @@ for (const c of rowsCmd) {
   if (!id) continue;
   let a = suivi.get(id);
   if (!a) {
-    a = { id, commandes: 0, engage: 0, corps: new Set(), patrimoine: new Set(), dernieres: [], pspIds: new Set() };
+    a = {
+      id,
+      commandes: 0,
+      engage: 0,
+      corps: new Set(),
+      patrimoine: new Set(),
+      dernieres: [],
+      pspIds: new Set(),
+    };
     suivi.set(id, a);
   }
   a.commandes += 1;
@@ -89,7 +101,16 @@ for (const r of rowsPsp) {
   if (!id) continue;
   let a = psp.get(id);
   if (!a) {
-    a = { id, lignes: 0, engage: 0, nature: new Set(), corps: new Set(), patrimoine: new Set(), dernieres: [], suiviIds: new Set() };
+    a = {
+      id,
+      lignes: 0,
+      engage: 0,
+      nature: new Set(),
+      corps: new Set(),
+      patrimoine: new Set(),
+      dernieres: [],
+      suiviIds: new Set(),
+    };
     psp.set(id, a);
   }
   a.lignes += 1;
@@ -137,65 +158,90 @@ for (const [sid, a] of suivi) {
   }
 }
 
-
 // ── Rapport ──────────────────────────────────────────────────────────────────
 console.log("=".repeat(100));
 console.log("INVENTAIRE LECTURE SEULE — FOURNISSEURS / IDENTIFIANTS");
-console.log("Sources : travaux_commandes.numero_fournisseur  +  psp_import_rows.fournisseur (FRAN_NUM)");
+console.log(
+  "Sources : travaux_commandes.numero_fournisseur  +  psp_import_rows.fournisseur (FRAN_NUM)",
+);
 console.log("Aucune écriture. Corps d'état / lots / montants calculés depuis les commandes liées.");
 console.log("=".repeat(100));
 
-console.log(`\nTOTAL : ${suivi.size} identifiants suivi annuel · ${psp.size} identifiants Historique CMD (FRAN_NUM)`);
+console.log(
+  `\nTOTAL : ${suivi.size} identifiants suivi annuel · ${psp.size} identifiants Historique CMD (FRAN_NUM)`,
+);
 
-console.log(`\n${"─".repeat(100)}\nSECTION A — IDENTIFIANTS SUIVI ANNUEL (travaux_commandes.numero_fournisseur)\n${"─".repeat(100)}`);
+console.log(
+  `\n${"─".repeat(100)}\nSECTION A — IDENTIFIANTS SUIVI ANNUEL (travaux_commandes.numero_fournisseur)\n${"─".repeat(100)}`,
+);
 const suiviSorted = [...suivi.values()].sort((x, y) => y.commandes - x.commandes);
 for (const a of suiviSorted) {
   const st = statutCorrespondance(a.id, a.pspIds);
   const pspLiens = [...a.pspIds].join(", ") || "—";
-  console.log(`\n▶ ${a.id}  (${a.commandes} commande(s) · ${fmtEuro(a.engage)})  — correspondance : ${statutLabel[st]}`);
+  console.log(
+    `\n▶ ${a.id}  (${a.commandes} commande(s) · ${fmtEuro(a.engage)})  — correspondance : ${statutLabel[st]}`,
+  );
   console.log(`   Corps d'état  : ${cap([...a.corps].sort(), 8) || "—"}`);
   console.log(`   Patrimoine    : ${cap([...a.patrimoine].sort(), 8) || "—"}`);
   console.log(`   FRAN_NUM liés : ${pspLiens}`);
   console.log(
-    `   Dernières     : ${a.dernieres
-      .slice(0, 3)
-      .map((d) => `#${d.num} (${d.annee ?? "sans année"}) ${d.corps ?? ""} ${fmtEuro(d.montant)}`)
-      .join(" ; ") || "—"}`,
+    `   Dernières     : ${
+      a.dernieres
+        .slice(0, 3)
+        .map((d) => `#${d.num} (${d.annee ?? "sans année"}) ${d.corps ?? ""} ${fmtEuro(d.montant)}`)
+        .join(" ; ") || "—"
+    }`,
   );
 }
 
-console.log(`\n${"─".repeat(100)}\nSECTION B — IDENTIFIANTS HISTORIQUE CMD (psp_import_rows.fournisseur / FRAN_NUM)\n${"─".repeat(100)}`);
+console.log(
+  `\n${"─".repeat(100)}\nSECTION B — IDENTIFIANTS HISTORIQUE CMD (psp_import_rows.fournisseur / FRAN_NUM)\n${"─".repeat(100)}`,
+);
 const pspSorted = [...psp.values()].sort((x, y) => y.lignes - x.lignes);
 for (const a of pspSorted) {
   const suiviSet = a.suiviIds;
   const st = suiviSet.size === 0 ? "inconnue" : suiviSet.size === 1 ? "certaine" : "a_valider";
   const suiviLiens = [...suiviSet].join(", ") || "—";
-  console.log(`\n▶ ${a.id}  (${a.lignes} ligne(s) · ${fmtEuro(a.engage)})  — correspondance : ${statutLabel[st]}`);
+  console.log(
+    `\n▶ ${a.id}  (${a.lignes} ligne(s) · ${fmtEuro(a.engage)})  — correspondance : ${statutLabel[st]}`,
+  );
   console.log(`   Corps d'état (suivi) : ${cap([...a.corps].sort(), 8) || "—"}`);
   console.log(`   Nature (WNATURE)     : ${cap([...a.nature].sort(), 6) || "—"}`);
   console.log(`   Patrimoine           : ${cap([...a.patrimoine].sort(), 8) || "—"}`);
   console.log(`   N° suivi liés        : ${suiviLiens}`);
   console.log(
-    `   Dernières            : ${a.dernieres
-      .slice(0, 3)
-      .map((d) => `#${d.comn} (${d.date || "sans date"})`)
-      .join(" ; ") || "—"}`,
+    `   Dernières            : ${
+      a.dernieres
+        .slice(0, 3)
+        .map((d) => `#${d.comn} (${d.date || "sans date"})`)
+        .join(" ; ") || "—"
+    }`,
   );
 }
 
-console.log(`\n${"─".repeat(100)}\nSECTION C — CORRESPONDANCES POTENTIELLES suivi ↔ FRAN_NUM (observées sur les mêmes commandes)\n${"─".repeat(100)}`);
+console.log(
+  `\n${"─".repeat(100)}\nSECTION C — CORRESPONDANCES POTENTIELLES suivi ↔ FRAN_NUM (observées sur les mêmes commandes)\n${"─".repeat(100)}`,
+);
 const pairesSorted = [...paires.values()].sort((x, y) => y.observations - x.observations);
-if (pairesSorted.length === 0) console.log("\nAucune correspondance observée (aucune commande ne porte les deux identifiants).");
+if (pairesSorted.length === 0)
+  console.log("\nAucune correspondance observée (aucune commande ne porte les deux identifiants).");
 for (const p of pairesSorted) {
   const st = statutCorrespondance(p.sid, suivi.get(p.sid).pspIds);
-  console.log(`   ${p.sid}  ↔  ${p.pid}   (${p.observations} commande(s) communes)   → ${statutLabel[st]}`);
+  console.log(
+    `   ${p.sid}  ↔  ${p.pid}   (${p.observations} commande(s) communes)   → ${statutLabel[st]}`,
+  );
 }
 
-console.log(`\n${"─".repeat(100)}\nSECTION D — IDENTIFIANTS SANS CORRESPONDANCE OBSERVÉE\n${"─".repeat(100)}`);
+console.log(
+  `\n${"─".repeat(100)}\nSECTION D — IDENTIFIANTS SANS CORRESPONDANCE OBSERVÉE\n${"─".repeat(100)}`,
+);
 const sansPsp = suiviSorted.filter((a) => a.pspIds.size === 0);
 const sansSuivi = pspSorted.filter((a) => a.suiviIds.size === 0);
-console.log(`\nSuivi annuel sans FRAN_NUM observé (${sansPsp.length}) : ${sansPsp.map((a) => a.id).join(", ") || "—"}`);
-console.log(`FRAN_NUM sans numéro suivi observé (${sansSuivi.length}) : ${sansSuivi.map((a) => a.id).join(", ") || "—"}`);
+console.log(
+  `\nSuivi annuel sans FRAN_NUM observé (${sansPsp.length}) : ${sansPsp.map((a) => a.id).join(", ") || "—"}`,
+);
+console.log(
+  `FRAN_NUM sans numéro suivi observé (${sansSuivi.length}) : ${sansSuivi.map((a) => a.id).join(", ") || "—"}`,
+);
 
 console.log("\nFIN DE L'INVENTAIRE — aucune écriture effectuée.");
-

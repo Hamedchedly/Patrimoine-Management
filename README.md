@@ -21,23 +21,23 @@ npm run dev    # http://localhost:5173
 
 ## Scripts
 
-| Commande | Rôle |
-| --- | --- |
-| `npm run dev` | serveur de développement Vite |
-| `npm run build` | build de production (`.output/` en Node, `.vercel/output` sur Vercel) |
-| `npm start` | serveur Node de production (`node .output/server/index.mjs`) |
-| `npm test` | tests unitaires (node:test) |
-| `npm run lint` / `npm run format` | ESLint / Prettier |
+| Commande                          | Rôle                                                                  |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `npm run dev`                     | serveur de développement Vite                                         |
+| `npm run build`                   | build de production (`.output/` en Node, `.vercel/output` sur Vercel) |
+| `npm start`                       | serveur Node de production (`node .output/server/index.mjs`)          |
+| `npm test`                        | tests unitaires (node:test)                                           |
+| `npm run lint` / `npm run format` | ESLint / Prettier                                                     |
 
 ## Variables d'environnement
 
 À définir dans l'hébergeur — voir `.env.example` :
 
-| Variable | Portée |
-| --- | --- |
-| `EXT_SUPABASE_URL`, `EXT_SUPABASE_SERVICE_ROLE_KEY` | serveur (dashboard) |
-| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | serveur |
-| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | build (client) |
+| Variable                                                                | Portée              |
+| ----------------------------------------------------------------------- | ------------------- |
+| `EXT_SUPABASE_URL`, `EXT_SUPABASE_SERVICE_ROLE_KEY`                     | serveur (dashboard) |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | serveur             |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`                    | build (client)      |
 
 ## Déploiement (Vercel)
 
@@ -56,4 +56,3 @@ scripts/        outils d'exploitation (import, backfill, rapports)
 supabase/       migrations SQL
 tests/          tests unitaires
 ```
-

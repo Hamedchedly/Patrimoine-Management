@@ -8,13 +8,18 @@
 // Exécution : node --env-file=.env scripts/test-psp-v77-live.mjs
 // ═══════════════════════════════════════════════════════════════════════════════
 import { createClient } from "@supabase/supabase-js";
-import { construireReferencePatrimoine, enrichirOperationsAvecReference } from "../src/lib/psp.prep.data.ts";
+import {
+  construireReferencePatrimoine,
+  enrichirOperationsAvecReference,
+} from "../src/lib/psp.prep.data.ts";
 import { creerOperation } from "../src/lib/psp.prep.ts";
 
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];
 if (!url || !key) {
-  console.error("EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env");
+  console.error(
+    "EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env",
+  );
   process.exit(1);
 }
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -51,9 +56,20 @@ async function main() {
   check(`préparatif : TR ${tr.code} → sous-secteur ${sousSecteur}`, true);
   check(`CC avant = ${ccAvant ?? "(aucun)"}`, true);
 
-  const referentielAvant = await db.from("psp_charges_clientele").select("sous_secteur, charge_clientele, identifiant_personnel, actif");
+  const referentielAvant = await db
+    .from("psp_charges_clientele")
+    .select("sous_secteur, charge_clientele, identifiant_personnel, actif");
   const refAvant = construireReferencePatrimoine(
-    [{ code: tr.code, libelle: null, localite: null, sous_secteur: sousSecteur, secteur: "S11", nb_logements: null }],
+    [
+      {
+        code: tr.code,
+        libelle: null,
+        localite: null,
+        sous_secteur: sousSecteur,
+        secteur: "S11",
+        nb_logements: null,
+      },
+    ],
     [],
     [],
     referentielAvant.data ?? [],
@@ -65,13 +81,27 @@ async function main() {
   const ccB = "__V77_TEST_CC__";
   const { error: errB } = await db
     .from("psp_charges_clientele")
-    .upsert({ sous_secteur: sousSecteur, charge_clientele: ccB, identifiant_personnel: ccB, actif: true }, { onConflict: "sous_secteur" });
+    .upsert(
+      { sous_secteur: sousSecteur, charge_clientele: ccB, identifiant_personnel: ccB, actif: true },
+      { onConflict: "sous_secteur" },
+    );
   check("2. modification référentiel → CC B acceptée", !errB, errB?.message ?? "");
 
   // 3. Recharger les données → CC B.
-  const referentielApres = await db.from("psp_charges_clientele").select("sous_secteur, charge_clientele, identifiant_personnel, actif");
+  const referentielApres = await db
+    .from("psp_charges_clientele")
+    .select("sous_secteur, charge_clientele, identifiant_personnel, actif");
   const refApres = construireReferencePatrimoine(
-    [{ code: tr.code, libelle: null, localite: null, sous_secteur: sousSecteur, secteur: "S11", nb_logements: null }],
+    [
+      {
+        code: tr.code,
+        libelle: null,
+        localite: null,
+        sous_secteur: sousSecteur,
+        secteur: "S11",
+        nb_logements: null,
+      },
+    ],
     [],
     [],
     referentielApres.data ?? [],
@@ -80,24 +110,53 @@ async function main() {
   check("3. après rechargement → CC B affiché", ccBResolu === ccB, String(ccBResolu));
 
   // 4. Enrichissement d'une opération → le tableau affiche CC B.
-  const op = creerOperation({ tranche: tr.code, categorie: "GT", charge_clientele: "", charge_operation: "", corps_etat: "(d) Espaces Ext", adresse: "", ville: "", nature_travaux: "V7.7", annee: 2027, programme: [1000, 0, 0, 0, 0] }, "op-cc-sync");
+  const op = creerOperation(
+    {
+      tranche: tr.code,
+      categorie: "GT",
+      charge_clientele: "",
+      charge_operation: "",
+      corps_etat: "(d) Espaces Ext",
+      adresse: "",
+      ville: "",
+      nature_travaux: "V7.7",
+      annee: 2027,
+      programme: [1000, 0, 0, 0, 0],
+    },
+    "op-cc-sync",
+  );
   const enrichies = enrichirOperationsAvecReference([op], refApres);
-  check("4. tableau (op enrichie) → CC B", enrichies[0]?.charge_clientele === ccB, String(enrichies[0]?.charge_clientele));
-  check("4. sous-secteur conservé (source)", enrichies[0]?.sous_secteur === sousSecteur, String(enrichies[0]?.sous_secteur));
+  check(
+    "4. tableau (op enrichie) → CC B",
+    enrichies[0]?.charge_clientele === ccB,
+    String(enrichies[0]?.charge_clientele),
+  );
+  check(
+    "4. sous-secteur conservé (source)",
+    enrichies[0]?.sous_secteur === sousSecteur,
+    String(enrichies[0]?.sous_secteur),
+  );
 
   // 5. Restauration de la valeur d'origine.
   if (ccAvant != null) {
     const { error: errRestore } = await db
       .from("psp_charges_clientele")
-      .update({ charge_clientele: existante.charge_clientele, identifiant_personnel: existante.identifiant_personnel, actif: existante.actif })
+      .update({
+        charge_clientele: existante.charge_clientele,
+        identifiant_personnel: existante.identifiant_personnel,
+        actif: existante.actif,
+      })
       .eq("sous_secteur", sousSecteur);
     check("5. restauration CC d'origine", !errRestore, errRestore?.message ?? "");
   } else {
     await db.from("psp_charges_clientele").delete().eq("sous_secteur", sousSecteur);
     check("5. ligne de test supprimée (aucune origine)", true);
   }
-  const referentielFinal = await db.from("psp_charges_clientele").select("sous_secteur, charge_clientele");
-  const ccFinal = referentielFinal.data?.find((r) => r.sous_secteur === sousSecteur)?.charge_clientele ?? null;
+  const referentielFinal = await db
+    .from("psp_charges_clientele")
+    .select("sous_secteur, charge_clientele");
+  const ccFinal =
+    referentielFinal.data?.find((r) => r.sous_secteur === sousSecteur)?.charge_clientele ?? null;
   check("6. CC final restauré", ccFinal === ccAvant, String(ccFinal));
 
   console.log(`\nRésultat : ${PASS.length} ok, ${FAIL.length} échec(s)`);

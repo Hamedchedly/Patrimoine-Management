@@ -28,7 +28,9 @@ console.log(`Fichier : ${chemin}`);
 console.log(`Colonne G (index 6) : ${JSON.stringify(header[6])}`);
 console.log(`Index colonne UTIC_CODE : ${uticIdx}`);
 
-let total = 0, avec = 0, sans = 0;
+let total = 0,
+  avec = 0,
+  sans = 0;
 const distincts = new Set();
 const exemples = [];
 for (let i = 1; i < rows.length; i++) {

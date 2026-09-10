@@ -80,40 +80,91 @@ assert("12d '19.05.2025' hors whitelist", !ETATS_METIER.includes("19.05.2025"));
 // etatMetier — spécification métier définitive (T1 à T15)
 // =====================================================================
 // T1 : « Terminés » explicite prioritaire sur les montants (engage=5000, paye=0)
-assert("T1 2026 engage=5000 paye=0 Terminés → Terminés", etatMetier(cmd(2026, 0, "Terminés", null, 5000), EX) === "Terminés");
+assert(
+  "T1 2026 engage=5000 paye=0 Terminés → Terminés",
+  etatMetier(cmd(2026, 0, "Terminés", null, 5000), EX) === "Terminés",
+);
 // T2 : « Terminés » explicite + paye NULL
-assert("T2 2026 engage=5000 paye=NULL Terminés → Terminés", etatMetier(cmd(2026, null, "Terminés", null, 5000), EX) === "Terminés");
+assert(
+  "T2 2026 engage=5000 paye=NULL Terminés → Terminés",
+  etatMetier(cmd(2026, null, "Terminés", null, 5000), EX) === "Terminés",
+);
 // T3 : engagement sans état → En cours
-assert("T3 2026 engage=5000 paye=0 état vide → En cours", etatMetier(cmd(2026, 0, null, null, 5000), EX) === "En cours");
+assert(
+  "T3 2026 engage=5000 paye=0 état vide → En cours",
+  etatMetier(cmd(2026, 0, null, null, 5000), EX) === "En cours",
+);
 // T4 : engagement + paiement partiel → En cours (règle paye != engage abandonnée)
-assert("T4 2026 engage=5000 paye=2000 état vide → En cours", etatMetier(cmd(2026, 2000, null, null, 5000), EX) === "En cours");
+assert(
+  "T4 2026 engage=5000 paye=2000 état vide → En cours",
+  etatMetier(cmd(2026, 2000, null, null, 5000), EX) === "En cours",
+);
 // T5 : engagement soldé → En cours (engage != 0, non explicitement terminé)
-assert("T5 2026 engage=5000 paye=5000 état vide → En cours", etatMetier(cmd(2026, 5000, null, null, 5000), EX) === "En cours");
+assert(
+  "T5 2026 engage=5000 paye=5000 état vide → En cours",
+  etatMetier(cmd(2026, 5000, null, null, 5000), EX) === "En cours",
+);
 // T6 : exercice courant sans engagement ni état → Sans état (plus auto « En cours »)
-assert("T6 2026 engage=0 paye=0 état vide → Sans état", etatMetier(cmd(2026, 0, null, null, 0), EX) === "Sans état");
+assert(
+  "T6 2026 engage=0 paye=0 état vide → Sans état",
+  etatMetier(cmd(2026, 0, null, null, 0), EX) === "Sans état",
+);
 // T7 : exercice courant sans engagement ni état → Sans état
-assert("T7 2026 engage=NULL paye=NULL état vide → Sans état", etatMetier(cmd(2026, null, null, null, null), EX) === "Sans état");
+assert(
+  "T7 2026 engage=NULL paye=NULL état vide → Sans état",
+  etatMetier(cmd(2026, null, null, null, null), EX) === "Sans état",
+);
 // T8 : exercice clôturé + aucun engagement/paiement → Pas réalisé
-assert("T8 2025 engage=0 paye=0 état vide → Pas réalisé", etatMetier(cmd(2025, 0, null, null, 0), EX) === "Pas réalisé");
+assert(
+  "T8 2025 engage=0 paye=0 état vide → Pas réalisé",
+  etatMetier(cmd(2025, 0, null, null, 0), EX) === "Pas réalisé",
+);
 // T9 : exercice clôturé + engagement/paiement NULL → Pas réalisé
-assert("T9 2025 engage=NULL paye=NULL état vide → Pas réalisé", etatMetier(cmd(2025, null, null, null, null), EX) === "Pas réalisé");
+assert(
+  "T9 2025 engage=NULL paye=NULL état vide → Pas réalisé",
+  etatMetier(cmd(2025, null, null, null, null), EX) === "Pas réalisé",
+);
 // T10 : engagement sur exercice clôturé → En cours (et non Pas réalisé)
-assert("T10 2025 engage=5000 paye=0 état vide → En cours", etatMetier(cmd(2025, 0, null, null, 5000), EX) === "En cours");
+assert(
+  "T10 2025 engage=5000 paye=0 état vide → En cours",
+  etatMetier(cmd(2025, 0, null, null, 5000), EX) === "En cours",
+);
 // T11 : « Planifiés » normalisé vers « En cours »
-assert("T11 2026 engage=5000 paye=0 Planifiés → En cours", etatMetier(cmd(2026, 0, "Planifiés", null, 5000), EX) === "En cours");
+assert(
+  "T11 2026 engage=5000 paye=0 Planifiés → En cours",
+  etatMetier(cmd(2026, 0, "Planifiés", null, 5000), EX) === "En cours",
+);
 // T12 : état explicite « En cours » conservé
-assert("T12 2026 engage=5000 paye=0 En cours → En cours", etatMetier(cmd(2026, 0, "En cours", null, 5000), EX) === "En cours");
+assert(
+  "T12 2026 engage=5000 paye=0 En cours → En cours",
+  etatMetier(cmd(2026, 0, "En cours", null, 5000), EX) === "En cours",
+);
 // T13 : « Planifiés » sans engagement → En cours (état explicite prime sur les montants)
-assert("T13 2026 engage=0 paye=0 Planifiés → En cours", etatMetier(cmd(2026, 0, "Planifiés", null, 0), EX) === "En cours");
+assert(
+  "T13 2026 engage=0 paye=0 Planifiés → En cours",
+  etatMetier(cmd(2026, 0, "Planifiés", null, 0), EX) === "En cours",
+);
 // T14 : « Terminés » sur exercice clôturé → Terminés
-assert("T14 2025 engage=5000 paye=0 Terminés → Terminés", etatMetier(cmd(2025, 0, "Terminés", null, 5000), EX) === "Terminés");
+assert(
+  "T14 2025 engage=5000 paye=0 Terminés → Terminés",
+  etatMetier(cmd(2025, 0, "Terminés", null, 5000), EX) === "Terminés",
+);
 // T15 : « Attente validation » sans engagement → Attente validation
-assert("T15 2025 engage=0 paye=0 Attente validation → Attente validation", etatMetier(cmd(2025, 0, "Attente validation", null, 0), EX) === "Attente validation");
+assert(
+  "T15 2025 engage=0 paye=0 Attente validation → Attente validation",
+  etatMetier(cmd(2025, 0, "Attente validation", null, 0), EX) === "Attente validation",
+);
 
 // ---- États explicites restants / normalisations ----
 assert("Annulée → Annulée", etatMetier(cmd(2026, 100, null, "Annulée", 5000), EX) === "Annulée");
-assert("Close = clôturée → Terminés", etatMetier(cmd(2026, 100, null, "Close", 5000), EX) === "Terminés");
-assert("Close + Terminés → Terminés", etatMetier(cmd(2025, 0, "Terminés", "Close", 0), EX) === "Terminés");
+assert(
+  "Close = clôturée → Terminés",
+  etatMetier(cmd(2026, 100, null, "Close", 5000), EX) === "Terminés",
+);
+assert(
+  "Close + Terminés → Terminés",
+  etatMetier(cmd(2025, 0, "Terminés", "Close", 0), EX) === "Terminés",
+);
 
 // ---- « Planifiés » / « Close » ne sont plus des états distincts ----
 assert("Planifiés hors ETATS_METIER", !ETATS_METIER.includes("Planifiés"));
@@ -167,15 +218,22 @@ const jeu = [
   ...Array.from({ length: 50 }, () => baseCmd(2026, true)),
   ...Array.from({ length: 138 }, () => baseCmd(2025, false)),
 ];
-const activesOnly = jeu.filter((r) => visibleArchivage(r, { includeArchived: false, selectedEtats: [], exercice: EX }));
-const allIncl = jeu.filter((r) => visibleArchivage(r, { includeArchived: true, selectedEtats: [], exercice: EX }));
+const activesOnly = jeu.filter((r) =>
+  visibleArchivage(r, { includeArchived: false, selectedEtats: [], exercice: EX }),
+);
+const allIncl = jeu.filter((r) =>
+  visibleArchivage(r, { includeArchived: true, selectedEtats: [], exercice: EX }),
+);
 assert("aucun filtre + includeArchived=false → seules les actives", activesOnly.length === 50);
 assert("aucun filtre + includeArchived=true → actives + archivées", allIncl.length === 188);
 const avecPasRealise = jeu.filter((r) =>
   visibleArchivage(r, { includeArchived: false, selectedEtats: ["Pas réalisé"], exercice: EX }),
 );
 // 50 actives + les archivées 2025 (paye 0) « Pas réalisé »
-assert("Pas réalisé + includeArchived=false → archivées Pas réalisé accessibles", avecPasRealise.length === 50 + 138);
+assert(
+  "Pas réalisé + includeArchived=false → archivées Pas réalisé accessibles",
+  avecPasRealise.length === 50 + 138,
+);
 const nonPR = [
   baseCmd(2026, false, { paye: 500 }), // archivée non pas-réalisée
   baseCmd(2026, true), // active
@@ -206,18 +264,12 @@ assert(
   "T1b CP conserve un montant engage négatif mais compte les commandes",
   repartition.find((d) => d.name === "CP")?.value === 15,
 );
-assert(
-  "T2 secteur sans commande absent",
-  !repartition.some((d) => d.name === "GE"),
-);
+assert("T2 secteur sans commande absent", !repartition.some((d) => d.name === "GE"));
 assert(
   "T3 CP engage = -7500 (négatif conservé, sans Math.abs)",
   repartition.find((d) => d.name === "CP")?.engage === -7500,
 );
-assert(
-  "T3b GT engage = 1000",
-  repartition.find((d) => d.name === "GT")?.engage === 1000,
-);
+assert("T3b GT engage = 1000", repartition.find((d) => d.name === "GT")?.engage === 1000);
 assert(
   "T3c value = nombre de commandes (jamais une somme engage)",
   repartition.find((d) => d.name === "CP")?.value === 15 &&
@@ -294,9 +346,7 @@ const serris34 = Array.from({ length: 34 }, (_, i) =>
 const rSerris34 = buildDataVilles(serris34, tranches, villesGeo);
 assert(
   "T3 SERRIS 34 commandes / engage 140543.01",
-  rSerris34.dataVilles.some(
-    (d) => d.ville === "SERRIS" && d.count === 34 && d.value === 140543.01,
-  ),
+  rSerris34.dataVilles.some((d) => d.ville === "SERRIS" && d.count === 34 && d.value === 140543.01),
 );
 assert(
   "T3b SERRIS paye agrégé (2000 + 33×1000)",
@@ -304,7 +354,11 @@ assert(
 );
 
 // T4 : LOGNES engage négatif → ville conservée (count > 0, jamais engage > 0)
-const rLog = buildDataVilles([cmdVille("L1", "LOGNES-T", "RUE", -9793.3, 9793.3)], tranches, villesGeo);
+const rLog = buildDataVilles(
+  [cmdVille("L1", "LOGNES-T", "RUE", -9793.3, 9793.3)],
+  tranches,
+  villesGeo,
+);
 assert(
   "T4 LOGNES 1 commande engage -9793.3 conservée",
   rLog.dataVilles.some((d) => d.ville === "LOGNES" && d.count === 1 && d.value === -9793.3),
@@ -313,26 +367,46 @@ assert(
 // T5-T8 : formats réels d'adresses d'import (commandes sans tranche)
 assert(
   "T5 61 PLACE DES CHÊNES, NANDY - ER.37062 → NANDY",
-  villeDeCommande(cmdVille("4887311", null, "61 PLACE DES CHÊNES, NANDY - ER.37062"), tranches, villesGeo) === "NANDY",
+  villeDeCommande(
+    cmdVille("4887311", null, "61 PLACE DES CHÊNES, NANDY - ER.37062"),
+    tranches,
+    villesGeo,
+  ) === "NANDY",
 );
 assert(
   "T6 109 ALLEE DE LA PYRAMIDE - NANDY → NANDY",
-  villeDeCommande(cmdVille("4614994", null, "109 ALLEE DE LA PYRAMIDE - NANDY"), tranches, villesGeo) === "NANDY",
+  villeDeCommande(
+    cmdVille("4614994", null, "109 ALLEE DE LA PYRAMIDE - NANDY"),
+    tranches,
+    villesGeo,
+  ) === "NANDY",
 );
 assert(
   "T7 RESIDENCE DE LA TREILLE, SOUPPES-SUR-LOING → SOUPPES-SUR-LOING",
-  villeDeCommande(cmdVille("4823700", null, "RESIDENCE DE LA TREILLE, SOUPPES-SUR-LOING"), tranches, villesGeo) === "SOUPPES-SUR-LOING",
+  villeDeCommande(
+    cmdVille("4823700", null, "RESIDENCE DE LA TREILLE, SOUPPES-SUR-LOING"),
+    tranches,
+    villesGeo,
+  ) === "SOUPPES-SUR-LOING",
 );
 assert(
   "T8 SOUPPES SUR LOING (sans tiret) → SOUPPES-SUR-LOING",
-  villeDeCommande(cmdVille("4754138", null, "RESIDENCE LA FONTAINE DE LA TREILLE - SOUPPES SUR LOING"), tranches, villesGeo) === "SOUPPES-SUR-LOING",
+  villeDeCommande(
+    cmdVille("4754138", null, "RESIDENCE LA FONTAINE DE LA TREILLE - SOUPPES SUR LOING"),
+    tranches,
+    villesGeo,
+  ) === "SOUPPES-SUR-LOING",
 );
 
 // T9 : priorité adresse d'import (VILLE A ≠ tranche VILLE B)
-const tranchesT9 = [...tranches.filter((t) => t.code !== "PARIS-T"), { code: "PARIS-T", localite: "VILLE B" }];
+const tranchesT9 = [
+  ...tranches.filter((t) => t.code !== "PARIS-T"),
+  { code: "PARIS-T", localite: "VILLE B" },
+];
 assert(
   "T9 adresse import prime sur tranche (VILLE A)",
-  villeDeCommande(cmdVille("x", "PARIS-T", "RUE TEST, VILLE A"), tranchesT9, villesGeo) === "VILLE A",
+  villeDeCommande(cmdVille("x", "PARIS-T", "RUE TEST, VILLE A"), tranchesT9, villesGeo) ===
+    "VILLE A",
 );
 
 // T10 : fallback tranche quand l'adresse ne permet pas de détecter une ville
@@ -344,17 +418,23 @@ assert(
 // T11 : faux positif PARIS — « 3 RUE DE PARIS - COUPVRAY » → COUPVRAY, jamais PARIS
 assert(
   "T11 3 RUE DE PARIS - COUPVRAY → COUPVRAY",
-  villeDeCommande(cmdVille("z", "COUPVRAY-T", "3 RUE DE PARIS - COUPVRAY"), tranches, villesGeo) === "COUPVRAY",
+  villeDeCommande(cmdVille("z", "COUPVRAY-T", "3 RUE DE PARIS - COUPVRAY"), tranches, villesGeo) ===
+    "COUPVRAY",
 );
 assert(
   "T11b jamais PARIS 20",
-  villeDeCommande(cmdVille("z", "COUPVRAY-T", "3 RUE DE PARIS - COUPVRAY"), tranches, villesGeo) !== "PARIS 20",
+  villeDeCommande(cmdVille("z", "COUPVRAY-T", "3 RUE DE PARIS - COUPVRAY"), tranches, villesGeo) !==
+    "PARIS 20",
 );
 
 // T12 : PARIS 20 ARR → PARIS 20
 assert(
   "T12 PARIS 20 ARR → PARIS 20",
-  villeDeCommande(cmdVille("5046501", null, "73 AVENUE GAMBETTA, PARIS 20 ARR"), tranches, villesGeo) === "PARIS 20",
+  villeDeCommande(
+    cmdVille("5046501", null, "73 AVENUE GAMBETTA, PARIS 20 ARR"),
+    tranches,
+    villesGeo,
+  ) === "PARIS 20",
 );
 
 // T13 : agrégation multi-villes (count / engage / paye)
@@ -369,11 +449,15 @@ const r13 = buildDataVilles(
 );
 assert(
   "T13 CHESSY count 2 / engage 3000 / paye 400",
-  r13.dataVilles.some((d) => d.ville === "CHESSY" && d.count === 2 && d.value === 3000 && d.paye === 400),
+  r13.dataVilles.some(
+    (d) => d.ville === "CHESSY" && d.count === 2 && d.value === 3000 && d.paye === 400,
+  ),
 );
 assert(
   "T13b LOGNES count 1 / engage -9793.3 / paye 9793.3",
-  r13.dataVilles.some((d) => d.ville === "LOGNES" && d.count === 1 && d.value === -9793.3 && d.paye === 9793.3),
+  r13.dataVilles.some(
+    (d) => d.ville === "LOGNES" && d.count === 1 && d.value === -9793.3 && d.paye === 9793.3,
+  ),
 );
 
 // T14 : ville absente de villes_geo → nonLocalisees += 1, les autres villes restent
@@ -384,15 +468,28 @@ const r14 = buildDataVilles(
   villesGeo,
 );
 assert("T14 ville absente de villes_geo → nonLocalisees 1", r14.nonLocalisees === 1);
-assert("T14b CHESSY reste visible", r14.dataVilles.some((d) => d.ville === "CHESSY" && d.count === 1));
+assert(
+  "T14b CHESSY reste visible",
+  r14.dataVilles.some((d) => d.ville === "CHESSY" && d.count === 1),
+);
 
 // T15 : villes_geo vide → toutes les villes résolues comptées non localisées
-const r15 = buildDataVilles([cmdVille("15a", "1400", "RUE"), cmdVille("15b", "1401", "RUE")], tranches, []);
-assert("T15 villes_geo vide → 1 ville distincte non localisée", r15.dataVilles.length === 0 && r15.nonLocalisees === 1);
+const r15 = buildDataVilles(
+  [cmdVille("15a", "1400", "RUE"), cmdVille("15b", "1401", "RUE")],
+  tranches,
+  [],
+);
+assert(
+  "T15 villes_geo vide → 1 ville distincte non localisée",
+  r15.dataVilles.length === 0 && r15.nonLocalisees === 1,
+);
 
 // T16 : aucun filtered → dataVilles [] / nonLocalisees 0
 const r16 = buildDataVilles([], tranches, villesGeo);
-assert("T16 filtered vide → dataVilles [] / nonLocalisees 0", r16.dataVilles.length === 0 && r16.nonLocalisees === 0);
+assert(
+  "T16 filtered vide → dataVilles [] / nonLocalisees 0",
+  r16.dataVilles.length === 0 && r16.nonLocalisees === 0,
+);
 
 // T17 : filtre Ville ≡ carte (même ville canonique villeDeCommande)
 const dataset17 = [
@@ -422,9 +519,21 @@ assert("T18 Pas réalisé = 7", countE(regrEtats, "Pas réalisé") === 7);
 
 // T19 : régression secteurs — donut = NOMBRE de commandes (jamais des euros)
 const regrSecteurs = [
-  ...Array.from({ length: 21 }, () => ({ numero_commande: "GT", corps_etat: "(e) Divers", engage: 100 })),
-  ...Array.from({ length: 14 }, () => ({ numero_commande: "GE", corps_etat: "(e) Electricite", engage: 200 })),
-  ...Array.from({ length: 15 }, () => ({ numero_commande: "CP", corps_etat: "(o) Plomberie", engage: -500 })),
+  ...Array.from({ length: 21 }, () => ({
+    numero_commande: "GT",
+    corps_etat: "(e) Divers",
+    engage: 100,
+  })),
+  ...Array.from({ length: 14 }, () => ({
+    numero_commande: "GE",
+    corps_etat: "(e) Electricite",
+    engage: 200,
+  })),
+  ...Array.from({ length: 15 }, () => ({
+    numero_commande: "CP",
+    corps_etat: "(o) Plomberie",
+    engage: -500,
+  })),
 ];
 const rs = repartitionCommandesParSecteur(regrSecteurs);
 assert("T19 GT = 21 commandes", rs.find((d) => d.name === "GT")?.value === 21);
@@ -436,7 +545,10 @@ assert(
 );
 
 // T20 : tooltip secteur — nombre de commandes + montant engagé (négatifs conservés)
-assert("T20 CP engage = -7500 (négatif, sans Math.abs)", rs.find((d) => d.name === "CP")?.engage === 15 * -500);
+assert(
+  "T20 CP engage = -7500 (négatif, sans Math.abs)",
+  rs.find((d) => d.name === "CP")?.engage === 15 * -500,
+);
 assert(
   "T20b GT count 21 / engage 2100",
   rs.find((d) => d.name === "GT")?.value === 21 && rs.find((d) => d.name === "GT")?.engage === 2100,
@@ -491,7 +603,10 @@ assert("T1b domaine élargi [2022, 2031]", JSON.stringify(dom) === JSON.stringif
 
 // T2 : sélection initiale = exercice courant uniquement (jamais tout le domaine)
 assert("T2 exercice courant = 2026", exerciceCourant() === 2026);
-assert("T2b sélection initiale [2026, 2026]", JSON.stringify(yearRangeInitial(2026)) === JSON.stringify([2026, 2026]));
+assert(
+  "T2b sélection initiale [2026, 2026]",
+  JSON.stringify(yearRangeInitial(2026)) === JSON.stringify([2026, 2026]),
+);
 
 const rowAnnee = (a) => ({ numero_commande: `A${a}`, annee_exercice: a });
 // T3 : [2024, 2026] → 2024 + 2025 + 2026
@@ -509,17 +624,23 @@ assert(
     !matchesAnnee(rowAnnee(2026), [2024, 2025]),
 );
 // T5 : [2023, 2030] → toutes les années disponibles
-assert("T5 [2023,2030] → toutes les années", ANNEES.every((a) => matchesAnnee(rowAnnee(a), [2023, 2030])));
+assert(
+  "T5 [2023,2030] → toutes les années",
+  ANNEES.every((a) => matchesAnnee(rowAnnee(a), [2023, 2030])),
+);
 // T6 : [2030, 2030] → uniquement 2030
 assert(
   "T6 [2030,2030] → 2030 seul",
   matchesAnnee(rowAnnee(2030), [2030, 2030]) && !matchesAnnee(rowAnnee(2026), [2030, 2030]),
 );
 // T7 : aucune année ne disparaît du domaine parce que le défaut est 2026
-assert("T7 domaine complet malgré défaut 2026", (() => {
-  const init = yearRangeInitial(2026);
-  return init[0] === 2026 && init[1] === 2026 && dom[0] <= 2023 && dom[1] >= 2030;
-})());
+assert(
+  "T7 domaine complet malgré défaut 2026",
+  (() => {
+    const init = yearRangeInitial(2026);
+    return init[0] === 2026 && init[1] === 2026 && dom[0] <= 2023 && dom[1] >= 2030;
+  })(),
+);
 
 // T8-T10 : SERRIS 2025 GE + SERRIS 2026 CP selon l'intervalle d'années
 const serrisGE2025 = {
@@ -580,7 +701,10 @@ const jeuSerris = [
   },
 ];
 const geSerris = jeuSerris.filter((r) => isSerris(r) && secteurDe(r) === "GE");
-assert("T11 Ville=SERRIS + Secteur=GE → 1 commande (S-GE-1)", geSerris.length === 1 && geSerris[0].numero_commande === "S-GE-1");
+assert(
+  "T11 Ville=SERRIS + Secteur=GE → 1 commande (S-GE-1)",
+  geSerris.length === 1 && geSerris[0].numero_commande === "S-GE-1",
+);
 assert(
   "T11b le CP de SERRIS est exclu du filtre GE",
   !jeuSerris.some((r) => r.numero_commande === "S-CP-1" && isSerris(r) && secteurDe(r) === "GE"),
@@ -605,32 +729,75 @@ assert(
 // Périmètre temporel + archivage — l'année du slider prime sur l'exclusion d'archivage
 // =====================================================================
 const realShape = [
-  ...Array.from({ length: 64 }, (_, i) => ({ numero_commande: `a23-${i}`, annee_exercice: 2023, actif: false })),
-  ...Array.from({ length: 46 }, (_, i) => ({ numero_commande: `a24-${i}`, annee_exercice: 2024, actif: false })),
-  ...Array.from({ length: 28 }, (_, i) => ({ numero_commande: `a25-${i}`, annee_exercice: 2025, actif: false })),
-  ...Array.from({ length: 49 }, (_, i) => ({ numero_commande: `a26-${i}`, annee_exercice: 2026, actif: true })),
+  ...Array.from({ length: 64 }, (_, i) => ({
+    numero_commande: `a23-${i}`,
+    annee_exercice: 2023,
+    actif: false,
+  })),
+  ...Array.from({ length: 46 }, (_, i) => ({
+    numero_commande: `a24-${i}`,
+    annee_exercice: 2024,
+    actif: false,
+  })),
+  ...Array.from({ length: 28 }, (_, i) => ({
+    numero_commande: `a25-${i}`,
+    annee_exercice: 2025,
+    actif: false,
+  })),
+  ...Array.from({ length: 49 }, (_, i) => ({
+    numero_commande: `a26-${i}`,
+    annee_exercice: 2026,
+    actif: true,
+  })),
   { numero_commande: "a30-0", annee_exercice: 2030, actif: true },
 ];
 assert("P0 188 commandes (64+46+28+49+1)", realShape.length === 188);
 const perimetre = (rows, yr) =>
   rows.filter(
     (r) =>
-      visibleParPerimetre(r, { includeArchived: false, selectedEtats: [], yearRange: yr, exercice: EX }) &&
-      matchesAnnee(r, yr), // pipeline réel : visibleCommandes ∩ filtre année (filtered)
+      visibleParPerimetre(r, {
+        includeArchived: false,
+        selectedEtats: [],
+        yearRange: yr,
+        exercice: EX,
+      }) && matchesAnnee(r, yr), // pipeline réel : visibleCommandes ∩ filtre année (filtered)
   ).length;
 const annees = (yr) =>
-  [...new Set(realShape.filter((r) => matchesAnnee(r, yr)).map((r) => r.annee_exercice))].sort((a, b) => a - b);
+  [...new Set(realShape.filter((r) => matchesAnnee(r, yr)).map((r) => r.annee_exercice))].sort(
+    (a, b) => a - b,
+  );
 
-assert("T1 [2026,2026] → années {2026}", JSON.stringify(annees([2026, 2026])) === JSON.stringify([2026]));
-assert("T2 [2025,2026] → années {2025,2026}", JSON.stringify(annees([2025, 2026])) === JSON.stringify([2025, 2026]));
-assert("T3 [2024,2025] → années {2024,2025}", JSON.stringify(annees([2024, 2025])) === JSON.stringify([2024, 2025]));
-assert("T4 [2023,2026] → années {2023,2024,2025,2026}", JSON.stringify(annees([2023, 2026])) === JSON.stringify([2023, 2024, 2025, 2026]));
-assert("T5 [2026,2030] → années {2026,2030}", JSON.stringify(annees([2026, 2030])) === JSON.stringify([2026, 2030]));
-assert("T6 [2023,2030] → toutes les années", JSON.stringify(annees([2023, 2030])) === JSON.stringify([2023, 2024, 2025, 2026, 2030]));
+assert(
+  "T1 [2026,2026] → années {2026}",
+  JSON.stringify(annees([2026, 2026])) === JSON.stringify([2026]),
+);
+assert(
+  "T2 [2025,2026] → années {2025,2026}",
+  JSON.stringify(annees([2025, 2026])) === JSON.stringify([2025, 2026]),
+);
+assert(
+  "T3 [2024,2025] → années {2024,2025}",
+  JSON.stringify(annees([2024, 2025])) === JSON.stringify([2024, 2025]),
+);
+assert(
+  "T4 [2023,2026] → années {2023,2024,2025,2026}",
+  JSON.stringify(annees([2023, 2026])) === JSON.stringify([2023, 2024, 2025, 2026]),
+);
+assert(
+  "T5 [2026,2030] → années {2026,2030}",
+  JSON.stringify(annees([2026, 2030])) === JSON.stringify([2026, 2030]),
+);
+assert(
+  "T6 [2023,2030] → toutes les années",
+  JSON.stringify(annees([2023, 2030])) === JSON.stringify([2023, 2024, 2025, 2026, 2030]),
+);
 
 // Périmètres bruts (avant filtres état/secteur/ville)
 assert("P1 [2026,2026] → 49", perimetre(realShape, [2026, 2026]) === 49);
-assert("P2 [2025,2026] → 77 (28 archivées 2025 + 49 actives 2026)", perimetre(realShape, [2025, 2026]) === 77);
+assert(
+  "P2 [2025,2026] → 77 (28 archivées 2025 + 49 actives 2026)",
+  perimetre(realShape, [2025, 2026]) === 77,
+);
 assert("P3 [2024,2025] → 74 (46 + 28)", perimetre(realShape, [2024, 2025]) === 74);
 assert("P4 [2023,2026] → 187 (64+46+28+49)", perimetre(realShape, [2023, 2026]) === 187);
 assert("P5 [2026,2030] → 50 (49+1)", perimetre(realShape, [2026, 2030]) === 50);
@@ -641,17 +808,34 @@ assert(
   "T7 archivées 2025 présentes dans [2025,2026]",
   realShape
     .filter((r) => r.annee_exercice === 2025 && !r.actif)
-    .every((r) => visibleParPerimetre(r, { includeArchived: false, selectedEtats: [], yearRange: [2025, 2026], exercice: EX })),
+    .every((r) =>
+      visibleParPerimetre(r, {
+        includeArchived: false,
+        selectedEtats: [],
+        yearRange: [2025, 2026],
+        exercice: EX,
+      }),
+    ),
 );
 assert(
   "T8 archivées 2024 présentes dans [2024,2025]",
   realShape
     .filter((r) => r.annee_exercice === 2024 && !r.actif)
-    .every((r) => visibleParPerimetre(r, { includeArchived: false, selectedEtats: [], yearRange: [2024, 2025], exercice: EX })),
+    .every((r) =>
+      visibleParPerimetre(r, {
+        includeArchived: false,
+        selectedEtats: [],
+        yearRange: [2024, 2025],
+        exercice: EX,
+      }),
+    ),
 );
 
 // T9 : défaut [2026,2026]
-assert("T9 défaut [2026,2026]", JSON.stringify(yearRangeInitial(exerciceCourant())) === JSON.stringify([2026, 2026]));
+assert(
+  "T9 défaut [2026,2026]",
+  JSON.stringify(yearRangeInitial(exerciceCourant())) === JSON.stringify([2026, 2026]),
+);
 
 // T10-T13 : régressions — états, secteurs, ville, carte inchangés
 assert(
@@ -661,7 +845,8 @@ assert(
 );
 assert(
   "T11 secteurDe inchangé",
-  secteurDe({ corps_etat: "(g) Halls" }) === "GE" && secteurDe({ corps_etat: "(o) Plomberie" }) === "CP",
+  secteurDe({ corps_etat: "(g) Halls" }) === "GE" &&
+    secteurDe({ corps_etat: "(o) Plomberie" }) === "CP",
 );
 assert(
   "T12 villeDeCommande inchangé",
@@ -681,7 +866,9 @@ const espacesNorm = (s) => s.replace(/\s+/g, " ");
 const alertesNeg = getAlertesCommande({ engage: -2641.38 });
 assert(
   "T1 engage -2641.38 → alerte « Engagé négatif : -2 641,38 € »",
-  alertesNeg.some((a) => a.startsWith("⚠️ Engagé négatif") && espacesNorm(a).includes("-2 641,38 €")),
+  alertesNeg.some(
+    (a) => a.startsWith("⚠️ Engagé négatif") && espacesNorm(a).includes("-2 641,38 €"),
+  ),
 );
 // T2 : engagement positif → aucune alerte négative
 assert(
@@ -710,9 +897,16 @@ assert(
   ),
 );
 // T6 : etat_travaux état → aucune alerte
-assert("T6 etat_travaux « Terminé » → aucune alerte", getAlertesCommande({ etat_travaux: "Terminé" }).length === 0);
+assert(
+  "T6 etat_travaux « Terminé » → aucune alerte",
+  getAlertesCommande({ etat_travaux: "Terminé" }).length === 0,
+);
 // T7 : plusieurs anomalies → toutes les alertes présentes (aucune remplacée)
-const alertesMulti = getAlertesCommande({ engage: -2641.38, etat_commande: "2641.38", etat_travaux: "09.09.2024" });
+const alertesMulti = getAlertesCommande({
+  engage: -2641.38,
+  etat_commande: "2641.38",
+  etat_travaux: "09.09.2024",
+});
 assert(
   "T7 multi-anomalies → 3 alertes présentes",
   alertesMulti.length === 3 &&
@@ -734,14 +928,24 @@ assert(
   }).length === 0,
 );
 // T9 : doublon (conflit historique) + anomalie → les deux signalés (indicateur conflit conservé)
-const rowDoublon = { numero_commande: "D1", engage: -1000, etat_commande: "1000", etat_travaux: "01.01.2025" };
+const rowDoublon = {
+  numero_commande: "D1",
+  engage: -1000,
+  etat_commande: "1000",
+  etat_travaux: "01.01.2025",
+};
 const hasConflit = true; // historyMap → entrée « conflit » non résolue (logique existante inchangée)
 assert(
   "T9 doublon + anomalies → anomalies complètes (3) et conflit conservé",
   getAlertesCommande(rowDoublon).length === 3 && hasConflit === true,
 );
 // T10 : les valeurs originales ne sont jamais modifiées
-const rowOrig = { numero_commande: "R1", engage: -2641.38, etat_commande: "2641.38", etat_travaux: "09.09.2024" };
+const rowOrig = {
+  numero_commande: "R1",
+  engage: -2641.38,
+  etat_commande: "2641.38",
+  etat_travaux: "09.09.2024",
+};
 const snapshot = JSON.stringify(rowOrig);
 getAlertesCommande(rowOrig);
 assert("T10 valeurs originales inchangées", JSON.stringify(rowOrig) === snapshot);
@@ -767,15 +971,25 @@ const t3 = getDernierImportExercice(
   [imp(2025, "2026-08-11T10:00:00Z"), imp(2026, "2026-08-10T15:00:00Z")],
   2026,
 );
-assert("T3 import 2025 après 2026 → date 2026 conservée (10/08)", t3?.demarre_at === "2026-08-10T15:00:00Z");
+assert(
+  "T3 import 2025 après 2026 → date 2026 conservée (10/08)",
+  t3?.demarre_at === "2026-08-10T15:00:00Z",
+);
 // T4 : aucun import 2026 → null
-assert("T4 aucun import 2026 → null", getDernierImportExercice([imp(2025, "2026-08-11T10:00:00Z")], 2026) === null);
+assert(
+  "T4 aucun import 2026 → null",
+  getDernierImportExercice([imp(2025, "2026-08-11T10:00:00Z")], 2026) === null,
+);
 // T5 : un seul import 2026 → sa date
 const t5 = getDernierImportExercice([imp(2026, "2026-08-11T09:42:00Z")], 2026);
 assert("T5 un seul import 2026 → sa date", t5?.demarre_at === "2026-08-11T09:42:00Z");
 // T6 : plusieurs imports 2026 → uniquement le plus récent
 const t6 = getDernierImportExercice(
-  [imp(2026, "2026-08-01T08:00:00Z"), imp(2026, "2026-08-11T09:42:00Z"), imp(2026, "2026-08-05T12:00:00Z")],
+  [
+    imp(2026, "2026-08-01T08:00:00Z"),
+    imp(2026, "2026-08-11T09:42:00Z"),
+    imp(2026, "2026-08-05T12:00:00Z"),
+  ],
   2026,
 );
 assert("T6 plusieurs imports 2026 → le plus récent", t6?.demarre_at === "2026-08-11T09:42:00Z");
@@ -826,15 +1040,27 @@ assert(
 // R2 (cas A) : l'import affiché a été supprimé mais le suivant a des erreurs → l'alerte
 // reflète l'import le plus récent de l'exercice (jamais l'ancien supprimé)
 const rA2 = resyncImportErrors(ipt("TEST", 3), [ipt("NEXT", 5)], EX2026);
-assert("R2 import supprimé + suivant avec erreurs → alerte sur le suivant", rA2?.id === "NEXT" && rA2?.erreurs === 5);
+assert(
+  "R2 import supprimé + suivant avec erreurs → alerte sur le suivant",
+  rA2?.id === "NEXT" && rA2?.erreurs === 5,
+);
 // R3 (cas B) : même import toujours présent, erreurs > 0 → l'alerte reste avec le nombre réel
 const rB3 = resyncImportErrors(ipt("X", 8), [ipt("X", 9)], EX2026);
-assert("R3 erreurs > 0 → alerte conservée avec le nombre réel", rB3?.id === "X" && rB3?.erreurs === 9);
+assert(
+  "R3 erreurs > 0 → alerte conservée avec le nombre réel",
+  rB3?.id === "X" && rB3?.erreurs === 9,
+);
 // R4 (cas C) : même import, erreurs corrigées à 0 → l'alerte disparaît
-assert("R4 erreurs corrigées (0) → alerte fermée", resyncImportErrors(ipt("X", 8), [ipt("X", 0)], EX2026) === null);
+assert(
+  "R4 erreurs corrigées (0) → alerte fermée",
+  resyncImportErrors(ipt("X", 8), [ipt("X", 0)], EX2026) === null,
+);
 // R5 (cas D) : nouvel import avec erreurs → l'alerte reflète UNIQUEMENT le nouvel import
 const rD5 = resyncImportErrors(ipt("ANCIEN", 8), [ipt("NOUVEAU", 2)], EX2026);
-assert("R5 nouvel import avec erreurs → alerte sur le nouvel import", rD5?.id === "NOUVEAU" && rD5?.erreurs === 2);
+assert(
+  "R5 nouvel import avec erreurs → alerte sur le nouvel import",
+  rD5?.id === "NOUVEAU" && rD5?.erreurs === 2,
+);
 // R6 (cas D) : nouvel import SANS erreurs → pas d'alerte
 assert(
   "R6 nouvel import sans erreurs → alerte fermée",
@@ -844,7 +1070,10 @@ assert(
 const rE7 = resyncImportErrors(ipt("X", 8), [ipt("X", 8)], EX2026);
 assert("R7 rien n'a changé → alerte conservée", rE7?.id === "X" && rE7?.erreurs === 8);
 // R8 : plus aucun import dans Supabase → l'alerte disparaît
-assert("R8 plus aucun import → alerte fermée", resyncImportErrors(ipt("X", 8), [], EX2026) === null);
+assert(
+  "R8 plus aucun import → alerte fermée",
+  resyncImportErrors(ipt("X", 8), [], EX2026) === null,
+);
 // R9 : le helper est pur — il ne modifie jamais l'objet passé ni la liste
 const prevPur = ipt("X", 8);
 const listPur = [ipt("X", 8)];
@@ -859,36 +1088,54 @@ assert("R9 helper pur (aucune mutation)", JSON.stringify([prevPur, listPur]) ===
 // RÉCENT (imports[0]) → exercice consulté 2026 → seule l'erreur 2026 est prise en compte
 const s1 = resyncImportErrors(
   ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026),
-  [ipt("A30", 5, "f-2030.xlsx", "2030-01-15T09:00:00Z", 2030), ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026)],
+  [
+    ipt("A30", 5, "f-2030.xlsx", "2030-01-15T09:00:00Z", 2030),
+    ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026),
+  ],
   2026,
 );
-assert("S1 exercice 2026 → seule l'erreur 2026 prise en compte (jamais l'import 2030)", s1?.id === "A26" && s1?.erreurs === 3);
+assert(
+  "S1 exercice 2026 → seule l'erreur 2026 prise en compte (jamais l'import 2030)",
+  s1?.id === "A26" && s1?.erreurs === 3,
+);
 // S2 : exercice consulté 2030 → seule l'erreur 2030 est prise en compte
 const s2 = resyncImportErrors(
   ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026),
-  [ipt("A30", 5, "f-2030.xlsx", "2030-01-15T09:00:00Z", 2030), ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026)],
+  [
+    ipt("A30", 5, "f-2030.xlsx", "2030-01-15T09:00:00Z", 2030),
+    ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026),
+  ],
   2030,
 );
-assert("S2 exercice 2030 → seule l'erreur 2030 prise en compte", s2?.id === "A30" && s2?.erreurs === 5);
+assert(
+  "S2 exercice 2030 → seule l'erreur 2030 prise en compte",
+  s2?.id === "A30" && s2?.erreurs === 5,
+);
 // S3 : l'import de l'exercice sélectionné a été SUPPRIMÉ → alerte supprimée, même si un
 // import d'un autre exercice (2030) a des erreurs
 assert(
   "S3 suppression import de l'exercice sélectionné → alerte fermée",
-  resyncImportErrors(ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026), [ipt("A30", 5, "f-2030.xlsx", "2030-01-15T09:00:00Z", 2030)], 2026) === null,
+  resyncImportErrors(
+    ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026),
+    [ipt("A30", 5, "f-2030.xlsx", "2030-01-15T09:00:00Z", 2030)],
+    2026,
+  ) === null,
 );
 // S4 : aucun import pour l'exercice sélectionné → alerte supprimée
 assert(
   "S4 aucun import pour l'exercice sélectionné → alerte fermée",
-  resyncImportErrors(ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026), [ipt("A30", 0, "f-2030.xlsx", "2030-01-15T09:00:00Z", 2030)], 2026) === null,
+  resyncImportErrors(
+    ipt("A26", 3, "f-2026.xlsx", "2026-08-10T09:00:00Z", 2026),
+    [ipt("A30", 0, "f-2030.xlsx", "2030-01-15T09:00:00Z", 2030)],
+    2026,
+  ) === null,
 );
 
 // =====================================================================
 // Filtre « ACT. » du journal — anomalies OU conflit/doublon (même logique que filteredJournal)
 // =====================================================================
 const filtreAct = (rows, actif, conflits) =>
-  actif
-    ? rows.filter((r) => getAlertesCommande(r).length > 0 || conflits.has(r.id))
-    : rows;
+  actif ? rows.filter((r) => getAlertesCommande(r).length > 0 || conflits.has(r.id)) : rows;
 const conflits = new Set(["C-DOUBLON"]);
 const saine = { id: "C-SAINE", engage: 100, etat_commande: "En cours", etat_travaux: "Terminé" };
 const neg = { id: "C-NEG", engage: -2641.38 };
@@ -900,21 +1147,61 @@ const rowsAct = [saine, neg, num, date, doublon, multi];
 assert("ACT par défaut → toutes les lignes", filtreAct(rowsAct, false, conflits).length === 6);
 const activesAct = filtreAct(rowsAct, true, conflits);
 assert("ACT commande sans anomalie → exclue", !activesAct.some((r) => r.id === "C-SAINE"));
-assert("ACT engagement négatif → incluse", activesAct.some((r) => r.id === "C-NEG"));
-assert("ACT état numérique incohérent → incluse", activesAct.some((r) => r.id === "C-NUM"));
-assert("ACT date dans etat_travaux → incluse", activesAct.some((r) => r.id === "C-DATE"));
-assert("ACT conflit/doublon → incluse", activesAct.some((r) => r.id === "C-DOUBLON"));
+assert(
+  "ACT engagement négatif → incluse",
+  activesAct.some((r) => r.id === "C-NEG"),
+);
+assert(
+  "ACT état numérique incohérent → incluse",
+  activesAct.some((r) => r.id === "C-NUM"),
+);
+assert(
+  "ACT date dans etat_travaux → incluse",
+  activesAct.some((r) => r.id === "C-DATE"),
+);
+assert(
+  "ACT conflit/doublon → incluse",
+  activesAct.some((r) => r.id === "C-DOUBLON"),
+);
 assert(
   "ACT plusieurs anomalies → une seule ligne",
   activesAct.filter((r) => r.id === "C-MULTI").length === 1,
 );
-assert("ACT désactivé → retour à l'ensemble initial", filtreAct(rowsAct, false, conflits).length === 6);
+assert(
+  "ACT désactivé → retour à l'ensemble initial",
+  filtreAct(rowsAct, false, conflits).length === 6,
+);
 
 // ACT combiné avec Année / État / Ville (mêmes helpers que le dashboard)
 const actCombo = [
-  { id: "A", annee_exercice: 2026, tranche_code: "1401", adresse: "RUE SERRIS", corps_etat: "(o) Plomberie", actif: true, engage: -500, etat_commande: "500" },
-  { id: "B", annee_exercice: 2026, tranche_code: "1401", adresse: "RUE SERRIS", corps_etat: "(g) Halls", actif: true, engage: 100 },
-  { id: "C", annee_exercice: 2025, tranche_code: "1396", adresse: "RUE CHESSY", corps_etat: "(e) Divers", actif: false, engage: -100 },
+  {
+    id: "A",
+    annee_exercice: 2026,
+    tranche_code: "1401",
+    adresse: "RUE SERRIS",
+    corps_etat: "(o) Plomberie",
+    actif: true,
+    engage: -500,
+    etat_commande: "500",
+  },
+  {
+    id: "B",
+    annee_exercice: 2026,
+    tranche_code: "1401",
+    adresse: "RUE SERRIS",
+    corps_etat: "(g) Halls",
+    actif: true,
+    engage: 100,
+  },
+  {
+    id: "C",
+    annee_exercice: 2025,
+    tranche_code: "1396",
+    adresse: "RUE CHESSY",
+    corps_etat: "(e) Divers",
+    actif: false,
+    engage: -100,
+  },
 ];
 const filtreActCombo = (rows, { annee, etats, villes, actif }) =>
   rows.filter(
@@ -924,14 +1211,43 @@ const filtreActCombo = (rows, { annee, etats, villes, actif }) =>
       (villes.length === 0 || villes.includes(villeDeCommande(r, tranches, villesGeo))) &&
       (actif ? getAlertesCommande(r).length > 0 || conflits.has(r.id) : true),
   );
-const rAct2026 = filtreActCombo(actCombo, { annee: [2026, 2026], etats: [], villes: [], actif: true });
-assert("ACT + Année [2026,2026] → uniquement la ligne 2026 avec anomalie", rAct2026.length === 1 && rAct2026[0].id === "A");
-const rActSerris = filtreActCombo(actCombo, { annee: [2023, 2030], etats: [], villes: ["SERRIS"], actif: true });
-assert("ACT + Ville SERRIS → uniquement les anomalies de SERRIS", rActSerris.length === 1 && rActSerris[0].id === "A");
-const rActEtat = filtreActCombo(actCombo, { annee: [2023, 2030], etats: ["En cours"], villes: [], actif: true });
+const rAct2026 = filtreActCombo(actCombo, {
+  annee: [2026, 2026],
+  etats: [],
+  villes: [],
+  actif: true,
+});
+assert(
+  "ACT + Année [2026,2026] → uniquement la ligne 2026 avec anomalie",
+  rAct2026.length === 1 && rAct2026[0].id === "A",
+);
+const rActSerris = filtreActCombo(actCombo, {
+  annee: [2023, 2030],
+  etats: [],
+  villes: ["SERRIS"],
+  actif: true,
+});
+assert(
+  "ACT + Ville SERRIS → uniquement les anomalies de SERRIS",
+  rActSerris.length === 1 && rActSerris[0].id === "A",
+);
+const rActEtat = filtreActCombo(actCombo, {
+  annee: [2023, 2030],
+  etats: ["En cours"],
+  villes: [],
+  actif: true,
+});
 assert("ACT + État En cours → anomalies En cours (A et C)", rActEtat.length === 2);
-const rActOff = filtreActCombo(actCombo, { annee: [2023, 2030], etats: [], villes: ["SERRIS"], actif: false });
-assert("ACT désactivé + Ville SERRIS → A et B (SERRIS)", rActOff.length === 2 && rActOff.some((r) => r.id === "B"));
+const rActOff = filtreActCombo(actCombo, {
+  annee: [2023, 2030],
+  etats: [],
+  villes: ["SERRIS"],
+  actif: false,
+});
+assert(
+  "ACT désactivé + Ville SERRIS → A et B (SERRIS)",
+  rActOff.length === 2 && rActOff.some((r) => r.id === "B"),
+);
 
 console.log("\n==========================================");
 console.log(`Résultat : ${passed} PASS, ${failed} FAIL`);

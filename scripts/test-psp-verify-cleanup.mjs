@@ -81,7 +81,9 @@ async function main() {
   const ids = (importsTest ?? []).map((i) => i.id);
   console.log(`Imports de test trouvés : ${ids.length}`);
   for (const imp of importsTest ?? []) {
-    console.log(`  - ${imp.id} | ${imp.fichier_nom} | statut=${imp.statut} | total=${imp.lignes_total} valides=${imp.lignes_valides} erreurs=${imp.lignes_erreur} doublons=${imp.doublons}`);
+    console.log(
+      `  - ${imp.id} | ${imp.fichier_nom} | statut=${imp.statut} | total=${imp.lignes_total} valides=${imp.lignes_valides} erreurs=${imp.lignes_erreur} doublons=${imp.doublons}`,
+    );
   }
 
   if (ids.length === 0) {
@@ -93,11 +95,27 @@ async function main() {
   // ── 2. Vérifications (modèle actuel COMN_NUM/COMC_NOLIG) ────────────────────
   for (const imp of importsTest ?? []) {
     const tag = `import ${imp.id.slice(0, 8)}`;
-    check(`${tag} : statut terminal (termine|a_controler)`, imp.statut === "termine" || imp.statut === "a_controler", imp.statut);
+    check(
+      `${tag} : statut terminal (termine|a_controler)`,
+      imp.statut === "termine" || imp.statut === "a_controler",
+      imp.statut,
+    );
     // Nouveau modèle : aucun statut "erreur" n'est produit → lignes_erreur doit être 0.
-    check(`${tag} : lignes_erreur = 0 (plus de statut erreur)`, imp.lignes_erreur === 0, String(imp.lignes_erreur));
-    check(`${tag} : lignes_total = nombre de lignes sources`, Number.isInteger(imp.lignes_total) && imp.lignes_total > 0, String(imp.lignes_total));
-    check(`${tag} : doublons = nombre entier >= 0`, Number.isInteger(imp.doublons) && imp.doublons >= 0, String(imp.doublons));
+    check(
+      `${tag} : lignes_erreur = 0 (plus de statut erreur)`,
+      imp.lignes_erreur === 0,
+      String(imp.lignes_erreur),
+    );
+    check(
+      `${tag} : lignes_total = nombre de lignes sources`,
+      Number.isInteger(imp.lignes_total) && imp.lignes_total > 0,
+      String(imp.lignes_total),
+    );
+    check(
+      `${tag} : doublons = nombre entier >= 0`,
+      Number.isInteger(imp.doublons) && imp.doublons >= 0,
+      String(imp.doublons),
+    );
 
     const { data: lignes, error: errRows } = await db
       .from("psp_import_rows")
@@ -110,40 +128,71 @@ async function main() {
     // ── Identité : COMN_NUM obligatoire et UNIQUE (règles 1, 2, 4, 5) ──
     const comn = (lignes ?? []).map((l) => (l.numero_commande_interne ?? "").trim());
     const sansComn = comn.filter((v) => v === "").length;
-    check(`${tag} : COMN_NUM présent sur chaque ligne (identité source)`, sansComn === 0, `${sansComn} ligne(s) sans COMN_NUM`);
-    check(`${tag} : COMN_NUM uniques (un COMN_NUM = un enregistrement, pas de fusion)`, new Set(comn).size === reel, `${new Set(comn).size}/${reel}`);
+    check(
+      `${tag} : COMN_NUM présent sur chaque ligne (identité source)`,
+      sansComn === 0,
+      `${sansComn} ligne(s) sans COMN_NUM`,
+    );
+    check(
+      `${tag} : COMN_NUM uniques (un COMN_NUM = un enregistrement, pas de fusion)`,
+      new Set(comn).size === reel,
+      `${new Set(comn).size}/${reel}`,
+    );
 
     // ── COMC_NOLIG nullable : lignes sans numero_commande acceptées (règles 2/3) ──
-    const sansComc = (lignes ?? []).filter((l) => !l.numero_commande || String(l.numero_commande).trim() === "");
+    const sansComc = (lignes ?? []).filter(
+      (l) => !l.numero_commande || String(l.numero_commande).trim() === "",
+    );
     check(
       `${tag} : lignes sans COMC_NOLIG acceptées (présentes, jamais en erreur)`,
-      sansComc.every((l) => l.statut !== "erreur" && !(l.erreurs ?? []).some((i) => i?.code === "commande_manquante")),
+      sansComc.every(
+        (l) =>
+          l.statut !== "erreur" && !(l.erreurs ?? []).some((i) => i?.code === "commande_manquante"),
+      ),
       `${sansComc.length} ligne(s) sans COMC_NOLIG`,
     );
 
     // ── Cohérence des lignes avec le modèle actuel ──
     const anomalies = (lignes ?? []).flatMap((l) => (Array.isArray(l.erreurs) ? l.erreurs : []));
-    check(`${tag} : aucune anomalie commande_manquante sur l'import`, !anomalies.some((i) => i?.code === "commande_manquante"));
-    check(`${tag} : aucune ligne en statut erreur`, (lignes ?? []).every((l) => l.statut !== "erreur"));
+    check(
+      `${tag} : aucune anomalie commande_manquante sur l'import`,
+      !anomalies.some((i) => i?.code === "commande_manquante"),
+    );
+    check(
+      `${tag} : aucune ligne en statut erreur`,
+      (lignes ?? []).every((l) => l.statut !== "erreur"),
+    );
     // Un statut "valide" <=> aucune anomalie ; "a_controler" <=> anomalies présentes.
     let coherence = 0;
     for (const l of lignes ?? []) {
       const a = Array.isArray(l.erreurs) ? l.erreurs.length : 0;
-      if ((l.statut === "valide" && a === 0) || (l.statut === "a_controler" && a > 0)) coherence += 1;
+      if ((l.statut === "valide" && a === 0) || (l.statut === "a_controler" && a > 0))
+        coherence += 1;
     }
-    check(`${tag} : statut cohérent avec erreurs (valide<=>0 anomalie)`, coherence === reel, `${coherence}/${reel}`);
+    check(
+      `${tag} : statut cohérent avec erreurs (valide<=>0 anomalie)`,
+      coherence === reel,
+      `${coherence}/${reel}`,
+    );
 
     // ── Nombre de lignes conservées conforme ──
     // lignes enregistrées = sources - doublons identiques - conflits (les conflits
     // sont comptés dans erreurs_detail sous code doublon_conflit).
     const conflits = (imp.erreurs_detail ?? []).filter((i) => i?.code === "doublon_conflit").length;
     const attenduLignes = imp.lignes_total - imp.doublons - conflits;
-    check(`${tag} : nombre de lignes conservées conforme (total - doublons - conflits)`, reel === attenduLignes, `réel=${reel} attendu=${attenduLignes}`);
+    check(
+      `${tag} : nombre de lignes conservées conforme (total - doublons - conflits)`,
+      reel === attenduLignes,
+      `réel=${reel} attendu=${attenduLignes}`,
+    );
 
     // ── Fidélité de donnees_brutes (règle 6) ──
     for (const l of lignes ?? []) {
       const t = `${tag} ligne ${l.ligne_numero}`;
-      check(`${t} : donnees_brutes présent (objet)`, Boolean(l.donnees_brutes) && typeof l.donnees_brutes === "object");
+      check(
+        `${t} : donnees_brutes présent (objet)`,
+        Boolean(l.donnees_brutes) && typeof l.donnees_brutes === "object",
+      );
       check(`${t} : erreurs est un tableau`, Array.isArray(l.erreurs));
       if (l.numero_commande_interne) {
         check(
@@ -169,16 +218,36 @@ async function main() {
   await db.from("psp_imports").delete().in("id", ids);
 
   // ── 4. Vérification du nettoyage + compteurs finaux ─────────────────────────
-  const restants = (await db.from("psp_imports").select("id", { count: "exact", head: true }).ilike("fichier_nom", "%psp-test%")).count ?? 0;
+  const restants =
+    (
+      await db
+        .from("psp_imports")
+        .select("id", { count: "exact", head: true })
+        .ilike("fichier_nom", "%psp-test%")
+    ).count ?? 0;
   check("nettoyage : plus aucun import de test", restants === 0, `restants=${restants}`);
-  const lignesRestantes = (await db.from("psp_import_rows").select("id", { count: "exact", head: true }).in("import_id", ids)).count ?? 0;
-  check("nettoyage : plus aucune ligne de test", lignesRestantes === 0, `restantes=${lignesRestantes}`);
+  const lignesRestantes =
+    (
+      await db
+        .from("psp_import_rows")
+        .select("id", { count: "exact", head: true })
+        .in("import_id", ids)
+    ).count ?? 0;
+  check(
+    "nettoyage : plus aucune ligne de test",
+    lignesRestantes === 0,
+    `restantes=${lignesRestantes}`,
+  );
 
   const comptesApres = {};
   for (const t of tablesPatrimoine) comptesApres[t] = (await compter(t)).count;
   console.log("Compteurs PAT S11 APRÈS nettoyage :", JSON.stringify(comptesApres));
   for (const t of tablesPatrimoine) {
-    check(`PAT S11 inchangée : ${t}`, comptesApres[t] === comptesAvant[t], `${comptesAvant[t]} → ${comptesApres[t]}`);
+    check(
+      `PAT S11 inchangée : ${t}`,
+      comptesApres[t] === comptesAvant[t],
+      `${comptesAvant[t]} → ${comptesApres[t]}`,
+    );
   }
 
   console.log(`\n${passed} passé(s), ${failed} échec(s)`);
@@ -197,4 +266,3 @@ main()
     // fermer (évite l'assertion libuv « UV_HANDLE_CLOSING » sous Windows).
     setTimeout(() => process.exit(process.exitCode ?? 0), 150);
   });
-

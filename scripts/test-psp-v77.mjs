@@ -17,7 +17,10 @@ import {
   creerOperation,
   PSP_ANNEES,
 } from "../src/lib/psp.prep.ts";
-import { construireReferencePatrimoine, enrichirOperationsAvecReference } from "../src/lib/psp.prep.data.ts";
+import {
+  construireReferencePatrimoine,
+  enrichirOperationsAvecReference,
+} from "../src/lib/psp.prep.data.ts";
 import {
   calculEnveloppe,
   libelleAdressePerimetre,
@@ -45,9 +48,26 @@ check("13 colonnes", ENTETES_EXPORT_XLSX.length === 13, String(ENTETES_EXPORT_XL
 check(
   "noms et ordre exacts",
   JSON.stringify(ENTETES_EXPORT_XLSX) ===
-    JSON.stringify(["TR", "Arl/sect", "ADRESSE", "C", "CORPS D'ETAT", "Ch. Op.", "Ligne budgétaire", "NATURE TRAVAUX", "2027", "2028", "2029", "2030", "2031"]),
+    JSON.stringify([
+      "TR",
+      "Arl/sect",
+      "ADRESSE",
+      "C",
+      "CORPS D'ETAT",
+      "Ch. Op.",
+      "Ligne budgétaire",
+      "NATURE TRAVAUX",
+      "2027",
+      "2028",
+      "2029",
+      "2030",
+      "2031",
+    ]),
 );
-check("aucune autre colonne (2026/Total absents)", !ENTETES_EXPORT_XLSX.includes("Total") && !ENTETES_EXPORT_XLSX.includes("2026"));
+check(
+  "aucune autre colonne (2026/Total absents)",
+  !ENTETES_EXPORT_XLSX.includes("Total") && !ENTETES_EXPORT_XLSX.includes("2026"),
+);
 
 // ── 2. DONNÉES EXPORTÉES (brouillon réel) ──────────────────────────────────────
 console.log("\n=== 2. VALEURS EXPORTÉES ===");
@@ -87,7 +107,11 @@ console.log("\n=== 2. VALEURS EXPORTÉES ===");
   const ligne = donnees.lignes[0] ?? [];
   check("TR = 1977", ligne[0] === "1977");
   check("Arl/sect = identifiant personnel CMICHEL (V7.8)", ligne[1] === "CMICHEL");
-  check("ADRESSE = 3 RUE DE PARIS, COUPVRAY - ER.123456", ligne[2] === "3 RUE DE PARIS, COUPVRAY - ER.123456", String(ligne[2]));
+  check(
+    "ADRESSE = 3 RUE DE PARIS, COUPVRAY - ER.123456",
+    ligne[2] === "3 RUE DE PARIS, COUPVRAY - ER.123456",
+    String(ligne[2]),
+  );
   check("C = CP (référentiel)", ligne[3] === "CP");
   check("CORPS D'ETAT = (m) Carrelage", ligne[4] === "(m) Carrelage");
   check("Ch. Op. = HCHEDLY", ligne[5] === "HCHEDLY");
@@ -123,14 +147,17 @@ console.log("\n=== 3. FICHIER XLSX RÉEL ===");
   XLSX.utils.book_append_sheet(classeur, feuille, "Programmation PSP");
   const chemin = "scripts/tmp-v77-export.xlsx";
   XLSX.writeFile(classeur, chemin);
-  check("fichier .xlsx créé", (() => {
-    try {
-      readFileSync(chemin);
-      return true;
-    } catch {
-      return false;
-    }
-  })());
+  check(
+    "fichier .xlsx créé",
+    (() => {
+      try {
+        readFileSync(chemin);
+        return true;
+      } catch {
+        return false;
+      }
+    })(),
+  );
   check("extension .xlsx", chemin.endsWith(".xlsx"));
   const relu = XLSX.readFile(chemin);
   const sheet = relu.Sheets[relu.SheetNames[0]];
@@ -155,42 +182,142 @@ console.log("\n=== 3. FICHIER XLSX RÉEL ===");
 console.log("\n=== 4. SYNCHRONISATION CC ===");
 {
   const tranches = [
-    { code: "1950", libelle: null, localite: "THORIGNY", sous_secteur: "1", secteur: "S11", nb_logements: 30 },
+    {
+      code: "1950",
+      libelle: null,
+      localite: "THORIGNY",
+      sous_secteur: "1",
+      secteur: "S11",
+      nb_logements: 30,
+    },
   ];
-  const lots = [{ id: "a", code_patrimoine: "ER.1", tranche_code: "1950", adresse: "RUE X", ville: "REIMS" }];
+  const lots = [
+    { id: "a", code_patrimoine: "ER.1", tranche_code: "1950", adresse: "RUE X", ville: "REIMS" },
+  ];
   const commandes = [{ tranche_code: "1950", charge_clientele: "CANTONY" }];
-  const referentielA = [{ sous_secteur: "1", charge_clientele: "ALOTHORE", identifiant_personnel: "ALOTHORE", actif: true }];
+  const referentielA = [
+    {
+      sous_secteur: "1",
+      charge_clientele: "ALOTHORE",
+      identifiant_personnel: "ALOTHORE",
+      actif: true,
+    },
+  ];
   const refA = construireReferencePatrimoine(tranches, lots, commandes, referentielA);
-  const op = creerOperation({ tranche: "1950", categorie: "GT", charge_clientele: "", charge_operation: "", corps_etat: "(d) Espaces Ext", adresse: "", ville: "", nature_travaux: "Toiture", annee: 2027, programme: [1000, 0, 0, 0, 0] }, "op-cc");
+  const op = creerOperation(
+    {
+      tranche: "1950",
+      categorie: "GT",
+      charge_clientele: "",
+      charge_operation: "",
+      corps_etat: "(d) Espaces Ext",
+      adresse: "",
+      ville: "",
+      nature_travaux: "Toiture",
+      annee: 2027,
+      programme: [1000, 0, 0, 0, 0],
+    },
+    "op-cc",
+  );
   const enrichiesA = enrichirOperationsAvecReference([op], refA);
   check("CC A affiché (ALOTHORE)", enrichiesA[0]?.charge_clientele === "ALOTHORE");
   // L'utilisateur modifie le référentiel → CC B.
-  const referentielB = [{ sous_secteur: "1", charge_clientele: "CMICHEL", identifiant_personnel: "CMICHEL", actif: true }];
+  const referentielB = [
+    {
+      sous_secteur: "1",
+      charge_clientele: "CMICHEL",
+      identifiant_personnel: "CMICHEL",
+      actif: true,
+    },
+  ];
   const refB = construireReferencePatrimoine(tranches, lots, commandes, referentielB);
   const enrichiesB = enrichirOperationsAvecReference(enrichiesA, refB);
-  check("après modification du référentiel → CC B affiché (CMICHEL)", enrichiesB[0]?.charge_clientele === "CMICHEL", String(enrichiesB[0]?.charge_clientele));
-  check("source sous-secteur respectée (sous_secteur = 1)", refB.tranches.get("1950")?.sous_secteur === "1");
+  check(
+    "après modification du référentiel → CC B affiché (CMICHEL)",
+    enrichiesB[0]?.charge_clientele === "CMICHEL",
+    String(enrichiesB[0]?.charge_clientele),
+  );
+  check(
+    "source sous-secteur respectée (sous_secteur = 1)",
+    refB.tranches.get("1950")?.sous_secteur === "1",
+  );
 }
 // ── 5. GARAGES ──────────────────────────────────────────────────────────────────
 console.log("\n=== 5. GARAGES ===");
 {
-  const garage = { id: "g", code_patrimoine: "ER.9", tranche_code: "1977", adresse: "RUE X", type_lot: "GAR" };
-  const box = { id: "b", code_patrimoine: "ER.8", tranche_code: "1977", adresse: "RUE X", type_lot: "BOX" };
-  const lot = { id: "l", code_patrimoine: "ER.7", tranche_code: "1977", adresse: "RUE X", type_lot: "PAR" };
+  const garage = {
+    id: "g",
+    code_patrimoine: "ER.9",
+    tranche_code: "1977",
+    adresse: "RUE X",
+    type_lot: "GAR",
+  };
+  const box = {
+    id: "b",
+    code_patrimoine: "ER.8",
+    tranche_code: "1977",
+    adresse: "RUE X",
+    type_lot: "BOX",
+  };
+  const lot = {
+    id: "l",
+    code_patrimoine: "ER.7",
+    tranche_code: "1977",
+    adresse: "RUE X",
+    type_lot: "PAR",
+  };
   const tous = [garage, box, lot];
-  check("décoché → garage absent des résultats", sansGarages(tous, false).every((l) => !estLotGarage(l)));
+  check(
+    "décoché → garage absent des résultats",
+    sansGarages(tous, false).every((l) => !estLotGarage(l)),
+  );
   check("décoché → 1 résultat (lot normal)", sansGarages(tous, false).length === 1);
   check("coché → garages présents", sansGarages(tous, true).length === 3);
-  check("décoché après avoir coché → garage retiré", JSON.stringify(sansGarages(sansGarages(tous, true), false)) === JSON.stringify(sansGarages(tous, false)));
-  check("résumé adresse inchangé", resumeSelectionAdresse({ rue: "RUE X", adresses: [], lots: [lot] }) === "ER.7");
+  check(
+    "décoché après avoir coché → garage retiré",
+    JSON.stringify(sansGarages(sansGarages(tous, true), false)) ===
+      JSON.stringify(sansGarages(tous, false)),
+  );
+  check(
+    "résumé adresse inchangé",
+    resumeSelectionAdresse({ rue: "RUE X", adresses: [], lots: [lot] }) === "ER.7",
+  );
 }
 
 // ── 6. BUDGET : MÊME CALCUL QUE LA PRÉPARATION ─────────────────────────────────
 console.log("\n=== 6. BUDGET / ENVELOPPES ===");
 {
   const ops = [
-    creerOperation({ tranche: "1977", categorie: "GT", charge_clientele: "", charge_operation: "", corps_etat: "(d) Espaces Ext", adresse: "", ville: "", nature_travaux: "A", annee: 2027, programme: [420000, 0, 0, 0, 0] }, "b1"),
-    creerOperation({ tranche: "1977", categorie: "GT", charge_clientele: "", charge_operation: "", corps_etat: "(d) Espaces Ext", adresse: "", ville: "", nature_travaux: "B", annee: 2027, programme: [100000, 0, 0, 0, 0] }, "b2"),
+    creerOperation(
+      {
+        tranche: "1977",
+        categorie: "GT",
+        charge_clientele: "",
+        charge_operation: "",
+        corps_etat: "(d) Espaces Ext",
+        adresse: "",
+        ville: "",
+        nature_travaux: "A",
+        annee: 2027,
+        programme: [420000, 0, 0, 0, 0],
+      },
+      "b1",
+    ),
+    creerOperation(
+      {
+        tranche: "1977",
+        categorie: "GT",
+        charge_clientele: "",
+        charge_operation: "",
+        corps_etat: "(d) Espaces Ext",
+        adresse: "",
+        ville: "",
+        nature_travaux: "B",
+        annee: 2027,
+        programme: [100000, 0, 0, 0, 0],
+      },
+      "b2",
+    ),
   ];
   const programmePar = programmeParAnneeCategorie(ops);
   check("programmé GT 2027 = 520000", (programmePar["2027|GT"] ?? 0) === 520000);
@@ -201,7 +328,12 @@ console.log("\n=== 6. BUDGET / ENVELOPPES ===");
   check("dépassement détecté", calc.depassement === true);
   check("% = 104%", Math.round((calc.pourcentage ?? 0) * 100) === 104);
   const calcOk = calculEnveloppe(500000, 400000);
-  check("cas normal : restant 100000, pas de dépassement", calcOk.restant === 100000 && calcOk.depassement === false && Math.round((calcOk.pourcentage ?? 0) * 100) === 80);
+  check(
+    "cas normal : restant 100000, pas de dépassement",
+    calcOk.restant === 100000 &&
+      calcOk.depassement === false &&
+      Math.round((calcOk.pourcentage ?? 0) * 100) === 80,
+  );
   check("enveloppe nulle → % null (à définir)", calculEnveloppe(0, 5000).pourcentage === null);
 }
 
@@ -212,9 +344,32 @@ console.log("\n=== 7. PARAMÈTRES (données) ===");
     { code: "f", libelle: "(f) Ravalement", categorie: "GE", actif: true },
     { code: "m", libelle: "(m) Carrelage", categorie: "CP", actif: true },
   ];
-  check("catégorie GE depuis référentiel", referentiel.find((r) => r.libelle === "(f) Ravalement")?.categorie === "GE");
-  check("catégorie CP depuis référentiel", referentiel.find((r) => r.libelle === "(m) Carrelage")?.categorie === "CP");
-  check("aucun CC copié dans les lignes (source de vérité)", creerOperation({ tranche: "1950", categorie: "GT", charge_clientele: "", charge_operation: "", corps_etat: "(d) Espaces Ext", adresse: "", ville: "", nature_travaux: "X", annee: 2027, programme: [1, 0, 0, 0, 0] }, "t").sous_secteur === null);
+  check(
+    "catégorie GE depuis référentiel",
+    referentiel.find((r) => r.libelle === "(f) Ravalement")?.categorie === "GE",
+  );
+  check(
+    "catégorie CP depuis référentiel",
+    referentiel.find((r) => r.libelle === "(m) Carrelage")?.categorie === "CP",
+  );
+  check(
+    "aucun CC copié dans les lignes (source de vérité)",
+    creerOperation(
+      {
+        tranche: "1950",
+        categorie: "GT",
+        charge_clientele: "",
+        charge_operation: "",
+        corps_etat: "(d) Espaces Ext",
+        adresse: "",
+        ville: "",
+        nature_travaux: "X",
+        annee: 2027,
+        programme: [1, 0, 0, 0, 0],
+      },
+      "t",
+    ).sous_secteur === null,
+  );
 }
 
 console.log(`\nRésultat : ${passed} ok, ${failed} échec(s)`);

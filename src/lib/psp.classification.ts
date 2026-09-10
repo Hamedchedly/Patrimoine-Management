@@ -150,19 +150,199 @@ export const normaliserTexte = (s: string | null | undefined): string =>
 // (règles spéciales) pour éviter les faux positifs (ex. BALCONS).
 
 const REGLES_DOMAINE: Array<[string, string[]]> = [
-  ["couverture", ["COUVERTURE", "TOITURE", "TOIT", "TUIL", "ZINC", "CHENEAU", "GOUTTIERE", "NOUE", "FAITAGE", "ARETIER", "DEMOUSSAGE", "DESCENTE", "VELUX", "LIERE", "ARDOISE"]],
+  [
+    "couverture",
+    [
+      "COUVERTURE",
+      "TOITURE",
+      "TOIT",
+      "TUIL",
+      "ZINC",
+      "CHENEAU",
+      "GOUTTIERE",
+      "NOUE",
+      "FAITAGE",
+      "ARETIER",
+      "DEMOUSSAGE",
+      "DESCENTE",
+      "VELUX",
+      "LIERE",
+      "ARDOISE",
+    ],
+  ],
   ["ascenseur", ["ASCENSEUR", "TREUIL", "VERIN"]],
-  ["chauffage", ["CHAUFFAGE", "CHAUDIERE", "RADIATEUR", "THERMOSTATIQUE", "VANNES", "PRODUCTION ECS", "BRASSAGE", "GAZ", "GRDF", "GAINE", "BALLON SOLAIRE", "BALLON THEROMDYNAMIQUE", "BALLON THERMODYNAMIQUE"]],
-  ["etancheite", ["ETANCHEITE", "TERRASSE", "BALCON", "DALLE SUR PLOT", "RELEVE", "BATARDEAU", "INFILTRATION", "GRAVILLONNE"]],
-  ["facade", ["FACADE", "RAVALEMENT", " ITE", "ISOLATION THERMIQUE PAR L EXTERIEUR", "PONT THERMIQUE"]],
-  ["plomberie", ["PLOMBERIE", "FUITE", "CANALISATION", "COLONNE", "ROBINET", "DISCONNECTEUR", "REDUCTEUR DE PRESSION", "SDB", "WC", "DOUCHE", "EVIER", "ALIM ", "ASSAINISSEMENT", "RELEVAGE", "STATION DE", "POMPE"]],
-  ["menuiserie", ["MENUISERIE", "FENETRE", "PORTE", "VOLET", "PERSIENNE", "CHASSIS", "VITRINE", "RIDEAU", "JOINTS", "OUVRANT", "BLOC PORTE", "PORTILLON", "PORTAIL", "L EQUIPEMENT"]],
-  ["electricite", ["ELECTRI", "LED", "ECLAIRAGE", "PLAFONNIER", "DETECTEUR", "HORLOGE", "COMPTEUR", "REGLETTE", "CABLES", "COURANT FAIBLE", "ANTENNE", "MODEM", "BILAN DE PUISSANCE"]],
-  ["ventilation", ["VMC", "VENTILATION", "RAMONAGE", "DESENFUMAGE", "EXTRACTION", "HYGRO", "CAISSON", "COLONNE SECHE"]],
+  [
+    "chauffage",
+    [
+      "CHAUFFAGE",
+      "CHAUDIERE",
+      "RADIATEUR",
+      "THERMOSTATIQUE",
+      "VANNES",
+      "PRODUCTION ECS",
+      "BRASSAGE",
+      "GAZ",
+      "GRDF",
+      "GAINE",
+      "BALLON SOLAIRE",
+      "BALLON THEROMDYNAMIQUE",
+      "BALLON THERMODYNAMIQUE",
+    ],
+  ],
+  [
+    "etancheite",
+    [
+      "ETANCHEITE",
+      "TERRASSE",
+      "BALCON",
+      "DALLE SUR PLOT",
+      "RELEVE",
+      "BATARDEAU",
+      "INFILTRATION",
+      "GRAVILLONNE",
+    ],
+  ],
+  [
+    "facade",
+    ["FACADE", "RAVALEMENT", " ITE", "ISOLATION THERMIQUE PAR L EXTERIEUR", "PONT THERMIQUE"],
+  ],
+  [
+    "plomberie",
+    [
+      "PLOMBERIE",
+      "FUITE",
+      "CANALISATION",
+      "COLONNE",
+      "ROBINET",
+      "DISCONNECTEUR",
+      "REDUCTEUR DE PRESSION",
+      "SDB",
+      "WC",
+      "DOUCHE",
+      "EVIER",
+      "ALIM ",
+      "ASSAINISSEMENT",
+      "RELEVAGE",
+      "STATION DE",
+      "POMPE",
+    ],
+  ],
+  [
+    "menuiserie",
+    [
+      "MENUISERIE",
+      "FENETRE",
+      "PORTE",
+      "VOLET",
+      "PERSIENNE",
+      "CHASSIS",
+      "VITRINE",
+      "RIDEAU",
+      "JOINTS",
+      "OUVRANT",
+      "BLOC PORTE",
+      "PORTILLON",
+      "PORTAIL",
+      "L EQUIPEMENT",
+    ],
+  ],
+  [
+    "electricite",
+    [
+      "ELECTRI",
+      "LED",
+      "ECLAIRAGE",
+      "PLAFONNIER",
+      "DETECTEUR",
+      "HORLOGE",
+      "COMPTEUR",
+      "REGLETTE",
+      "CABLES",
+      "COURANT FAIBLE",
+      "ANTENNE",
+      "MODEM",
+      "BILAN DE PUISSANCE",
+    ],
+  ],
+  [
+    "ventilation",
+    [
+      "VMC",
+      "VENTILATION",
+      "RAMONAGE",
+      "DESENFUMAGE",
+      "EXTRACTION",
+      "HYGRO",
+      "CAISSON",
+      "COLONNE SECHE",
+    ],
+  ],
   ["ssi", ["SSI", "DETECTION", "ALARME", "BAES", "BAEH"]],
-  ["serrurerie_acces", ["CONTROLE D ACCES", "HEXACT", "INTERPHONIE", "VISIOPHONIE", "PLATINE", "TELESURVEILLANCE", "VIDEOPROTECTION", "INTRATONE", "ANEP", "CAMERA", "LAPI", "PC SERVEUR", "VERROU", "POIGNEE", "GACHE", "PORTE AUTOMATIQUE", "RIDEAU METALLIQUE"]],
-  ["peinture_pc", ["PARTIES COMMUNES", "CAGE D ESCALIER", "CAGE D ESCALIERS", "HALL", "COULOIR", "PEINTURE", "PAPIER", "EMBELLISSEMENT", "FAUX PLAFOND", "TAPIS", "CARRELAGE", "REVETEMENT", "REV SOL", "ESPACES COMMUNS"]],
-  ["vrd_exterieur", ["PARKING", "ENROBE", "ESPACE EXT", "ESPACES EXTERIEURS", "CLOTURE", "AIRE DE JEUX", "ABRI", "JARDIN", "ELAGAGE", "ABATTAGE", "ESPACES VERTS", "RATELIER", "STOP PARK", "SEPARATIF", "DALLE", "LOCAL VELO", "CHEMIN", "MARQUAGE AU SOL", "PLACES DE PARKING"]],
+  [
+    "serrurerie_acces",
+    [
+      "CONTROLE D ACCES",
+      "HEXACT",
+      "INTERPHONIE",
+      "VISIOPHONIE",
+      "PLATINE",
+      "TELESURVEILLANCE",
+      "VIDEOPROTECTION",
+      "INTRATONE",
+      "ANEP",
+      "CAMERA",
+      "LAPI",
+      "PC SERVEUR",
+      "VERROU",
+      "POIGNEE",
+      "GACHE",
+      "PORTE AUTOMATIQUE",
+      "RIDEAU METALLIQUE",
+    ],
+  ],
+  [
+    "peinture_pc",
+    [
+      "PARTIES COMMUNES",
+      "CAGE D ESCALIER",
+      "CAGE D ESCALIERS",
+      "HALL",
+      "COULOIR",
+      "PEINTURE",
+      "PAPIER",
+      "EMBELLISSEMENT",
+      "FAUX PLAFOND",
+      "TAPIS",
+      "CARRELAGE",
+      "REVETEMENT",
+      "REV SOL",
+      "ESPACES COMMUNS",
+    ],
+  ],
+  [
+    "vrd_exterieur",
+    [
+      "PARKING",
+      "ENROBE",
+      "ESPACE EXT",
+      "ESPACES EXTERIEURS",
+      "CLOTURE",
+      "AIRE DE JEUX",
+      "ABRI",
+      "JARDIN",
+      "ELAGAGE",
+      "ABATTAGE",
+      "ESPACES VERTS",
+      "RATELIER",
+      "STOP PARK",
+      "SEPARATIF",
+      "DALLE",
+      "LOCAL VELO",
+      "CHEMIN",
+      "MARQUAGE AU SOL",
+      "PLACES DE PARKING",
+    ],
+  ],
   ["diagnostic", ["DIAGNOSTIC", "DIAG ", "AUDIT", "INVESTIGATION", "FUMIGENE", "CAMERA VIDEO"]],
 ];
 
@@ -176,19 +356,133 @@ const REGLES_DOMAINE_TOKENS: Array<{ domaine: string; regex: RegExp }> = [
 // ── Hiérarchie stricte du type d'intervention ───────────────────────────────
 
 const REGLES_TYPE: Array<[string, string[]]> = [
-  ["diagnostic", ["DIAGNOSTIC", "DIAG ", "RECHERCHE DE FUITE", "INVESTIGATION", "INSPECTION", "AUDIT", "CAMERA VIDEO", "FUMIGENE"]],
-  ["controle", ["ATTESTATION", "CONTROLE DE", "CONTROLE DES", "CONSTAT", "VERIFICATION", "MAJ DPE", "DPE"]],
-  ["prestation_intellectuelle", ["HONORAIRE", "MISSION MOE", "MOE EXE", "MISSION SPS", "SPS ", "MAITRISE", "ASSISTANCE", "ETUDE", "PRESTATION COMPLEMENTAIRE", "VISUEL", "PRECONISATION", "MODIFICATIONS PRECONISATIONS"]],
-  ["mise_en_conformite", ["MISE AUX NORMES", "MISE AUX NOMRES", "MISE EN CONFORMITE", "CONFORMITE"]],
-  ["mise_en_securite", ["MISE EN SECURITE", "SECURISATION", "AMELIORATION SECURITE", "CONDAMNATION", "MESURE CONSERVATOIRE"]],
+  [
+    "diagnostic",
+    [
+      "DIAGNOSTIC",
+      "DIAG ",
+      "RECHERCHE DE FUITE",
+      "INVESTIGATION",
+      "INSPECTION",
+      "AUDIT",
+      "CAMERA VIDEO",
+      "FUMIGENE",
+    ],
+  ],
+  [
+    "controle",
+    ["ATTESTATION", "CONTROLE DE", "CONTROLE DES", "CONSTAT", "VERIFICATION", "MAJ DPE", "DPE"],
+  ],
+  [
+    "prestation_intellectuelle",
+    [
+      "HONORAIRE",
+      "MISSION MOE",
+      "MOE EXE",
+      "MISSION SPS",
+      "SPS ",
+      "MAITRISE",
+      "ASSISTANCE",
+      "ETUDE",
+      "PRESTATION COMPLEMENTAIRE",
+      "VISUEL",
+      "PRECONISATION",
+      "MODIFICATIONS PRECONISATIONS",
+    ],
+  ],
+  [
+    "mise_en_conformite",
+    ["MISE AUX NORMES", "MISE AUX NOMRES", "MISE EN CONFORMITE", "CONFORMITE"],
+  ],
+  [
+    "mise_en_securite",
+    [
+      "MISE EN SECURITE",
+      "SECURISATION",
+      "AMELIORATION SECURITE",
+      "CONDAMNATION",
+      "MESURE CONSERVATOIRE",
+    ],
+  ],
   ["urgence", ["URGENT", "URGENCE"]],
-  ["sinistre", ["SUITE FUITE", "SUITE DEGAT", "DEGAT DES EAUX", "SUITE DDE", "MOISSISURE", "INFILTRATION", "TERRASSE HS", "CONSERVATOIRE", "SINISTRE", "SUITE INFILTRATION"]],
+  [
+    "sinistre",
+    [
+      "SUITE FUITE",
+      "SUITE DEGAT",
+      "DEGAT DES EAUX",
+      "SUITE DDE",
+      "MOISSISURE",
+      "INFILTRATION",
+      "TERRASSE HS",
+      "CONSERVATOIRE",
+      "SINISTRE",
+      "SUITE INFILTRATION",
+    ],
+  ],
   ["rehabilitation", ["REHABILIT", "RESTRUCTURATION", "RENOVATION", "DEMOLITION", "GROS OEUVRE"]],
   ["remplacement", ["REMPLACEMENT", "REMPLACEMENTS", "REMPLACER", "CHANGEMENT"]],
-  ["reparation", ["REPARATION", "REPARER", "REPRISE", "REMANIEMENT", "REMISE EN ETAT", "REVISION", "COLMATAGE", "CONSOLIDATION", "RESTAURATION"]],
+  [
+    "reparation",
+    [
+      "REPARATION",
+      "REPARER",
+      "REPRISE",
+      "REMANIEMENT",
+      "REMISE EN ETAT",
+      "REVISION",
+      "COLMATAGE",
+      "CONSOLIDATION",
+      "RESTAURATION",
+    ],
+  ],
   ["entretien", ["ENTRETIEN", "MAINTENANCE", "NETTOYAGE", "RAMONAGE", "DEMOUSSAGE", "DEGIVRAGE"]],
-  ["amelioration", ["AMELIORATION", "OPTIMIS", "ISOLATION", "THERMOSTATIQUE", "ECONOMIE D ENERGIE", "HYGRO", "THERMODYNAMIQUE", "LED", "PERFORMANCE", "TELEGESTION", "BILAN DE PUISSANCE"]],
-  ["amenagement", ["CREATION", "MISE EN PLACE", "POSE DE", "INSTALLATION", "AMENAGEMENT", "EMBELLISSEMENT", "NUMEROTATION", "MARQUAGE", "PEINTURE DE SOL", "FAUX PLAFOND", "PLAFONNIER", "CLOTURE", "PORTAIL", "RATELIER", "AIRE DE JEUX", "ABRI", "PEINTURE", "DECALAGE", "STOP PARK", "HABILLAGE", "FOURNITURE", "ADAPT", "ADAPTATION", "ACCESSIBIL", "BARRE D APPUI"]],
+  [
+    "amelioration",
+    [
+      "AMELIORATION",
+      "OPTIMIS",
+      "ISOLATION",
+      "THERMOSTATIQUE",
+      "ECONOMIE D ENERGIE",
+      "HYGRO",
+      "THERMODYNAMIQUE",
+      "LED",
+      "PERFORMANCE",
+      "TELEGESTION",
+      "BILAN DE PUISSANCE",
+    ],
+  ],
+  [
+    "amenagement",
+    [
+      "CREATION",
+      "MISE EN PLACE",
+      "POSE DE",
+      "INSTALLATION",
+      "AMENAGEMENT",
+      "EMBELLISSEMENT",
+      "NUMEROTATION",
+      "MARQUAGE",
+      "PEINTURE DE SOL",
+      "FAUX PLAFOND",
+      "PLAFONNIER",
+      "CLOTURE",
+      "PORTAIL",
+      "RATELIER",
+      "AIRE DE JEUX",
+      "ABRI",
+      "PEINTURE",
+      "DECALAGE",
+      "STOP PARK",
+      "HABILLAGE",
+      "FOURNITURE",
+      "ADAPT",
+      "ADAPTATION",
+      "ACCESSIBIL",
+      "BARRE D APPUI",
+    ],
+  ],
 ];
 
 /** Libellés génériques : validation obligatoire, type non inventé. */
@@ -206,8 +500,7 @@ const GENERIQUES = new Set([
 ]);
 
 /** Projet global RELAIS DE CHELLES (détection par libellé). */
-const REGEX_RELAIS_CHELLES =
-  /RELAIS DE CHELLES|FOYER RELAIS|169 LOGEMENTS|BROU SUR CHANTEREINE/;
+const REGEX_RELAIS_CHELLES = /RELAIS DE CHELLES|FOYER RELAIS|169 LOGEMENTS|BROU SUR CHANTEREINE/;
 
 /** Correspondance lot → domaine technique (Relais de Chelles). */
 const LOT_DOMAINE: Record<string, string> = {
@@ -251,7 +544,10 @@ function domainesDe(texte: string): string[] {
   return [...new Set(dom)];
 }
 
-function elementPatrimonial(patrimoine: string | null | undefined, libelle: string): PspElementPatrimonial {
+function elementPatrimonial(
+  patrimoine: string | null | undefined,
+  libelle: string,
+): PspElementPatrimonial {
   const p = (patrimoine ?? "").toUpperCase();
   if (/^ER\.T/.test(p)) return "tranche";
   if (/^ER\.B/.test(p)) return "batiment";
@@ -306,11 +602,18 @@ export function classifierCommande(input: PspClassificationInput): PspClassifica
   // ── Nature exceptionnelle ──
   let nature: PspNatureExceptionnelle = "aucune";
   if (relais) nature = "commande_exceptionnelle";
-  else if (/SUITE FUITE|SUITE DEGAT|DEGAT DES EAUX|SUITE DDE|MOISSISURE|INFILTRATION|TERRASSE HS|CONSERVATOIRE|SINISTRE/.test(texte)) nature = "sinistre";
+  else if (
+    /SUITE FUITE|SUITE DEGAT|DEGAT DES EAUX|SUITE DDE|MOISSISURE|INFILTRATION|TERRASSE HS|CONSERVATOIRE|SINISTRE/.test(
+      texte,
+    )
+  )
+    nature = "sinistre";
   else if (/URGENT|URGENCE/.test(texte)) nature = "urgence";
   else if (/SIGNALEMENT/.test(texte)) nature = "signalement";
-  else if (/RACHAT|EX LOGE|ACQUISITION|ANCIEN/.test(texte)) nature = "acquisition_patrimoine_ancien";
-  else if (/REMPLACEMENT COMPLET ASCENSEUR/.test(L) || /REHABILIT|RESTRUCTURATION/.test(L)) nature = "commande_exceptionnelle";
+  else if (/RACHAT|EX LOGE|ACQUISITION|ANCIEN/.test(texte))
+    nature = "acquisition_patrimoine_ancien";
+  else if (/REMPLACEMENT COMPLET ASCENSEUR/.test(L) || /REHABILIT|RESTRUCTURATION/.test(L))
+    nature = "commande_exceptionnelle";
   else if (montant !== null && montant >= 200000) nature = "commande_exceptionnelle";
 
   // ── Relais de Chelles : traitement particulier (lots) ──
@@ -326,9 +629,16 @@ export function classifierCommande(input: PspClassificationInput): PspClassifica
     for (const [lot, d] of Object.entries(LOT_DOMAINE)) if (L.includes(lot)) dom.push(d);
     if (dom.length === 0) dom = domaines;
     const uniques = [...new Set(dom)];
-    if (uniques.length > 1) { domaineFinal = "multi_domaine"; conf = 0.5; }
-    else if (uniques.length === 1) { domaineFinal = uniques[0] as PspDomaineTechnique; conf = 0.75; }
-    else { domaineFinal = "indetermine"; conf = 0.3; }
+    if (uniques.length > 1) {
+      domaineFinal = "multi_domaine";
+      conf = 0.5;
+    } else if (uniques.length === 1) {
+      domaineFinal = uniques[0] as PspDomaineTechnique;
+      conf = 0.75;
+    } else {
+      domaineFinal = "indetermine";
+      conf = 0.3;
+    }
     regle = "relais_chelles";
   } else {
     // domaine unique / multi / indéterminé
@@ -346,12 +656,15 @@ export function classifierCommande(input: PspClassificationInput): PspClassifica
     // confiance (échelle discrète)
     if (generique && typeFinal === "indetermine") conf = 0.3;
     else if (!type || domaineFinal === "indetermine") conf = 0.3;
-    else if (generique) conf = 0.5; // ex. EMBELLISSEMENT (aménagement) mais à valider
+    else if (generique)
+      conf = 0.5; // ex. EMBELLISSEMENT (aménagement) mais à valider
     else if (domaineFinal === "multi_domaine") conf = 0.5;
     else if (corrTreuil || corrDad || corrBal || corrAdaptPmr || corrRevSolPc) conf = 0.5;
     else if (corrChaudiereVmcGaz || corrDiagToiture) conf = 0.5;
-    else if (!typeWNature || domWNature.length === 0) conf = 0.75; // secours descriptif
-    else if (nature !== "aucune") conf = 0.75; // exception, sinon fiable
+    else if (!typeWNature || domWNature.length === 0)
+      conf = 0.75; // secours descriptif
+    else if (nature !== "aucune")
+      conf = 0.75; // exception, sinon fiable
     else conf = 0.9;
   }
 
@@ -359,11 +672,13 @@ export function classifierCommande(input: PspClassificationInput): PspClassifica
   const elt = elementPatrimonial(input.patrimoine, L);
 
   // ── Famille ──
-  const famille: PspFamillePsp =
-    relais ? FAMILLE[domaineFinal] ?? "autre"
-    : domaineFinal === "multi_domaine" ? "indetermine"
-    : domaineFinal === "indetermine" ? "indetermine"
-    : FAMILLE[domaineFinal] ?? "autre";
+  const famille: PspFamillePsp = relais
+    ? (FAMILLE[domaineFinal] ?? "autre")
+    : domaineFinal === "multi_domaine"
+      ? "indetermine"
+      : domaineFinal === "indetermine"
+        ? "indetermine"
+        : (FAMILLE[domaineFinal] ?? "autre");
 
   // ── Besoin de validation humaine ──
   const raisons: string[] = [];
@@ -372,21 +687,37 @@ export function classifierCommande(input: PspClassificationInput): PspClassifica
   if (generique) raisons.push("libelle_generique");
   if (nature !== "aucune") raisons.push("exception");
   if (relais) raisons.push("projet_global");
-  if (corrTreuil || corrDad || corrBal || corrAdaptPmr || corrRevSolPc || corrChaudiereVmcGaz || corrDiagToiture || corrVitrines) raisons.push("cas_particulier");
+  if (
+    corrTreuil ||
+    corrDad ||
+    corrBal ||
+    corrAdaptPmr ||
+    corrRevSolPc ||
+    corrChaudiereVmcGaz ||
+    corrDiagToiture ||
+    corrVitrines
+  )
+    raisons.push("cas_particulier");
   if (corrAmiante) raisons.push("diagnostic_lie");
   if (typeFinal === "indetermine" || domaineFinal === "indetermine") raisons.push("indetermine");
   const besoin = raisons.length > 0;
 
   // ── Règle appliquée (id court, pour regroupement) ──
-  const regleApp = regle + (relais ? "" : (typeFinal !== "indetermine" ? "+type:" + typeFinal : ""));
+  const regleApp = regle + (relais ? "" : typeFinal !== "indetermine" ? "+type:" + typeFinal : "");
 
   // ── Justification ──
   const just = [
     `WNATURE «${input.wnature}»`,
     typeFinal !== "indetermine" ? `type ${typeFinal}` : "type indéterminé",
-    domaineFinal === "indetermine" ? "domaine indéterminé" : domaineFinal === "multi_domaine" ? `multi-domaines (${domaines.join(", ")})` : `domaine ${domaineFinal}`,
+    domaineFinal === "indetermine"
+      ? "domaine indéterminé"
+      : domaineFinal === "multi_domaine"
+        ? `multi-domaines (${domaines.join(", ")})`
+        : `domaine ${domaineFinal}`,
     raisons.length ? "→ validation: " + raisons.join(", ") : "",
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return {
     comn: input.comn,

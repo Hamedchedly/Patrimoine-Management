@@ -16,21 +16,36 @@ function check(name, cond, detail = "") {
 
 // normaliserVille
 check("normalise : CHESSY → chessy", normaliserVille("CHESSY") === "chessy");
-check("normalise : accents (Sucy-en-Brie) → sucyenbrie", normaliserVille("Sucy-en-Brie") === "sucyenbrie");
-check("normalise : apostrophe/point (Villeneuve-Saint-Denis)", normaliserVille("Villeneuve-Saint-Denis") === "villeneuvesaintdenis");
+check(
+  "normalise : accents (Sucy-en-Brie) → sucyenbrie",
+  normaliserVille("Sucy-en-Brie") === "sucyenbrie",
+);
+check(
+  "normalise : apostrophe/point (Villeneuve-Saint-Denis)",
+  normaliserVille("Villeneuve-Saint-Denis") === "villeneuvesaintdenis",
+);
 check("normalise : vide → vide", normaliserVille("") === "" && normaliserVille(null) === "");
 
 // villeCorrespond — cas réels Photon (sonde)
 check("CHESSY ~ Chessy (Place des Cornilles)", villeCorrespond("CHESSY", "Chessy") === true);
-check("CHESSY ~ Chessy-en-France (sous-commune)", villeCorrespond("CHESSY", "Chessy-en-France") === true);
+check(
+  "CHESSY ~ Chessy-en-France (sous-commune)",
+  villeCorrespond("CHESSY", "Chessy-en-France") === true,
+);
 check("SERRIS ~ Serris", villeCorrespond("SERRIS", "Serris") === true);
 check("SUCY-EN-BRIE ~ Sucy-en-Brie", villeCorrespond("SUCY-EN-BRIE", "Sucy-en-Brie") === true);
 check("VILLEPINTE ~ Villepinte", villeCorrespond("VILLEPINTE", "Villepinte") === true);
 check("COUPVRAY ~ Coupvray", villeCorrespond("COUPVRAY", "Coupvray") === true);
 
 // Rejets : homonymes d'autres régions (les vrais cas erronés)
-check("CHESSY ≠ Charny Orée de Puisaye (Yonne)", villeCorrespond("CHESSY", "Charny Orée de Puisaye") === false);
-check("CHESSY ≠ Villiers-au-Bouin (Centre)", villeCorrespond("CHESSY", "Villiers-au-Bouin") === false);
+check(
+  "CHESSY ≠ Charny Orée de Puisaye (Yonne)",
+  villeCorrespond("CHESSY", "Charny Orée de Puisaye") === false,
+);
+check(
+  "CHESSY ≠ Villiers-au-Bouin (Centre)",
+  villeCorrespond("CHESSY", "Villiers-au-Bouin") === false,
+);
 check("CHESSY ≠ Les Vans (Ardèche)", villeCorrespond("CHESSY", "Les Vans") === false);
 check("VILLEPINTE ≠ Villepinte (Aude)", villeCorrespond("VILLEPINTE", "Villepinte") === true); // homonyme accepté (même nom)
 

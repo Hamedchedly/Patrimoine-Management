@@ -28,7 +28,11 @@ const erDans = (texte) => {
 };
 
 /** Clé normalisée d'un code ER (« ER.39351 » → « ER.39351 », insensible casse/ponctuation). */
-const cleEr = (v) => clean(v).replace(/^er[.\s-]*/i, "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+const cleEr = (v) =>
+  clean(v)
+    .replace(/^er[.\s-]*/i, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toUpperCase();
 
 const CHUNK = 1000;
 
@@ -94,7 +98,8 @@ function erHistorique(r) {
       if (typeof v === "string") refs.push(...erDans(v));
     }
     const arr = typeof dn === "object" ? dn["er_references"] : null;
-    if (Array.isArray(arr)) for (const e of arr) refs.push(...erDans(typeof e === "string" ? e : e?.reference));
+    if (Array.isArray(arr))
+      for (const e of arr) refs.push(...erDans(typeof e === "string" ? e : e?.reference));
   }
   return [...new Set(refs)];
 }
@@ -133,7 +138,8 @@ for (const c of sansLot) {
 
   const codes = [...new Set(lotsRetenus.map((l) => l.code_patrimoine))];
   let statut;
-  if (lotsRetenus.length === 0) statut = erDans([...histRefs, ...suiviRefs].join(" ")).length ? "hors" : "aucun";
+  if (lotsRetenus.length === 0)
+    statut = erDans([...histRefs, ...suiviRefs].join(" ")).length ? "hors" : "aucun";
   else if (codes.length === 1) statut = "mono";
   else statut = "multi";
 
@@ -167,7 +173,9 @@ console.log(`  dont lot_code rempli    : ${commandes.length - sansLot.length}`);
 console.log(`Lots (référentiel)        : ${lots.length}`);
 console.log(`psp_import_rows           : ${psps.length}`);
 console.log(`\nRépartition des ${sansLot.length} commandes sans lot_code :`);
-console.log(`  MONO  (rattachable 1 lot) : ${stats.mono}   (via historique: ${stats.monoHistorique} · via suivi: ${stats.monoSuivi})`);
+console.log(
+  `  MONO  (rattachable 1 lot) : ${stats.mono}   (via historique: ${stats.monoHistorique} · via suivi: ${stats.monoSuivi})`,
+);
 console.log(`  MULTI (N lots distincts)  : ${stats.multi}`);
 console.log(`  HORS  (ER non dans lots)  : ${stats.hors}`);
 console.log(`  AUCUN (pas d'ER)          : ${stats.aucun}`);
@@ -197,7 +205,9 @@ if (cible) {
     );
   }
   const lot = lotsParCle.get(cleEr("ER.39351"));
-  console.log(`lot ER.39351 dans lots : ${lot ? `OUI (TR ${lot.tranche_code}, ${lot.adresse}, ${lot.ville}, type ${lot.type_lot}, actif=${lot.actif})` : "NON"}`);
+  console.log(
+    `lot ER.39351 dans lots : ${lot ? `OUI (TR ${lot.tranche_code}, ${lot.adresse}, ${lot.ville}, type ${lot.type_lot}, actif=${lot.actif})` : "NON"}`,
+  );
 } else {
   console.log("Commande 5037762 introuvable.");
 }

@@ -74,7 +74,10 @@ const autreAnnee = { numero_commande: "1", secteur: "ER", engage: 1000, annee_ex
 assert("T2  identique = inchangée", travauxIdentiques(base, identique));
 assert("T4  montant différent = conflit", !travauxIdentiques(base, autreMontant));
 assert("T4  année différente = conflit", !travauxIdentiques(base, autreAnnee));
-assert("    null vs absent = identiques", travauxIdentiques({ ...base, adresse: null }, { ...base }));
+assert(
+  "    null vs absent = identiques",
+  travauxIdentiques({ ...base, adresse: null }, { ...base }),
+);
 assert("    clé incomplète = différente", !travauxIdentiques({ ...base, fournisseur: "X" }, base));
 assert(
   "    snapshot comparable couvre tous les champs métier",
@@ -82,10 +85,22 @@ assert(
 );
 
 // ---- Domaine du slider ----
-assert("T9  slider : 1 seule année → domaine utilisable", JSON.stringify(sliderYearDomain([2026])) === JSON.stringify([2025, 2027]));
-assert("T9  slider : 4 années → domaine élargi", JSON.stringify(sliderYearDomain([2023, 2024, 2025, 2026])) === JSON.stringify([2022, 2027]));
-assert("T9  slider : sans données → repli", JSON.stringify(sliderYearDomain([])) === JSON.stringify([2020, 2025]));
-assert("T9  slider : borne basse plafonnée", JSON.stringify(sliderYearDomain([2020])) === JSON.stringify([2020, 2021]));
+assert(
+  "T9  slider : 1 seule année → domaine utilisable",
+  JSON.stringify(sliderYearDomain([2026])) === JSON.stringify([2025, 2027]),
+);
+assert(
+  "T9  slider : 4 années → domaine élargi",
+  JSON.stringify(sliderYearDomain([2023, 2024, 2025, 2026])) === JSON.stringify([2022, 2027]),
+);
+assert(
+  "T9  slider : sans données → repli",
+  JSON.stringify(sliderYearDomain([])) === JSON.stringify([2020, 2025]),
+);
+assert(
+  "T9  slider : borne basse plafonnée",
+  JSON.stringify(sliderYearDomain([2020])) === JSON.stringify([2020, 2021]),
+);
 
 // ---- Archivage par année (Test 3, 5, 7) ----
 const actives = [
@@ -103,7 +118,8 @@ assert(
 );
 assert(
   "T3  import 2024 archive la 2024 absente",
-  JSON.stringify(commandesAAArchiver(actives, 2024, new Set()).map((m) => m.id)) === JSON.stringify(["a2"]),
+  JSON.stringify(commandesAAArchiver(actives, 2024, new Set()).map((m) => m.id)) ===
+    JSON.stringify(["a2"]),
 );
 assert(
   "T3  import 2024 ne touche pas une 2024 vue",
@@ -111,11 +127,13 @@ assert(
 );
 assert(
   "T3  import 2023 archive la 2023 absente",
-  JSON.stringify(commandesAAArchiver(actives, 2023, new Set()).map((m) => m.id)) === JSON.stringify(["a1"]),
+  JSON.stringify(commandesAAArchiver(actives, 2023, new Set()).map((m) => m.id)) ===
+    JSON.stringify(["a1"]),
 );
 assert(
   "T7  import 2025 ne touche pas 2023/2024",
-  JSON.stringify(commandesAAArchiver(actives, 2025, new Set()).map((m) => m.id)) === JSON.stringify(["a3"]),
+  JSON.stringify(commandesAAArchiver(actives, 2025, new Set()).map((m) => m.id)) ===
+    JSON.stringify(["a3"]),
 );
 assert(
   "T   import sans année → aucun archivage",

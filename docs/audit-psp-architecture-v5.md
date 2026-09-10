@@ -20,29 +20,29 @@
 - PostgREST 14.15 (projet `zpkfwsczrtadrhcounof`), schéma `public` uniquement.
 - Sondage live (service role, `SELECT` head + 1 ligne) — **tables présentes et volumes** :
 
-| Table | Lignes | Rôle |
-|---|---|---|
-| `tranches` | 120 | Patrimoine : TR (code PK), localité, sous-secteur, secteur S11, nb logements |
-| `lots` | 6 527 | Logements/garages : code_patrimoine PK, tranche FK, adresse/ville de référence |
-| `occupants` | 9 128 | Locataires (lot FK) |
-| `travaux` | 0 | Légataire (vide) |
-| `travaux_commandes` | 187 | **Suivi annuel constaté** (numéro_commande UNIQUE, tranche FK, LB, C=nature_analytique…) |
-| `travaux_commandes_historique` | 330 | **Mémoire des modifications / conflits** (avant/apres jsonb, operation, resolu) |
-| `travaux_import_details` | 388 | Détails immuables des imports (type creee/conflit/inchangee/archivee/…/report) |
-| `import_travaux` | 10 | Journal des imports suivi annuel (compteurs, conflits, reports, annee_exercice) |
-| `imports` | 3 | Journal des imports ISIS (tranches/lots) |
-| `adresses_geo` | 437 | Cache géocodage /adresses |
-| `villes_geo` | 30 | Référentiel villes dashboard |
-| `fournisseurs` / `_contacts` / `_aliases` / `_activites` / `fournisseur_favoris` | 32 / 0 / 32 / 0 / 0 | Référentiel fournisseurs (alias multi-sources), activités, favoris |
-| `psp_imports` | 1 | Journal import « Historique CMD » (exercice, compteurs, statut) |
-| `psp_import_rows` | 407 | **Lignes Historique CMD** (COMN_NUM, donnees_brutes, montants, ER) |
-| `psp_command_analysis` | 0 | Analyses/classifications par ligne (vide) |
-| `psp_patrimoine_context` | 0 | Contexte patrimonial PSP (vide) |
-| `psp_decisions` | 0 | **Couche de décisions humaines** (nature, corps_etat, perimetre_psp, rapprochement) |
-| `psp_feedback` | 3 | Corrections/feedback utilisateur |
-| `psp_rules` | 0 | Règles générales actives (vide) |
-| `psp_programmations` | — | **ABSENTE de la base** (artefact de probe V5 — voir correction ci-dessus) |
-| `v_travaux_commandes_enrichies` | 187 | **Vue de rapprochement** commandes ↔ Historique CMD ↔ analyses |
+| Table                                                                            | Lignes              | Rôle                                                                                     |
+| -------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------- |
+| `tranches`                                                                       | 120                 | Patrimoine : TR (code PK), localité, sous-secteur, secteur S11, nb logements             |
+| `lots`                                                                           | 6 527               | Logements/garages : code_patrimoine PK, tranche FK, adresse/ville de référence           |
+| `occupants`                                                                      | 9 128               | Locataires (lot FK)                                                                      |
+| `travaux`                                                                        | 0                   | Légataire (vide)                                                                         |
+| `travaux_commandes`                                                              | 187                 | **Suivi annuel constaté** (numéro_commande UNIQUE, tranche FK, LB, C=nature_analytique…) |
+| `travaux_commandes_historique`                                                   | 330                 | **Mémoire des modifications / conflits** (avant/apres jsonb, operation, resolu)          |
+| `travaux_import_details`                                                         | 388                 | Détails immuables des imports (type creee/conflit/inchangee/archivee/…/report)           |
+| `import_travaux`                                                                 | 10                  | Journal des imports suivi annuel (compteurs, conflits, reports, annee_exercice)          |
+| `imports`                                                                        | 3                   | Journal des imports ISIS (tranches/lots)                                                 |
+| `adresses_geo`                                                                   | 437                 | Cache géocodage /adresses                                                                |
+| `villes_geo`                                                                     | 30                  | Référentiel villes dashboard                                                             |
+| `fournisseurs` / `_contacts` / `_aliases` / `_activites` / `fournisseur_favoris` | 32 / 0 / 32 / 0 / 0 | Référentiel fournisseurs (alias multi-sources), activités, favoris                       |
+| `psp_imports`                                                                    | 1                   | Journal import « Historique CMD » (exercice, compteurs, statut)                          |
+| `psp_import_rows`                                                                | 407                 | **Lignes Historique CMD** (COMN_NUM, donnees_brutes, montants, ER)                       |
+| `psp_command_analysis`                                                           | 0                   | Analyses/classifications par ligne (vide)                                                |
+| `psp_patrimoine_context`                                                         | 0                   | Contexte patrimonial PSP (vide)                                                          |
+| `psp_decisions`                                                                  | 0                   | **Couche de décisions humaines** (nature, corps_etat, perimetre_psp, rapprochement)      |
+| `psp_feedback`                                                                   | 3                   | Corrections/feedback utilisateur                                                         |
+| `psp_rules`                                                                      | 0                   | Règles générales actives (vide)                                                          |
+| `psp_programmations`                                                             | —                   | **ABSENTE de la base** (artefact de probe V5 — voir correction ci-dessus)                |
+| `v_travaux_commandes_enrichies`                                                  | 187                 | **Vue de rapprochement** commandes ↔ Historique CMD ↔ analyses                           |
 
 - **RLS** (documentées dans les migrations) : `import_travaux`, `travaux_commandes`, `travaux_commandes_historique` = SELECT authenticated ; `travaux_import_details` = **service_role uniquement** ; référentiel fournisseurs = SELECT authenticated, écritures service_role ; `fournisseur_favoris` = propriétaire. Les tables `tranches/lots/occupants/imports/adresses_geo/villes_geo` et **toutes les `psp_*`** n'ont **pas** de politique documentée dans les migrations.
 
@@ -50,50 +50,49 @@
 
 ## 2. Tables existantes pertinentes pour PSP
 
-| Table | Rôle / PK / FK | Colonnes pertinentes | Usage code | Réutilisation PSP |
-|---|---|---|---|---|
-| `tranches` | Référentiel TR ; PK `code` | `code, localite, sous_secteur, secteur, nb_logements` | `isis.functions`, dashboard, référence `psp.prep.data` | **Oui** — source identité TR |
-| `lots` | Patrimoine physique ; PK `code_patrimoine`, FK `tranche_code` | `adresse, ville, tranche_code` | `/adresses`, référence PSP | **Oui** — adresse/ville de référence |
-| `travaux_commandes` | Suivi annuel constaté ; PK `id`, **UNIQUE `numero_commande`**, FK `tranche_code`, `lot_code`, `vu_dans_import_id` | `ligne_budget, nature_analytique (C), charge_clientele, corps_etat, budget, engage, paye, solde, etat_commande, etat_travaux, annee_exercice, actif` | Moteur d'import, dashboard, `v_travaux_commandes_enrichies` | **Oui** — constatation du suivi (jamais modifiée par PSP) |
-| `travaux_commandes_historique` | Mémoire des modifications ; PK `id`, FK `commande_id`, `import_id` ; `operation` check (…, conflit, resolution, report), `resolu` | `avant/apres jsonb, operation, resolu` | `importTravauxBatch`, `resolveHistoriqueTravaux`, alertes | **Oui** — pattern d'historique/confirmation **réutilisable** pour les lignes PSP |
-| `travaux_import_details` | Détails immuables d'import ; FK `import_id` (cascade), `commande_id` (set null) | `type, message, details jsonb` | Rapports d'import | Oui (lecture) — états produits par le moteur |
-| `import_travaux` | Journal import suivi ; PK `id` | `annee_exercice, conflits, reports, creees…` | Dashboard, import | **Oui** — contexte d'un constat |
-| `v_travaux_commandes_enrichies` | **Vue de rapprochement** commandes ↔ psp_import_rows ↔ psp_command_analysis | `commande_id, ligne_budget, nature_analytique, psp_*, lien_*, analyse_*, categorie_budget` | Dashboard, fiche fournisseur | **Oui** — source unique de rapprochement commande/ligne |
-| `psp_import_rows` | Historique CMD brut ; FK `import_id` | `numero_commande_interne (COMN_NUM), numero_commande, donnees_brutes, montants, ER` | Import CMD, validation, fournisseurs | Oui (source de rapprochement) |
-| `psp_decisions` | Décisions humaines réutilisées ; PK `id` | `cle_metier, type_decision (nature/corps_etat/perimetre_psp/rapprochement), decision_utilisateur, statut (valide/proposition/rejete), motif` | `getPspDecision/savePspDecision` | **Oui** — couche de décision pour « conflit de catégorie » et rapprochement |
-| `psp_feedback` | Feedback utilisateur | `cible_type, cible_id, decision_utilisateur, correction, motif` | `savePspFeedback`, validation | Oui — trace décision |
-| `psp_rules` | Règles générales (vides) | — | `getPspDecision` (repli règle) | À valider |
-| `fournisseurs`/`fournisseur_aliases` | Référentiel (alias multi-sources) | `nom`, alias `source IN (travaux_commandes, psp_import_rows)` | Module fournisseurs | Oui — enrichissement devis/fournisseur |
-| `psp_programmations` | **ABSENTE de la base** (artefact de probe V5, corrigé) | n/a (à créer) | aucun | **À créer** : racine des versions PSP |
-
+| Table                                | Rôle / PK / FK                                                                                                                    | Colonnes pertinentes                                                                                                                                 | Usage code                                                  | Réutilisation PSP                                                                |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `tranches`                           | Référentiel TR ; PK `code`                                                                                                        | `code, localite, sous_secteur, secteur, nb_logements`                                                                                                | `isis.functions`, dashboard, référence `psp.prep.data`      | **Oui** — source identité TR                                                     |
+| `lots`                               | Patrimoine physique ; PK `code_patrimoine`, FK `tranche_code`                                                                     | `adresse, ville, tranche_code`                                                                                                                       | `/adresses`, référence PSP                                  | **Oui** — adresse/ville de référence                                             |
+| `travaux_commandes`                  | Suivi annuel constaté ; PK `id`, **UNIQUE `numero_commande`**, FK `tranche_code`, `lot_code`, `vu_dans_import_id`                 | `ligne_budget, nature_analytique (C), charge_clientele, corps_etat, budget, engage, paye, solde, etat_commande, etat_travaux, annee_exercice, actif` | Moteur d'import, dashboard, `v_travaux_commandes_enrichies` | **Oui** — constatation du suivi (jamais modifiée par PSP)                        |
+| `travaux_commandes_historique`       | Mémoire des modifications ; PK `id`, FK `commande_id`, `import_id` ; `operation` check (…, conflit, resolution, report), `resolu` | `avant/apres jsonb, operation, resolu`                                                                                                               | `importTravauxBatch`, `resolveHistoriqueTravaux`, alertes   | **Oui** — pattern d'historique/confirmation **réutilisable** pour les lignes PSP |
+| `travaux_import_details`             | Détails immuables d'import ; FK `import_id` (cascade), `commande_id` (set null)                                                   | `type, message, details jsonb`                                                                                                                       | Rapports d'import                                           | Oui (lecture) — états produits par le moteur                                     |
+| `import_travaux`                     | Journal import suivi ; PK `id`                                                                                                    | `annee_exercice, conflits, reports, creees…`                                                                                                         | Dashboard, import                                           | **Oui** — contexte d'un constat                                                  |
+| `v_travaux_commandes_enrichies`      | **Vue de rapprochement** commandes ↔ psp_import_rows ↔ psp_command_analysis                                                       | `commande_id, ligne_budget, nature_analytique, psp_*, lien_*, analyse_*, categorie_budget`                                                           | Dashboard, fiche fournisseur                                | **Oui** — source unique de rapprochement commande/ligne                          |
+| `psp_import_rows`                    | Historique CMD brut ; FK `import_id`                                                                                              | `numero_commande_interne (COMN_NUM), numero_commande, donnees_brutes, montants, ER`                                                                  | Import CMD, validation, fournisseurs                        | Oui (source de rapprochement)                                                    |
+| `psp_decisions`                      | Décisions humaines réutilisées ; PK `id`                                                                                          | `cle_metier, type_decision (nature/corps_etat/perimetre_psp/rapprochement), decision_utilisateur, statut (valide/proposition/rejete), motif`         | `getPspDecision/savePspDecision`                            | **Oui** — couche de décision pour « conflit de catégorie » et rapprochement      |
+| `psp_feedback`                       | Feedback utilisateur                                                                                                              | `cible_type, cible_id, decision_utilisateur, correction, motif`                                                                                      | `savePspFeedback`, validation                               | Oui — trace décision                                                             |
+| `psp_rules`                          | Règles générales (vides)                                                                                                          | —                                                                                                                                                    | `getPspDecision` (repli règle)                              | À valider                                                                        |
+| `fournisseurs`/`fournisseur_aliases` | Référentiel (alias multi-sources)                                                                                                 | `nom`, alias `source IN (travaux_commandes, psp_import_rows)`                                                                                        | Module fournisseurs                                         | Oui — enrichissement devis/fournisseur                                           |
+| `psp_programmations`                 | **ABSENTE de la base** (artefact de probe V5, corrigé)                                                                            | n/a (à créer)                                                                                                                                        | aucun                                                       | **À créer** : racine des versions PSP                                            |
 
 ---
 
 ## 3. Fonctions existantes réutilisables
 
-| Fonction | Fichier | Rôle | Réutilisable PSP |
-|---|---|---|---|
-| `parseTravauxWorkbook` | `travaux.ts` | Parse le **vrai fichier suivi annuel** (en-têtes fusionnés, lignes sans commande → erreurs enrichies) | **Oui — utilisé en V4** |
-| `parseProgrammationWorkbook` | `psp.prep.data.ts` | Parse la programmation pluriannuelle (feuille « Prog 2026 », années 2026-2030, LB) | **Oui — utilisé en V4** |
-| `parsePspWorkbook` | `psp.ts` | Parse l'historique CMD (Liste_COMD_TRAV_ER) | Oui (rapprochement historique) |
-| `etatMetier` / `isPasRealise` | `travaux.ts` | État métier d'une commande / « Pas réalisé » | **Oui — revue des reports** |
-| `travauxComparable` / `champsDifferents` / `travauxIdentiques` | `travaux.ts` | Détection des modifications entre versions | **Oui — alertes descriptif/commande/fournisseur** |
-| `decisionImportCommande` | `travaux.ts` | creee / inchangee / report / conflit | Oui (concept de « conflit » réutilisé) |
-| `snapshotCommande` / `detailConflit` / `detailReport` / … | `travaux.ts` | Snapshots + lignes de détail d'import | Oui (pattern) |
-| `commandesAAArchiver` | `travaux.ts` | Archivage annuel | Oui (garde figée) |
-| `getAlertesCommande` | `travaux.ts` | Anomalies qualité | Oui |
-| `exerciceCourant` | `travaux.ts` | Année courante (jamais codée en dur) | **Oui** |
-| `importTravauxBatch` / `finalizeTravauxImport` | `travaux.functions.ts` | Moteur d'import annuel (écritures suivi) | **Non modifié** ; PSP en consomme les résultats |
-| `resolveHistoriqueTravaux` | `travaux.dashboard.functions.ts` | Confirmation de conflit (resolu=true + trace) | **Oui — mémoire de confirmation** |
-| `getCommandeHistorique` | `travaux.dashboard.functions.ts` | Timeline d'une commande | Oui |
-| `getTravauxImportDetails` | `travaux.dashboard.functions.ts` | Détails d'un import par type | Oui |
-| `getTravauxDashboard` | `travaux.dashboard.functions.ts` | Lecture agrégée suivi (commandes + historique + imports + tranches) | Oui (lecture) |
-| `getPspDecision` / `savePspDecision` | `psp.validation.functions.ts` | Décisions validées réutilisées (nature/corps_etat/perimetre/rapprochement) | **Oui — conflit de catégorie / rapprochement** |
-| `construireCleMetierCommande` | `psp.validation.ts` | Clé métier d'une commande | **Oui — clé de décision** |
-| `savePspFeedback` / `savePspCommandAnalysis` | `psp.functions.ts` | Feedback / analyse par ligne | Oui (trace) |
-| `cleIdentitePsp` (TR+C) | `psp.prep.suivi.ts` | Identité d'une ligne PSP | **Oui** |
-| `analyserLignesReport` / `resumeArbitrage` / `filtrerLignesArbitrage` | `psp.prep.suivi.ts` | Revue des reports (V3/V4) | **Oui** |
-| `detecterModificationsLigne` / `modificationDejaConfirmee` | `psp.prep.suivi.ts` | Alertes de modifications + mémoire confirmation | **Oui** |
+| Fonction                                                              | Fichier                          | Rôle                                                                                                  | Réutilisable PSP                                  |
+| --------------------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `parseTravauxWorkbook`                                                | `travaux.ts`                     | Parse le **vrai fichier suivi annuel** (en-têtes fusionnés, lignes sans commande → erreurs enrichies) | **Oui — utilisé en V4**                           |
+| `parseProgrammationWorkbook`                                          | `psp.prep.data.ts`               | Parse la programmation pluriannuelle (feuille « Prog 2026 », années 2026-2030, LB)                    | **Oui — utilisé en V4**                           |
+| `parsePspWorkbook`                                                    | `psp.ts`                         | Parse l'historique CMD (Liste_COMD_TRAV_ER)                                                           | Oui (rapprochement historique)                    |
+| `etatMetier` / `isPasRealise`                                         | `travaux.ts`                     | État métier d'une commande / « Pas réalisé »                                                          | **Oui — revue des reports**                       |
+| `travauxComparable` / `champsDifferents` / `travauxIdentiques`        | `travaux.ts`                     | Détection des modifications entre versions                                                            | **Oui — alertes descriptif/commande/fournisseur** |
+| `decisionImportCommande`                                              | `travaux.ts`                     | creee / inchangee / report / conflit                                                                  | Oui (concept de « conflit » réutilisé)            |
+| `snapshotCommande` / `detailConflit` / `detailReport` / …             | `travaux.ts`                     | Snapshots + lignes de détail d'import                                                                 | Oui (pattern)                                     |
+| `commandesAAArchiver`                                                 | `travaux.ts`                     | Archivage annuel                                                                                      | Oui (garde figée)                                 |
+| `getAlertesCommande`                                                  | `travaux.ts`                     | Anomalies qualité                                                                                     | Oui                                               |
+| `exerciceCourant`                                                     | `travaux.ts`                     | Année courante (jamais codée en dur)                                                                  | **Oui**                                           |
+| `importTravauxBatch` / `finalizeTravauxImport`                        | `travaux.functions.ts`           | Moteur d'import annuel (écritures suivi)                                                              | **Non modifié** ; PSP en consomme les résultats   |
+| `resolveHistoriqueTravaux`                                            | `travaux.dashboard.functions.ts` | Confirmation de conflit (resolu=true + trace)                                                         | **Oui — mémoire de confirmation**                 |
+| `getCommandeHistorique`                                               | `travaux.dashboard.functions.ts` | Timeline d'une commande                                                                               | Oui                                               |
+| `getTravauxImportDetails`                                             | `travaux.dashboard.functions.ts` | Détails d'un import par type                                                                          | Oui                                               |
+| `getTravauxDashboard`                                                 | `travaux.dashboard.functions.ts` | Lecture agrégée suivi (commandes + historique + imports + tranches)                                   | Oui (lecture)                                     |
+| `getPspDecision` / `savePspDecision`                                  | `psp.validation.functions.ts`    | Décisions validées réutilisées (nature/corps_etat/perimetre/rapprochement)                            | **Oui — conflit de catégorie / rapprochement**    |
+| `construireCleMetierCommande`                                         | `psp.validation.ts`              | Clé métier d'une commande                                                                             | **Oui — clé de décision**                         |
+| `savePspFeedback` / `savePspCommandAnalysis`                          | `psp.functions.ts`               | Feedback / analyse par ligne                                                                          | Oui (trace)                                       |
+| `cleIdentitePsp` (TR+C)                                               | `psp.prep.suivi.ts`              | Identité d'une ligne PSP                                                                              | **Oui**                                           |
+| `analyserLignesReport` / `resumeArbitrage` / `filtrerLignesArbitrage` | `psp.prep.suivi.ts`              | Revue des reports (V3/V4)                                                                             | **Oui**                                           |
+| `detecterModificationsLigne` / `modificationDejaConfirmee`            | `psp.prep.suivi.ts`              | Alertes de modifications + mémoire confirmation                                                       | **Oui**                                           |
 
 ---
 
@@ -125,7 +124,6 @@ v_travaux_commandes_enrichies : vue = travaux_commandes ⋈ psp_import_rows(par 
 7. **Conflits de catégorie** (TR identique, C différent entre programmation et suivi) : la V4 les a constatés — **ne pas rattacher automatiquement** ; proposer une règle « CONFLIT DE CATÉGORIE » via la couche `psp_decisions`.
 8. **Orphelin : la ligne budgétaire n'existe pas dans la programmation** (0/114 en V4) — acquise au 1er import du suivi, jamais inventée.
 
-
 ---
 
 ## 6. Modèle PSP recommandé — principe
@@ -138,15 +136,15 @@ Objectif : **minimum de tables, maximum de cohérence, aucune duplication inutil
 
 ## 7. Tables réellement nécessaires (proposition)
 
-| Table | Justification | Alternative écartée |
-|---|---|---|
-| `psp_programmations` (à créer) | Racine : période, version, statut, auteur, dates, parent | Table `psp_versions` séparée (redondant) |
-| `psp_lignes` | Lignes programmées d'une version (identité TR+C) | Réutiliser `travaux_commandes` (non : prévisionnel ≠ constaté) |
-| `psp_ligne_historique` | Évolution des lignes entre versions (delta jsonb) | Snapshots complets (duplication) |
-| `psp_reports` | Reports 2026→2027 (relation source/cible explicite) | Simple ligne créée sans lien (perte de traçabilité) |
-| `psp_devis` | Devis d'une ligne (1..N) | Colonne jsonb sur psp_lignes (pas d'intégrité) |
-| `psp_ligne_commandes` | Liaison ligne ↔ commandes existantes (référence) | Duplication des commandes (interdit) |
-| `psp_arbitrages` | Décisions report/annulation/conservation/réévaluation + conflit catégorie | Réutiliser `psp_decisions` seul (type restreint) — les deux coexistent |
+| Table                          | Justification                                                             | Alternative écartée                                                    |
+| ------------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `psp_programmations` (à créer) | Racine : période, version, statut, auteur, dates, parent                  | Table `psp_versions` séparée (redondant)                               |
+| `psp_lignes`                   | Lignes programmées d'une version (identité TR+C)                          | Réutiliser `travaux_commandes` (non : prévisionnel ≠ constaté)         |
+| `psp_ligne_historique`         | Évolution des lignes entre versions (delta jsonb)                         | Snapshots complets (duplication)                                       |
+| `psp_reports`                  | Reports 2026→2027 (relation source/cible explicite)                       | Simple ligne créée sans lien (perte de traçabilité)                    |
+| `psp_devis`                    | Devis d'une ligne (1..N)                                                  | Colonne jsonb sur psp_lignes (pas d'intégrité)                         |
+| `psp_ligne_commandes`          | Liaison ligne ↔ commandes existantes (référence)                          | Duplication des commandes (interdit)                                   |
+| `psp_arbitrages`               | Décisions report/annulation/conservation/réévaluation + conflit catégorie | Réutiliser `psp_decisions` seul (type restreint) — les deux coexistent |
 
 **Non créées** : `psp_versions` (une ligne par version dans psp_programmations suffit), `psp_simulations` (statut `simulation`), tables budgétaires (la dotation reste MOCK tant qu'elle n'est pas définie).
 
@@ -163,7 +161,6 @@ Objectif : **minimum de tables, maximum de cohérence, aucune duplication inutil
 
 **`psp_reports`**
 `id uuid PK` · `ligne_source_id uuid FK psp_lignes` · `ligne_resultat_id uuid FK psp_lignes` (ligne reportée créée) · `version_cible_id uuid FK psp_programmations` · `annee_source integer` · `annee_cible integer` · `montant numeric` · `motif text` · `utilisateur uuid FK auth.users` · `created_at`.
-
 
 ## 9. Clés primaires / étrangères / contraintes
 
@@ -254,7 +251,7 @@ Conflit de catégorie (TR identique + C différent) : psp_arbitrages(type=confli
 ## 20. Points nécessitant décision métier
 
 1. **`psp_programmations`** : reformater la table existante (vide) vs créer un nom propre — à trancher.
-2. **« Sans commande » vs « Pas réalisé »** : proposer une définition métier claire (proposition : *programmée + sans commande → à arbitrer/reporter* ; *programmée + commande clôturée sans engagement → pas réalisé*). Les règles actuelles (`etatMetier`) ne sont **pas** modifiées automatiquement.
+2. **« Sans commande » vs « Pas réalisé »** : proposer une définition métier claire (proposition : _programmée + sans commande → à arbitrer/reporter_ ; _programmée + commande clôturée sans engagement → pas réalisé_). Les règles actuelles (`etatMetier`) ne sont **pas** modifiées automatiquement.
 3. **Conflit de catégorie** (TR identique, C différent) : valider la règle « CONFLIT DE CATÉGORIE → validation humaine via psp_decisions(type=rapprochement, cle_metier="TR|C") ». Le descriptif ne résout jamais ce conflit.
 4. **Hors programmation / hors budget** : confirmer le rattachement manuel (jamais automatique sur le descriptif) et le marquage « HORS PROGRAMMATION / HORS BUDGET ».
 5. **Devis** : valider la structure minimale proposée (§8) et le statut par devis.
@@ -278,4 +275,3 @@ Conflit de catégorie (TR identique + C différent) : psp_arbitrages(type=confli
 
 **`psp_arbitrages`**
 `id uuid PK` · `ligne_id uuid FK psp_lignes` · `type_arbitrage text check (report, annulation, conservation, reevaluation, conflit_categorie)` · `decision text` · `annee_cible integer` · `motif text` · `utilisateur uuid FK auth.users` · `statut text check (proposition, valide)` · `created_at`.
-

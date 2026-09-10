@@ -43,9 +43,7 @@ for (const l of suivi ?? []) {
   // Anti-doublon du SUIVI ANNUEL : identité par (tranche, ligne budgétaire). Une LB est
   // unique dans un fichier annuel ; deux lignes du même TR avec des LB différentes sont
   // des opérations distinctes (ex. TR 1430 : LB 527 / LB 541 / LB 563).
-  existants.add(
-    `${String(l.tranche_code).trim()}|${String(l.ligne_budget ?? "").trim()}`,
-  );
+  existants.add(`${String(l.tranche_code).trim()}|${String(l.ligne_budget ?? "").trim()}`);
 }
 
 const { data: tranches, error: errT } = await db.from("tranches").select("code");
@@ -91,7 +89,9 @@ for (const f of FICHIERS) {
       console.log(`  ➕ tranche créée : ${tranche}`);
     }
     const cat = ["GE", "GT", "CP"].includes(
-      String(iss.nature_analytique ?? "").trim().toUpperCase(),
+      String(iss.nature_analytique ?? "")
+        .trim()
+        .toUpperCase(),
     )
       ? String(iss.nature_analytique).trim().toUpperCase()
       : "GT";
@@ -129,5 +129,7 @@ for (const f of FICHIERS) {
   }
 }
 
-console.log(`\nLignes créées : ${creees} · tranches créées : ${trancheCreee} · sautées : ${sautees}`);
+console.log(
+  `\nLignes créées : ${creees} · tranches créées : ${trancheCreee} · sautées : ${sautees}`,
+);
 process.exit(0);

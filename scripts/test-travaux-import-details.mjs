@@ -102,37 +102,71 @@ assert(
   "T2  champsDifferents : ajout/suppression",
   JSON.stringify(champsDifferents({ a: 1 }, { a: 1, c: 3 })) === JSON.stringify(["c"]),
 );
-assert("T2  champsDifferents : identiques → vide", champsDifferents({ a: 1 }, { a: 1 }).length === 0);
+assert(
+  "T2  champsDifferents : identiques → vide",
+  champsDifferents({ a: 1 }, { a: 1 }).length === 0,
+);
 
 // ---- T1 : détail créée (snapshot complet) ----
 const dCreee = detailCreee("imp-1", creeeRow, 2);
-assert("T1  creee : type + import_id", dCreee["type"] === "creee" && dCreee["import_id"] === "imp-1");
-assert("T1  creee : numéro/lot/année", dCreee["numero_commande"] === "2024-001" && dCreee["lot_code"] === "ER.1" && dCreee["annee_exercice"] === 2024);
+assert(
+  "T1  creee : type + import_id",
+  dCreee["type"] === "creee" && dCreee["import_id"] === "imp-1",
+);
+assert(
+  "T1  creee : numéro/lot/année",
+  dCreee["numero_commande"] === "2024-001" &&
+    dCreee["lot_code"] === "ER.1" &&
+    dCreee["annee_exercice"] === 2024,
+);
 const snap = dCreee["details"];
-assert("T1  creee : snapshot adresse/fournisseur/montant", snap["adresse"] === "RUE A" && snap["fournisseur"] === "SARL B" && snap["montant"] === 12500);
+assert(
+  "T1  creee : snapshot adresse/fournisseur/montant",
+  snap["adresse"] === "RUE A" && snap["fournisseur"] === "SARL B" && snap["montant"] === 12500,
+);
 assert("T1  creee : ligne conservée", dCreee["ligne"] === 2);
 
 // ---- T3 : détail archivée (motif) ----
 const dArch = detailArchivee("imp-1", { ...creeeRow, id: "cmd-2", numero_commande: "2024-002" });
-assert("T3  archivee : type + motif", dArch["type"] === "archivee" && dArch["message"] === "Absente du fichier importé");
-assert("T3  archivee : snapshot complet", dArch["details"]["numero_commande"] === "2024-002" && dArch["details"]["motif"] === "Absente du fichier importé");
+assert(
+  "T3  archivee : type + motif",
+  dArch["type"] === "archivee" && dArch["message"] === "Absente du fichier importé",
+);
+assert(
+  "T3  archivee : snapshot complet",
+  dArch["details"]["numero_commande"] === "2024-002" &&
+    dArch["details"]["motif"] === "Absente du fichier importé",
+);
 
 // ---- T4 : rattachement non résolu ----
-const dIg = detailIgnoree("imp-1", { numero_commande: "2024-003", tranche_code: "ZZZ", lot_code: null, annee_exercice: 2024 }, 7);
+const dIg = detailIgnoree(
+  "imp-1",
+  { numero_commande: "2024-003", tranche_code: "ZZZ", lot_code: null, annee_exercice: 2024 },
+  7,
+);
 assert("T4  ignoree : type + message", dIg["type"] === "ignoree" && dIg["message"].includes("ZZZ"));
 assert("T4  ignoree : tranche fournie dans details", dIg["details"]["tranche_fournie"] === "ZZZ");
 assert("T4  ignoree : ligne", dIg["ligne"] === 7);
 
 // ---- T7 : inchangée ----
 const dInc = detailInchangee("imp-1", { ...creeeRow, id: "cmd-9" }, 4);
-assert("T7  inchangee : type + commande_id", dInc["type"] === "inchangee" && dInc["commande_id"] === "cmd-9");
+assert(
+  "T7  inchangee : type + commande_id",
+  dInc["type"] === "inchangee" && dInc["commande_id"] === "cmd-9",
+);
 
 // ---- Conflit : avant/apres + champs différents ----
 const avant = { numero_commande: "2024-001", engage: 1000, fournisseur: "A" };
 const apres = { numero_commande: "2024-001", engage: 2000, fournisseur: "A" };
 const dConf = detailConflit("imp-1", { ...creeeRow, id: "cmd-1" }, avant, apres, 5);
-assert("T2/T  conflit : champs_differents exacts", JSON.stringify(dConf["details"]["champs_differents"]) === JSON.stringify(["engage"]));
-assert("T   conflit : avant/apres conservés", dConf["details"]["avant"]["engage"] === 1000 && dConf["details"]["apres"]["engage"] === 2000);
+assert(
+  "T2/T  conflit : champs_differents exacts",
+  JSON.stringify(dConf["details"]["champs_differents"]) === JSON.stringify(["engage"]),
+);
+assert(
+  "T   conflit : avant/apres conservés",
+  dConf["details"]["avant"]["engage"] === 1000 && dConf["details"]["apres"]["engage"] === 2000,
+);
 
 // ---- T8 : compteur == nombre de détails (cohérence) ----
 const nCreees = 5;
@@ -144,7 +178,10 @@ assert("T8  creees == COUNT(details creee)", rowsCreees.length === nCreees);
 // ---- T9 : deux imports distincts ----
 const rowsImp1 = [detailCreee("imp-1", creeeRow, 1)];
 const rowsImp2 = [detailCreee("imp-2", { ...creeeRow, numero_commande: "2025-001" }, 1)];
-assert("T9  import_id distincts", rowsImp1[0]["import_id"] === "imp-1" && rowsImp2[0]["import_id"] === "imp-2");
+assert(
+  "T9  import_id distincts",
+  rowsImp1[0]["import_id"] === "imp-1" && rowsImp2[0]["import_id"] === "imp-2",
+);
 
 // ---- T10 : immutabilité du snapshot ----
 const source = { ...creeeRow, numero_commande: "2024-010" };
@@ -155,14 +192,29 @@ assert("T10 immutabilité : numéro figé", dImm["numero_commande"] === "2024-01
 assert("T10 immutabilité : montant figé", dImm["details"]["montant"] === 12500);
 
 // ---- detailIssue (doublon/erreur) ----
-const dIssue = detailIssue("imp-1", "doublon", { line: 3, message: "Doublon identique", numero_commande: "2024-001" });
-assert("T   detailIssue : type + ligne + message", dIssue["type"] === "doublon" && dIssue["ligne"] === 3 && dIssue["message"] === "Doublon identique");
+const dIssue = detailIssue("imp-1", "doublon", {
+  line: 3,
+  message: "Doublon identique",
+  numero_commande: "2024-001",
+});
+assert(
+  "T   detailIssue : type + ligne + message",
+  dIssue["type"] === "doublon" &&
+    dIssue["ligne"] === 3 &&
+    dIssue["message"] === "Doublon identique",
+);
 
 // ---- snapshotCommande couvre les champs d'affichage ----
 const snap2 = snapshotCommande(creeeRow);
 assert(
   "T   snapshot : champs d'affichage présents",
-  "numero_commande" in snap2 && "annee_exercice" in snap2 && "lot_code" in snap2 && "adresse" in snap2 && "fournisseur" in snap2 && "montant" in snap2 && "statut" in snap2,
+  "numero_commande" in snap2 &&
+    "annee_exercice" in snap2 &&
+    "lot_code" in snap2 &&
+    "adresse" in snap2 &&
+    "fournisseur" in snap2 &&
+    "montant" in snap2 &&
+    "statut" in snap2,
 );
 
 // =====================================================================
@@ -254,7 +306,13 @@ assert(
   "T3  report : seule annee change → report",
   decisionImportCommande({ source: baseCmd(2030), before: baseCmd(2025) }) === "report",
 );
-const dReport = detailReport("imp-1", baseCmd(2025), travauxComparable(baseCmd(2025)), travauxComparable(baseCmd(2030)), 5);
+const dReport = detailReport(
+  "imp-1",
+  baseCmd(2025),
+  travauxComparable(baseCmd(2025)),
+  travauxComparable(baseCmd(2030)),
+  5,
+);
 assert("T3  report : type = report", dReport["type"] === "report");
 assert(
   "T8  report : avant.annee=2025 / apres.annee=2030",
@@ -309,4 +367,3 @@ console.log("\n==========================================");
 console.log(`Résultat : ${passed} PASS, ${failed} FAIL`);
 console.log("==========================================");
 process.exit(failed > 0 ? 1 : 0);
-

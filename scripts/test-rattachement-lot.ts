@@ -47,10 +47,7 @@ check(
   "déduplique les références",
   extraireErTexte("ER.39351 et ER.39351 et er.39351").length === 1,
 );
-check(
-  "ignore « ER. » isolé (trop court)",
-  extraireErTexte("ER. seulement").length === 0,
-);
+check("ignore « ER. » isolé (trop court)", extraireErTexte("ER. seulement").length === 0);
 check(
   "normaliserCodeEr retire le préfixe et la ponctuation",
   normaliserCodeEr("ER.G2273.01023") === "G227301023",
@@ -76,10 +73,7 @@ const cas5037762 = resoudreRattachement({
 check("5037762 → rattache (1 lot)", cas5037762.statut === "rattache", cas5037762);
 check("5037762 → source suivi", cas5037762.source === "suivi");
 check("5037762 → code ER.39351", cas5037762.codes[0] === "ER.39351");
-check(
-  "lotUniqueDe renvoie le lot",
-  lotUniqueDe(cas5037762)?.code_patrimoine === "ER.39351",
-);
+check("lotUniqueDe renvoie le lot", lotUniqueDe(cas5037762)?.code_patrimoine === "ER.39351");
 
 // ── Priorité Historique CMD ───────────────────────────────────────────────────
 const prioriteHist = resoudreRattachement({
@@ -88,10 +82,7 @@ const prioriteHist = resoudreRattachement({
   lotsIndex,
 });
 check("historique prioritaire → source historique", prioriteHist.source === "historique");
-check(
-  "historique prioritaire → code ER.39351",
-  (prioriteHist.codes[0] ?? "") === "ER.39351",
-);
+check("historique prioritaire → code ER.39351", (prioriteHist.codes[0] ?? "") === "ER.39351");
 
 // ── Repli suivi quand l'historique est hors référentiel ───────────────────────
 const repliSuivi = resoudreRattachement({
@@ -100,10 +91,7 @@ const repliSuivi = resoudreRattachement({
   lotsIndex,
 });
 check("historique hors référentiel → repli suivi", repliSuivi.source === "suivi", repliSuivi);
-check(
-  "repli suivi → code ER.26073",
-  (repliSuivi.codes[0] ?? "") === "ER.26073",
-);
+check("repli suivi → code ER.26073", (repliSuivi.codes[0] ?? "") === "ER.26073");
 
 // ── Multi-lots ────────────────────────────────────────────────────────────────
 const multi = resoudreRattachement({

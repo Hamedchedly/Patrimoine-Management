@@ -11,7 +11,9 @@ import { createClient } from "@supabase/supabase-js";
 const url = process.env["EXT_SUPABASE_URL"];
 const key = process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"];
 if (!url || !key) {
-  console.error("EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env");
+  console.error(
+    "EXT_SUPABASE_URL / EXT_SUPABASE_SERVICE_ROLE_KEY manquantes — relancer avec --env-file=.env",
+  );
   process.exit(1);
 }
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -36,10 +38,18 @@ async function main() {
   const created = { lignes: [], devis: [], programmations: [] };
 
   // Préparatifs.
-  const { data: tranches } = await db.from("tranches").select("code").eq("actif", true).order("code").limit(10);
+  const { data: tranches } = await db
+    .from("tranches")
+    .select("code")
+    .eq("actif", true)
+    .order("code")
+    .limit(10);
   const trancheA = tranches?.[0]?.code;
   const rP = await run(() =>
-    db.from("psp_programmations").insert({ annee_debut: 2095, annee_fin: 2099, version: 1, remarques: MARQUEUR }).select("id"),
+    db
+      .from("psp_programmations")
+      .insert({ annee_debut: 2095, annee_fin: 2099, version: 1, remarques: MARQUEUR })
+      .select("id"),
   );
   const P1 = rP.data?.[0];
   if (P1?.id) created.programmations.push(P1.id);
@@ -52,19 +62,48 @@ async function main() {
     { programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 200000 },
     { programmation_id: P1.id, annee: 2095, categorie: "CP", montant: 90000 },
   ];
-  const ins = await run(() => db.from("psp_enveloppes").upsert(envInit, { onConflict: "programmation_id,annee,categorie" }));
+  const ins = await run(() =>
+    db.from("psp_enveloppes").upsert(envInit, { onConflict: "programmation_id,annee,categorie" }),
+  );
   check("C. enveloppes renseignées", !ins.error, ins.msg);
   // « fermeture/réouverture » = relecture depuis Supabase.
-  const relu1 = await run(() => db.from("psp_enveloppes").select("categorie,montant").eq("programmation_id", P1.id).eq("annee", 2095));
-  check("C. réouverture → GE 150000 / GT 200000 / CP 90000", relu1.data?.length === 3 && relu1.data?.find((r) => r.categorie === "GT")?.montant === 200000, relu1.msg);
+  const relu1 = await run(() =>
+    db
+      .from("psp_enveloppes")
+      .select("categorie,montant")
+      .eq("programmation_id", P1.id)
+      .eq("annee", 2095),
+  );
+  check(
+    "C. réouverture → GE 150000 / GT 200000 / CP 90000",
+    relu1.data?.length === 3 && relu1.data?.find((r) => r.categorie === "GT")?.montant === 200000,
+    relu1.msg,
+  );
   const mod = await run(() =>
-    db.from("psp_enveloppes").upsert({ programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 250000 }, { onConflict: "programmation_id,annee,categorie" }),
+    db
+      .from("psp_enveloppes")
+      .upsert(
+        { programmation_id: P1.id, annee: 2095, categorie: "GT", montant: 250000 },
+        { onConflict: "programmation_id,annee,categorie" },
+      ),
   );
   check("D. modification GT → 250000", !mod.error, mod.msg);
-  const relu2 = await run(() => db.from("psp_enveloppes").select("categorie,montant").eq("programmation_id", P1.id).eq("annee", 2095));
+  const relu2 = await run(() =>
+    db
+      .from("psp_enveloppes")
+      .select("categorie,montant")
+      .eq("programmation_id", P1.id)
+      .eq("annee", 2095),
+  );
   check("D. GT = 250000", relu2.data?.find((r) => r.categorie === "GT")?.montant === 250000);
-  check("D. GE inchangée 150000 (pas remise à 0)", relu2.data?.find((r) => r.categorie === "GE")?.montant === 150000);
-  check("D. CP inchangée 90000 (pas remise à 0)", relu2.data?.find((r) => r.categorie === "CP")?.montant === 90000);
+  check(
+    "D. GE inchangée 150000 (pas remise à 0)",
+    relu2.data?.find((r) => r.categorie === "GE")?.montant === 150000,
+  );
+  check(
+    "D. CP inchangée 90000 (pas remise à 0)",
+    relu2.data?.find((r) => r.categorie === "CP")?.montant === 90000,
+  );
 
   // ── J/L/M. DEVIS : DATES, FOURNISSEUR, N° ──
   console.log("\n=== J/L/M. DEVIS ===");
@@ -92,26 +131,45 @@ async function main() {
   const { data: fournisseurs } = await db.from("fournisseurs").select("id, nom").limit(1);
   const fournisseur = fournisseurs?.[0];
   const devisIns = await run(() =>
-    db.from("psp_devis").insert({
-      psp_ligne_id: ligneId,
-      fournisseur_id: fournisseur?.id ?? null,
-      entreprise: fournisseur?.nom ?? "ENTREPRISE V710",
-      montant: null,
-      statut: "demande_envoyee",
-      document_reference: null,
-      commentaire: MARQUEUR,
-    }).select("id, created_at, montant, fournisseur_id, document_reference, statut"),
+    db
+      .from("psp_devis")
+      .insert({
+        psp_ligne_id: ligneId,
+        fournisseur_id: fournisseur?.id ?? null,
+        entreprise: fournisseur?.nom ?? "ENTREPRISE V710",
+        montant: null,
+        statut: "demande_envoyee",
+        document_reference: null,
+        commentaire: MARQUEUR,
+      })
+      .select("id, created_at, montant, fournisseur_id, document_reference, statut"),
   );
   const devisId = devisIns.data?.[0]?.id;
   if (devisId) created.devis.push(devisId);
-  check("J. demande de devis créée SANS montant (montant null)", devisIns.data?.[0]?.montant === null, devisIns.msg);
+  check(
+    "J. demande de devis créée SANS montant (montant null)",
+    devisIns.data?.[0]?.montant === null,
+    devisIns.msg,
+  );
   check("J. date de DEMANDE persistée (created_at non null)", !!devisIns.data?.[0]?.created_at);
-  check("J. statut = demande_envoyee (demande ≠ devis reçu)", devisIns.data?.[0]?.statut === "demande_envoyee");
-  check("L. fournisseur_id persisté", devisIns.data?.[0]?.fournisseur_id === (fournisseur?.id ?? null), String(devisIns.data?.[0]?.fournisseur_id));
+  check(
+    "J. statut = demande_envoyee (demande ≠ devis reçu)",
+    devisIns.data?.[0]?.statut === "demande_envoyee",
+  );
+  check(
+    "L. fournisseur_id persisté",
+    devisIns.data?.[0]?.fournisseur_id === (fournisseur?.id ?? null),
+    String(devisIns.data?.[0]?.fournisseur_id),
+  );
   check("M. N° devis null (aucun devis reçu)", devisIns.data?.[0]?.document_reference === null);
   // Relu : la demande reste sans montant.
-  const reluDevis = await run(() => db.from("psp_devis").select("montant, created_at, fournisseur_id").eq("id", devisId));
-  check("J. relecture : montant toujours null, date demande conservée", reluDevis.data?.[0]?.montant === null && !!reluDevis.data?.[0]?.created_at);
+  const reluDevis = await run(() =>
+    db.from("psp_devis").select("montant, created_at, fournisseur_id").eq("id", devisId),
+  );
+  check(
+    "J. relecture : montant toujours null, date demande conservée",
+    reluDevis.data?.[0]?.montant === null && !!reluDevis.data?.[0]?.created_at,
+  );
 
   // ── PURGE ──
   console.log("\n=== PURGE ===");

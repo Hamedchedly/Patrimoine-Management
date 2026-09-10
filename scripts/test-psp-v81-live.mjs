@@ -114,9 +114,7 @@ async function main() {
   check("demande de devis sans montant créée", rD.data?.[0]?.montant === null, rD.msg);
 
   // ── Lecture agrégée (mêmes requêtes que getPspSuiviOperation).
-  const ligne = (
-    await db.from("psp_lignes").select("*").eq("id", ligneId).single()
-  ).data;
+  const ligne = (await db.from("psp_lignes").select("*").eq("id", ligneId).single()).data;
   const perimetres =
     (await db.from("psp_ligne_patrimoine").select("*").eq("psp_ligne_id", ligneId)).data ?? [];
   const devis = (await db.from("psp_devis").select("*").eq("psp_ligne_id", ligneId)).data ?? [];
@@ -124,9 +122,7 @@ async function main() {
     (await db.from("psp_command_links").select("*").eq("psp_ligne_id", ligneId)).data ?? [];
   const decisions =
     (await db.from("psp_decisions").select("*").eq("psp_ligne_id", ligneId)).data ?? [];
-  const prog = (
-    await db.from("psp_programmations").select("statut").eq("id", pid).single()
-  ).data;
+  const prog = (await db.from("psp_programmations").select("statut").eq("id", pid).single()).data;
 
   // CC : tranches.sous_secteur → psp_charges_clientele (règle §1A).
   let cc = null;
@@ -164,14 +160,8 @@ async function main() {
   check("CC dérivé du patrimoine (tranches→référentiel)", vue.programmation.cc === cc);
   check("adresse patrimoine réelle", vue.programmation.adresse === adresse);
   check("1 demande de devis", vue.consultation.nb_demandes === 1);
-  check(
-    "devis sans montant accepté (pas 0)",
-    vue.consultation.entreprises[0]?.montant === null,
-  );
-  check(
-    "consultation = en_attente (demande envoyée)",
-    vue.consultation.statut === "en_attente",
-  );
+  check("devis sans montant accepté (pas 0)", vue.consultation.entreprises[0]?.montant === null);
+  check("consultation = en_attente (demande envoyée)", vue.consultation.statut === "en_attente");
   check("sans commande (aucun lien)", vue.commandes.nb_commandes === 0);
   check("exécution = sans_commande", vue.execution.statut === "sans_commande");
   check("synthèse Programmé atteinte", vue.synthese[0]?.atteint === true);
@@ -186,8 +176,8 @@ async function main() {
         .select("fournisseur_id, corps_etat_code, corps_etat_libelle, niveau")
     ).data ?? [];
   const aliases =
-    (await db.from("fournisseur_aliases").select("fournisseur_id, source, identifiant_source")).data ??
-    [];
+    (await db.from("fournisseur_aliases").select("fournisseur_id, source, identifiant_source"))
+      .data ?? [];
   const commandes =
     (
       await db

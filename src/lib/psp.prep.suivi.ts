@@ -791,8 +791,5 @@ export const construireRevueAnciennesProgrammations = (
       });
     }
   }
-  return sorties.sort(
-    (a, b) => a.annee - b.annee || a.tranche.localeCompare(b.tranche, "fr"),
-  );
+  return sorties.sort((a, b) => a.annee - b.annee || a.tranche.localeCompare(b.tranche, "fr"));
 };
-

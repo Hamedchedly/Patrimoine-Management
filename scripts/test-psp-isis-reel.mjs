@@ -61,7 +61,11 @@ const lignes = matrix.slice(1).filter((r) => t(r[I.NOLIG]) !== null || t(r[I.NUM
 check("S1  407 lignes de données", lignes.length === 407, String(lignes.length));
 
 const nums = lignes.map((r) => t(r[I.NUM]));
-check("S2  407 COMN_NUM présents (aucun null)", nums.every((x) => x !== null), JSON.stringify(nums.filter((x) => x === null).length));
+check(
+  "S2  407 COMN_NUM présents (aucun null)",
+  nums.every((x) => x !== null),
+  JSON.stringify(nums.filter((x) => x === null).length),
+);
 check("S3  COMN_NUM tous distincts (407)", new Set(nums).size === 407, String(new Set(nums).size));
 
 const avecNolig = lignes.filter((r) => t(r[I.NOLIG]) !== null).length;
@@ -84,40 +88,110 @@ check("S10 HO présent (non converti)", naacSet.has("HO"));
 for (const code of [...naacSet].sort()) {
   const c = getCategorieBudget(code);
   const attendu = ["GE", "GT", "CP"].includes(code) ? "valide" : "a_confirmer";
-  check(`S11 catégorie ${code} → ${attendu}`, c.statut === attendu && c.categorie === code, `${c.categorie}/${c.statut}`);
+  check(
+    `S11 catégorie ${code} → ${attendu}`,
+    c.statut === attendu && c.categorie === code,
+    `${c.categorie}/${c.statut}`,
+  );
 }
 
 // ── 3. WNATURE / WPATRIMOINE / montants ─────────────────────────────────────
 const avecNature = lignes.filter((r) => t(r[I.NATURE]) !== null).length;
 const avecPat = lignes.filter((r) => t(r[I.PAT]) !== null).length;
-check("S12 WNATURE renseigné (majorité)", avecNature >= lignes.length * 0.9, `${avecNature}/${lignes.length}`);
-check("S13 WPATRIMOINE renseigné (majorité)", avecPat >= lignes.length * 0.9, `${avecPat}/${lignes.length}`);
+check(
+  "S12 WNATURE renseigné (majorité)",
+  avecNature >= lignes.length * 0.9,
+  `${avecNature}/${lignes.length}`,
+);
+check(
+  "S13 WPATRIMOINE renseigné (majorité)",
+  avecPat >= lignes.length * 0.9,
+  `${avecPat}/${lignes.length}`,
+);
 const devisReels = lignes.filter((r) => n(r[I.DEVIS]) !== null).length;
-check("S14 montants devis numériques (majorité)", devisReels >= lignes.length * 0.9, `${devisReels}/${lignes.length}`);
+check(
+  "S14 montants devis numériques (majorité)",
+  devisReels >= lignes.length * 0.9,
+  `${devisReels}/${lignes.length}`,
+);
 
 // ── 4. Parseur : 407 enregistrements primaires (clé = COMN_NUM) ─────────────
 const parsed = parsePspWorkbook(ab);
-check("P1  mapping numero_commande ← COMC_NOLIG",
-  parsed.mapping_colonnes.some((m) => m.normalizedField === "numero_commande" && m.sourceColumn.startsWith("COMC_NOLIG")));
-check("P2  mapping numero_commande_interne ← COMN_NUM",
-  parsed.mapping_colonnes.some((m) => m.normalizedField === "numero_commande_interne" && m.sourceColumn.startsWith("COMN_NUM")));
-check("P3  enregistrements parsés = 407", parsed.lignes.length === 407, String(parsed.lignes.length));
-check("P4  COMN_NUM distincts = 407", new Set(parsed.lignes.map((l) => l.numero_commande_interne)).size === 407, String(new Set(parsed.lignes.map((l) => l.numero_commande_interne)).size));
-check("P5  COMN_NUM null = 0", parsed.lignes.filter((l) => !l.numero_commande_interne).length === 0);
-check("P6  COMC_NOLIG renseignés = 91", parsed.lignes.filter((l) => l.numero_commande !== "").length === 91, String(parsed.lignes.filter((l) => l.numero_commande !== "").length));
-check("P7  COMC_NOLIG vides = 316", parsed.lignes.filter((l) => l.numero_commande === "").length === 316, String(parsed.lignes.filter((l) => l.numero_commande === "").length));
+check(
+  "P1  mapping numero_commande ← COMC_NOLIG",
+  parsed.mapping_colonnes.some(
+    (m) => m.normalizedField === "numero_commande" && m.sourceColumn.startsWith("COMC_NOLIG"),
+  ),
+);
+check(
+  "P2  mapping numero_commande_interne ← COMN_NUM",
+  parsed.mapping_colonnes.some(
+    (m) => m.normalizedField === "numero_commande_interne" && m.sourceColumn.startsWith("COMN_NUM"),
+  ),
+);
+check(
+  "P3  enregistrements parsés = 407",
+  parsed.lignes.length === 407,
+  String(parsed.lignes.length),
+);
+check(
+  "P4  COMN_NUM distincts = 407",
+  new Set(parsed.lignes.map((l) => l.numero_commande_interne)).size === 407,
+  String(new Set(parsed.lignes.map((l) => l.numero_commande_interne)).size),
+);
+check(
+  "P5  COMN_NUM null = 0",
+  parsed.lignes.filter((l) => !l.numero_commande_interne).length === 0,
+);
+check(
+  "P6  COMC_NOLIG renseignés = 91",
+  parsed.lignes.filter((l) => l.numero_commande !== "").length === 91,
+  String(parsed.lignes.filter((l) => l.numero_commande !== "").length),
+);
+check(
+  "P7  COMC_NOLIG vides = 316",
+  parsed.lignes.filter((l) => l.numero_commande === "").length === 316,
+  String(parsed.lignes.filter((l) => l.numero_commande === "").length),
+);
 
 // Groupes multi-lignes (même COMC_NOLIG, COMN_NUM différents) — NON fusionnés.
 const nbGroupe = (nolig) => parsed.lignes.filter((l) => l.numero_commande === nolig).length;
-check("P8  groupe 0559/2026 = 4 enregistrements", nbGroupe("0559/2026") === 4, String(nbGroupe("0559/2026")));
-check("P9  groupe 0266/2023 = 3 enregistrements", nbGroupe("0266/2023") === 3, String(nbGroupe("0266/2023")));
-check("P10 groupe 0245/2023 = 2 enregistrements", nbGroupe("0245/2023") === 2, String(nbGroupe("0245/2023")));
-check("P11 groupe 0267/2023 = 2 enregistrements", nbGroupe("0267/2023") === 2, String(nbGroupe("0267/2023")));
-check("P12 groupe 0270/2023 = 2 enregistrements", nbGroupe("0270/2023") === 2, String(nbGroupe("0270/2023")));
+check(
+  "P8  groupe 0559/2026 = 4 enregistrements",
+  nbGroupe("0559/2026") === 4,
+  String(nbGroupe("0559/2026")),
+);
+check(
+  "P9  groupe 0266/2023 = 3 enregistrements",
+  nbGroupe("0266/2023") === 3,
+  String(nbGroupe("0266/2023")),
+);
+check(
+  "P10 groupe 0245/2023 = 2 enregistrements",
+  nbGroupe("0245/2023") === 2,
+  String(nbGroupe("0245/2023")),
+);
+check(
+  "P11 groupe 0267/2023 = 2 enregistrements",
+  nbGroupe("0267/2023") === 2,
+  String(nbGroupe("0267/2023")),
+);
+check(
+  "P12 groupe 0270/2023 = 2 enregistrements",
+  nbGroupe("0270/2023") === 2,
+  String(nbGroupe("0270/2023")),
+);
 
 // Aucune ligne source perdue, aucun doublon artificiel.
-check("P13 aucune ligne perdue (407 primaires = 407 sources)", parsed.lignes.length === lignes.length);
-check("P14 aucun doublon détecté (COMN_NUM tous distincts)", parsed.doublons.length === 0, String(parsed.doublons.length));
+check(
+  "P13 aucune ligne perdue (407 primaires = 407 sources)",
+  parsed.lignes.length === lignes.length,
+);
+check(
+  "P14 aucun doublon détecté (COMN_NUM tous distincts)",
+  parsed.doublons.length === 0,
+  String(parsed.doublons.length),
+);
 
 // Fidélité des champs sources + donnees_brutes.
 const correspondance = parsed.lignes.every((l, i) => {

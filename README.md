@@ -1,26 +1,59 @@
-# Patrimoine S11 cross sync
+# Patrimoine S11 — Lot Watcher Pro
 
-Je crée une plateforme pour gérer des milliers de l'eau classée sur un format sur une sous un ordre très spécifique et du coup avoir une visibilité sur les travaux déjà réalisés pour chacun des lots et anticiper les travaux à réaliser
+Application de gestion et de suivi du patrimoine immobilier (Secteur 11) : carte des
+bâtiments, base d'adresses, fournisseurs, programmation des travaux (PSP), suivi
+budgétaire annuel et pilotage des commandes.
 
-This project was built with [Lovable](https://lovable.dev).
+## Stack
 
-**Live app**: https://lot-watcher-pro.lovable.app
+- **Framework** : TanStack Start (SSR) + TanStack Router + TanStack Query
+- **UI** : React 19, Tailwind CSS v4, shadcn/ui (Radix), Leaflet / OpenStreetMap
+- **Données** : Supabase (Postgres + Storage)
+- **Build / serveur** : Vite + [Nitro](https://nitro.build) (presets `vercel` et `node-server`)
+- **Déploiement** : Vercel (SSR via Vercel Functions) ; Docker/Node conservé pour Railway
 
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/f95a9660-e48f-4799-beb1-4930f422f820).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Démarrage local
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+npm install
+npm run dev    # http://localhost:5173
 ```
+
+## Scripts
+
+| Commande | Rôle |
+| --- | --- |
+| `npm run dev` | serveur de développement Vite |
+| `npm run build` | build de production (`.output/` en Node, `.vercel/output` sur Vercel) |
+| `npm start` | serveur Node de production (`node .output/server/index.mjs`) |
+| `npm test` | tests unitaires (node:test) |
+| `npm run lint` / `npm run format` | ESLint / Prettier |
+
+## Variables d'environnement
+
+À définir dans l'hébergeur — voir `.env.example` :
+
+| Variable | Portée |
+| --- | --- |
+| `EXT_SUPABASE_URL`, `EXT_SUPABASE_SERVICE_ROLE_KEY` | serveur (dashboard) |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | serveur |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | build (client) |
+
+## Déploiement (Vercel)
+
+La branche `main` est déployée automatiquement. Le build produit par Nitro suit la
+Build Output API (`.vercel/output`) ; `vercel.json` n'impose aucun preset de framework.
+
+## Structure
+
+```
+src/
+  components/   UI (map/, bugs/, kanban/, preparation-psp/, suivi/, tranches/, ui/)
+  integrations/ clients Supabase
+  lib/          logique métier (adresses, psp, travaux, fournisseurs, kanban…)
+  routes/       routes TanStack Start (routage par fichiers)
+scripts/        outils d'exploitation (import, backfill, rapports)
+supabase/       migrations SQL
+tests/          tests unitaires
+```
+

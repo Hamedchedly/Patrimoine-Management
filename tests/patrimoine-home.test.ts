@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { agregerPatrimoineHome, adressesDeVille, type AdressesGeoApercu } from "../src/lib/patrimoine.home.ts";
+import {
+  agregerPatrimoineHome,
+  adressesDeVille,
+  type AdressesGeoApercu,
+} from "../src/lib/patrimoine.home.ts";
 import type { LotItem } from "../src/lib/adresses.ts";
 
 const lt = (

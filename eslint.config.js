@@ -11,13 +11,9 @@ export default tseslint.config(
       "dist",
       ".output",
       ".vercel",
-      ".vinxi",
       ".kilo",
-      "test-connection.*",
-      "test-db.*",
-      "check_db.*",
-      "analyze_excel.py",
-      "debug_excel.py",
+      // Scripts d'exploitation historiques (conserves pour reference, non maintenus).
+      "scripts/archive",
     ],
   },
   {
@@ -51,7 +47,12 @@ export default tseslint.config(
   },
   {
     // Les fonctions serveur utilisent des types Supabase complexes qui nécessitent `any`
-    files: ["src/lib/*.functions.ts", "src/integrations/**/*.ts"],
+    files: [
+      "src/lib/*.functions.ts",
+      "src/lib/*/functions.ts",
+      "src/lib/**/*.functions.ts",
+      "src/integrations/**/*.ts",
+    ],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-require-imports": "off",

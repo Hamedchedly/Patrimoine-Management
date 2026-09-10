@@ -11,6 +11,7 @@ import {
   ListTree,
   MapPin,
   Upload,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,53 +20,37 @@ import { PatrimoineHomeMap } from "@/components/PatrimoineHomeMap";
 import { getPatrimoine } from "@/lib/isis.functions";
 import { isLogement } from "@/lib/isis";
 import { loadRecents, rueDe, type LotItem, type RecentAdresse } from "@/lib/adresses";
+import { LABELS, ROUTES } from "@/lib/navigation";
 
-const raccourcis = [
+type Raccourci = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  variant?: "outline" | "default";
+  search?: Record<string, unknown>;
+};
+
+const raccourcis: Raccourci[] = [
+  { to: ROUTES.importPatrimoine, label: LABELS.importPatrimoine, icon: Upload, variant: "outline" },
+  { to: ROUTES.importSuivi, label: LABELS.importSuivi, icon: Upload, variant: "outline" },
+  { to: ROUTES.importCmd, label: LABELS.importCmd, icon: Upload, variant: "outline" },
+  { to: ROUTES.donnees, label: LABELS.donnees, icon: ListChecks, variant: "outline" },
+  { to: ROUTES.suivi, label: LABELS.suivi, icon: ListChecks, variant: "outline" },
   {
-    to: "/import",
-    label: "Import Patrimoine — ISIS",
-    icon: Upload,
-    variant: "outline" as const,
-  },
-  {
-    to: "/import-travaux",
-    label: "Import Suivi budgétaire annuel",
-    icon: Upload,
-    variant: "outline" as const,
-  },
-  {
-    to: "/import-psp",
-    label: "Import Historique CMD",
-    icon: Upload,
-    variant: "outline" as const,
-  },
-  {
-    to: "/psp-validation",
-    label: "Analyse historique CMD",
-    icon: ListChecks,
-    variant: "outline" as const,
-  },
-  {
-    to: "/suivi",
-    label: "Opérations",
-    icon: ListChecks,
-    variant: "outline" as const,
-  },
-  {
-    to: "/fournisseurs",
-    label: "Fournisseurs",
+    to: ROUTES.fournisseurs,
+    label: LABELS.fournisseurs,
     icon: Building2,
-    variant: "outline" as const,
+    variant: "outline",
     search: LISTE_FOURNISSEURS_SEARCH_VIDE,
   },
   {
-    to: "/dashboard-travaux",
-    label: "Dashboard travaux",
+    to: ROUTES.dashboard,
+    label: LABELS.dashboard,
     icon: BarChart3,
-    variant: "default" as const,
+    variant: "default",
     search: { commande: undefined, de: undefined, a: undefined },
   },
-] as const;
+];
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -124,11 +109,11 @@ function Index() {
             {raccourcis.map(({ to, label, icon: Icon, variant, search }) => (
               <Button key={label} asChild variant={variant}>
                 {search ? (
-                  <Link to={to} search={search}>
+                  <Link to={to as never} search={search as never}>
                     <Icon className="size-4" /> {label}
                   </Link>
                 ) : (
-                  <Link to={to}>
+                  <Link to={to as never}>
                     <Icon className="size-4" /> {label}
                   </Link>
                 )}

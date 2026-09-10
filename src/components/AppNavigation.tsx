@@ -24,6 +24,7 @@ import { ParametresDialog } from "@/components/ParametresDialog";
 import { BugReportsDashboard } from "@/components/bugs/BugReportsDashboard";
 import { LISTE_FOURNISSEURS_SEARCH_VIDE } from "@/routes/fournisseurs.index";
 import { construireSearchAdresses } from "@/lib/adresses";
+import { LABELS, ROUTES } from "@/lib/navigation";
 
 const LIEN_CLASS =
   "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-300 transition-colors hover:bg-slate-800 hover:text-white";
@@ -133,43 +134,39 @@ export default function AppNavigation() {
   return (
     <nav className="sticky top-0 z-40 border-b border-slate-800 bg-slate-900">
       <div className="mx-auto flex max-w-[2200px] items-center gap-1 overflow-x-auto px-4 py-2 sm:px-6">
-        <LienNav to="/" label="Accueil" icon={Home} exact />
+        <LienNav to={ROUTES.accueil} label={LABELS.accueil} icon={Home} exact />
         <LienNav
-          to="/dashboard-travaux"
-          label="Dashboard annuel"
+          to={ROUTES.dashboard}
+          label={LABELS.dashboard}
           icon={BarChart3}
           search={{ commande: undefined, de: undefined, a: undefined }}
         />
-        <LienNav to="/suivi" label="Suivi devis" icon={ClipboardList} />
-        <LienNav to="/preparation-psp" label="Programmation PSP" icon={CalendarRange} />
-        <LienNav to="/pilotage" label="Pilotage" icon={Columns3} />
+        <LienNav to={ROUTES.suivi} label={LABELS.suivi} icon={ClipboardList} />
+        <LienNav to={ROUTES.preparation} label={LABELS.preparation} icon={CalendarRange} />
+        <LienNav to={ROUTES.pilotage} label={LABELS.pilotage} icon={Columns3} />
 
         <MenuDeroulant label="Base de données" icon={Database}>
           <ItemMenu
-            to="/fournisseurs"
-            label="Fournisseurs"
+            to={ROUTES.fournisseurs}
+            label={LABELS.fournisseurs}
             icon={Building2}
             search={LISTE_FOURNISSEURS_SEARCH_VIDE}
           />
           <ItemMenu
-            to="/adresses"
-            label="Patrimoine"
+            to={ROUTES.adresses}
+            label={LABELS.adresses}
             icon={MapPin}
             search={construireSearchAdresses({})}
           />
-          <ItemMenu to="/psp-validation" label="Données" icon={Database} />
+          <ItemMenu to={ROUTES.donnees} label={LABELS.donnees} icon={Database} />
         </MenuDeroulant>
 
         <div className="ml-auto">
           <MenuDeroulant label="Admin" icon={Settings2}>
             <SectionMenu>Import</SectionMenu>
-            <ItemMenu to="/import" label="Import Patrimoine — ISIS" icon={Upload} />
-            <ItemMenu
-              to="/import-travaux"
-              label="Import Suivi budgétaire annuel"
-              icon={FileSpreadsheet}
-            />
-            <ItemMenu to="/import-psp" label="Import Historique CMD" icon={Upload} />
+            <ItemMenu to={ROUTES.importPatrimoine} label={LABELS.importPatrimoine} icon={Upload} />
+            <ItemMenu to={ROUTES.importSuivi} label={LABELS.importSuivi} icon={FileSpreadsheet} />
+            <ItemMenu to={ROUTES.importCmd} label={LABELS.importCmd} icon={Upload} />
             <div className="my-1 border-t border-slate-700" />
             <button
               type="button"
@@ -180,15 +177,15 @@ export default function AppNavigation() {
               <span>Paramètres</span>
             </button>
             <ItemMenu
-              to="/dashboard-travaux"
+              to={ROUTES.dashboard}
               label="Historique de changements"
               icon={History}
               search={{ commande: undefined, de: undefined, a: undefined }}
               titre="Journal des versions et résolutions (dashboard)"
             />
             <ItemMenu
-              to="/import-travaux"
-              label="Rapports"
+              to={ROUTES.importSuivi}
+              label="Rapports d'import"
               icon={FileText}
               titre="Rapports d'import et conflits à valider"
             />

@@ -10,9 +10,9 @@ export default tseslint.config(
     ignores: [
       "dist",
       ".output",
+      ".vercel",
       ".vinxi",
       ".kilo",
-      "server.js",
       "test-connection.*",
       "test-db.*",
       "check_db.*",
